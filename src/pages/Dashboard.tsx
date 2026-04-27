@@ -1,4 +1,4 @@
-import { useState, useMemo, useContext, type CSSProperties } from 'react';
+import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { formatearFecha, formatearMoneda, MESES } from '../utils/formatters';
 import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -151,7 +151,7 @@ export const Dashboard = () => {
                       WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut,
                       filter: i > 0 ? 'brightness(0.65) contrast(1.2)' : 'none',
                       opacity: hoveredOp ? 0.8 : 1
-                    }}
+                    } as React.CSSProperties}
                   >
                     {i === 24 && <div className="pie-shadow" style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', filter: 'blur(20px)', transform: 'translateZ(-5px)' }}></div>}
                   </div>
@@ -159,7 +159,7 @@ export const Dashboard = () => {
               </div>
             </div>
           ) : (
-            <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' }} />
+            <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} />
           )}
 
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
