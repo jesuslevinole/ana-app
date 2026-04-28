@@ -270,22 +270,28 @@ export const Dashboard = () => {
   return (
     <div className="animate-in fade-in">
       <div className="page-header">
-        <div className="page-title">
+        <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          
+          {/* LÓGICA DEL LOGO REDISEÑADA PARA EL DASHBOARD */}
           {tallerActivo && tallerActivo.logo ? (
             <div style={{ 
-              width: '42px', height: '42px', borderRadius: '8px', overflow: 'hidden', 
-              border: '2px solid var(--border)', backgroundColor: 'var(--bg-body)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              width: '180px', height: '70px', borderRadius: '8px', overflow: 'hidden', 
+              border: '1px solid var(--border)', backgroundColor: 'var(--bg-panel)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              padding: '0.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
             }}>
-              <img src={tallerActivo.logo} alt={tallerActivo.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img src={tallerActivo.logo} alt={tallerActivo.nombre} style={{ 
+                maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+                mixBlendMode: 'multiply' /* <-- Esto borra el fondo blanco opaque */
+              }} />
             </div>
           ) : (
-            <PieIcon size={24} color="var(--primary)" />
+            <PieIcon size={32} color="var(--primary)" />
           )}
           
           <div>
-            <h2>Executive Dashboard {tallerActivo ? `- ${tallerActivo.nombre}` : ''}</h2>
-            <p className="page-subtitle">Visualización Dinámica e Inteligencia de Datos</p>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Executive Dashboard {tallerActivo ? `- ${tallerActivo.nombre}` : ''}</h2>
+            <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Visualización Dinámica e Inteligencia de Datos</p>
           </div>
         </div>
       </div>
