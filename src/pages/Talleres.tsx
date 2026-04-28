@@ -87,9 +87,7 @@ export const Talleres = () => {
               {logoBase64 ? (
                 <div style={{ padding: '0.5rem' }}>
                   <img src={logoBase64} alt="Preview" style={{ 
-                    maxHeight: '120px', maxWidth: '100%', objectFit: 'contain',
-                    // MAGIA CSS: Mezcla la imagen con el fondo para quitar el blanco opaque
-                    mixBlendMode: 'multiply' 
+                    maxHeight: '120px', maxWidth: '100%', objectFit: 'contain'
                   }} />
                   <p style={{fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.5rem'}}>Clic para cambiar</p>
                 </div>
@@ -138,15 +136,11 @@ export const Talleres = () => {
                     width: '100%', height: '140px', borderRadius: '8px', backgroundColor: 'var(--bg-panel)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                     border: '1px solid var(--border)', padding: '1rem',
-                    // Sutil sombra interna para profundidad
                     boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' 
                   }}>
                     <img src={taller.logo} alt={taller.nombre} style={{ 
                       maxWidth: '100%', maxHeight: '100%', 
-                      // Mantenemos la integridad del logo, sin cortarlo
-                      objectFit: 'contain', 
-                      // MAGIA CSS: Quita el fondo blanco opaque al multiplicarse con el fondo gris
-                      mixBlendMode: 'multiply' 
+                      objectFit: 'contain'
                     }} />
                   </div>
 

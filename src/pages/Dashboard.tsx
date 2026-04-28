@@ -281,8 +281,7 @@ export const Dashboard = () => {
               padding: '0.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
             }}>
               <img src={tallerActivo.logo} alt={tallerActivo.nombre} style={{ 
-                maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
-                mixBlendMode: 'multiply' /* <-- Esto borra el fondo blanco opaque */
+                maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'
               }} />
             </div>
           ) : (
