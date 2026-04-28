@@ -34,10 +34,17 @@ export const Talleres = () => {
       logo: logoBase64
     };
 
+    // Esto viaja al AppContext y se guarda automáticamente en Firebase
     contexto.agregarTaller(nuevoTaller);
     setNombre('');
     setLogoBase64('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleEliminar = (id: string) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este taller de la base de datos?')) {
+      contexto.eliminarTaller(id);
+    }
   };
 
   return (
@@ -47,7 +54,7 @@ export const Talleres = () => {
           <Store size={24} color="var(--primary)" />
           <div>
             <h2>Gestión de Talleres</h2>
-            <p className="page-subtitle">Administración de sucursales y marcas</p>
+            <p className="page-subtitle">Administración de sucursales sincronizada en la nube</p>
           </div>
         </div>
       </div>
@@ -107,7 +114,7 @@ export const Talleres = () => {
           {contexto.talleres.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--text-muted)' }}>
               <Store size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-              <p>No hay talleres registrados en el sistema.</p>
+              <p>No hay talleres registrados en la base de datos.</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.5rem' }}>
@@ -129,7 +136,7 @@ export const Talleres = () => {
                   </strong>
                   
                   <button 
-                    onClick={() => contexto.eliminarTaller(taller.id)}
+                    onClick={() => handleEliminar(taller.id)}
                     style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.2rem' }}
                     title="Eliminar Taller"
                   >
