@@ -9,6 +9,11 @@ export const Registros = () => {
   const [busqueda, setBusqueda] = useState('');
   const [registroSeleccionado, setRegistroSeleccionado] = useState<Registro | null>(null);
 
+  // --- ESTADOS PARA LOS FILTROS ---
+  const [filtroAno, setFiltroAno] = useState('');
+  const [filtroMes, setFiltroMes] = useState('');
+  const [filtroTaller, setFiltroTaller] = useState('');
+
   // Estados para el nuevo detalle rápido dentro del modal
   const [mostrarFormDetalle, setMostrarFormDetalle] = useState(false);
   const [nuevoDesde, setNuevoDesde] = useState('');
@@ -17,15 +22,45 @@ export const Registros = () => {
 
   if (!contexto) return null;
 
+  // --- OBTENER OPCIONES ÚNICAS PARA LOS DROPDOWNS ---
+  const anosDisponibles = useMemo(() => {
+    const anos = contexto.registros.map(r => r.ano);
+    return Array.from(new Set(anos)).sort((a, b) => b - a); // Mayor a menor
+  }, [contexto.registros]);
+
+  const mesesDisponibles = useMemo(() => {
+    const meses = contexto.registros.map(r => r.mes);
+    return Array.from(new Set(meses));
+  }, [contexto.registros]);
+
+  // CORRECCIÓN AQUÍ: Tomamos el catálogo oficial y respetamos el orden configurado
+  const talleresDisponibles = useMemo(() => {
+    return [...contexto.talleres]
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+      .map(t => t.nombre);
+  }, [contexto.talleres]);
+
+  // --- APLICAR FILTROS Y BÚSQUEDA ---
   const registrosFiltrados = useMemo(() => {
-    if (!busqueda.trim()) return contexto.registros;
-    const busquedaLower = busqueda.toLowerCase();
-    return contexto.registros.filter(r => 
-      r.taller.toLowerCase().includes(busquedaLower) || 
-      r.mes.toLowerCase().includes(busquedaLower) ||
-      r.ano.toString().includes(busquedaLower)
-    );
-  }, [contexto.registros, busqueda]);
+    let resultado = contexto.registros;
+
+    // Filtros por dropdowns
+    if (filtroAno) resultado = resultado.filter(r => r.ano.toString() === filtroAno);
+    if (filtroMes) resultado = resultado.filter(r => r.mes === filtroMes);
+    if (filtroTaller) resultado = resultado.filter(r => r.taller === filtroTaller);
+
+    // Filtro por barra de búsqueda general
+    if (busqueda.trim()) {
+      const busquedaLower = busqueda.toLowerCase();
+      resultado = resultado.filter(r => 
+        r.taller.toLowerCase().includes(busquedaLower) || 
+        r.mes.toLowerCase().includes(busquedaLower) ||
+        r.ano.toString().includes(busquedaLower)
+      );
+    }
+
+    return resultado;
+  }, [contexto.registros, busqueda, filtroAno, filtroMes, filtroTaller]);
 
   const handleEditar = (registro: Registro) => { 
     contexto.setRegistroEditando(registro); 
@@ -113,6 +148,61 @@ export const Registros = () => {
         </div>
       </div>
 
+      {/* BARRA DE FILTROS SUPERIOR */}
+      <div style={{
+        backgroundColor: 'var(--bg-panel)',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        marginBottom: '1.5rem',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '1.5rem',
+        border: '1px solid var(--border)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      }}>
+        {/* Filtro Año */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Año</label>
+          <select 
+            className="form-control" 
+            style={{ width: '100%', backgroundColor: 'var(--bg-body)', border: '1px solid transparent', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', appearance: 'auto' }}
+            value={filtroAno} 
+            onChange={e => setFiltroAno(e.target.value)}
+          >
+            <option value="">Todos los años</option>
+            {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+
+        {/* Filtro Mes */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Mes</label>
+          <select 
+            className="form-control" 
+            style={{ width: '100%', backgroundColor: 'var(--bg-body)', border: '1px solid transparent', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', appearance: 'auto' }}
+            value={filtroMes} 
+            onChange={e => setFiltroMes(e.target.value)}
+          >
+            <option value="">Todos los meses</option>
+            {mesesDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+
+        {/* Filtro Taller */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Taller</label>
+          <select 
+            className="form-control" 
+            style={{ width: '100%', backgroundColor: 'var(--bg-body)', border: '1px solid transparent', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', appearance: 'auto' }}
+            value={filtroTaller} 
+            onChange={e => setFiltroTaller(e.target.value)}
+          >
+            <option value="">Todos los talleres</option>
+            {talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+      </div>
+
       {/* TABLA DE REGISTROS CON ACCIONES INTEGRADAS */}
       <div className="table-wrapper">
         <table className="table">
@@ -128,7 +218,7 @@ export const Registros = () => {
           </thead>
           <tbody>
             {registrosFiltrados.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No se encontraron registros.</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No se encontraron registros que coincidan con los filtros.</td></tr>
             ) : (
               registrosFiltrados.map((r) => (
                 <tr 

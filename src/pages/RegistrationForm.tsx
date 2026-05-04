@@ -21,6 +21,14 @@ export const FormularioRegistro = () => {
   const [hasta, setHasta] = useState('');
   const [vendido, setVendido] = useState(0);
 
+  // --- OBTENER TALLERES OFICIALES RESPETANDO EL ORDEN ---
+  const talleresDisponibles = useMemo(() => {
+    if (!contexto?.talleres) return [];
+    return [...contexto.talleres]
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+      .map(t => t.nombre);
+  }, [contexto?.talleres]);
+
   const logrado = useMemo(() => detalles.reduce((acc, d) => acc + d.vendido, 0), [detalles]);
   const faltante = Math.max(meta - logrado, 0);
   const porcentajeCumplido = meta > 0 ? Number(((logrado / meta) * 100).toFixed(2)) : 0;
@@ -51,12 +59,25 @@ export const FormularioRegistro = () => {
         <h3 className="detail-section-title">Información Principal</h3>
         <div className="grid-layout">
           <div className="form-group"><label className="form-label">Año</label><input type="number" className="form-control" value={ano} onChange={e => setAno(Number(e.target.value))} /></div>
-          <div className="form-group"><label className="form-label">Mes</label>
+          
+          <div className="form-group">
+            <label className="form-label">Mes</label>
             <select className="form-control" value={mes} onChange={e => setMes(e.target.value)}>
               {MESES.map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
-          <div className="form-group"><label className="form-label">Taller</label><input type="text" className="form-control" value={taller} onChange={e => setTaller(e.target.value)} /></div>
+          
+          {/* CAMBIO AQUÍ: Ahora es un select sincronizado con el catálogo de talleres */}
+          <div className="form-group">
+            <label className="form-label">Taller</label>
+            <select className="form-control" value={taller} onChange={e => setTaller(e.target.value)}>
+              <option value="">Seleccione un taller...</option>
+              {talleresDisponibles.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          
           <div className="form-group"><label className="form-label">Metas</label><input type="number" className="form-control" value={meta || ''} onChange={e => setMeta(Number(e.target.value))} /></div>
         </div>
         

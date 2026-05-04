@@ -15,16 +15,23 @@ export const Dashboard = () => {
   const [filtroMes, setFiltroMes] = useState<string>('Todos');
   const [filtroTaller, setFiltroTaller] = useState<string>('Todos');
 
-  // Estados de Control del Gráfico e Interacción
+  // Estados de Control del Gráfico Superior (Operaciones)
   const [tipoGrafico, setTipoGrafico] = useState<TipoGrafico>('anillo');
   const [is3D, setIs3D] = useState<boolean>(true);
   const [hoveredOp, setHoveredOp] = useState<string | null>(null);
+
+  // Estados de Control del Gráfico Inferior (Mensual)
+  const [tipoGraficoMensual, setTipoGraficoMensual] = useState<TipoGrafico>('barras');
+  const [is3DMensual, setIs3DMensual] = useState<boolean>(true);
+  const [hoveredMes, setHoveredMes] = useState<string | null>(null);
 
   // Listas únicas para selectores
   const anosDisponibles = useMemo(() => Array.from(new Set(registros.map(r => r.ano.toString()))).sort(), [registros]);
   
   const talleresDisponibles = useMemo(() => {
-    return talleres.map(t => t.nombre).sort();
+    return [...talleres]
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+      .map(t => t.nombre);
   }, [talleres]);
 
   // Buscar el logo del taller seleccionado
@@ -62,14 +69,22 @@ export const Dashboard = () => {
     );
 
     const totalVendido = listaOperaciones.reduce((acc, op) => acc + op.vendido, 0);
-    if (totalVendido === 0) return null;
+    const metaTotal = registrosFiltrados.reduce((acc, r) => acc + r.meta, 0);
+    const faltante = Math.max(metaTotal - totalVendido, 0);
 
-    const colores = ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89'];
+    // Si no hay ventas ni meta, no mostramos gráfico
+    if (totalVendido === 0 && metaTotal === 0) return null;
+
+    // La base de los porcentajes ahora es la Meta (o el total vendido si superó la meta)
+    const baseCalculo = Math.max(metaTotal, totalVendido);
+
+    const colores = ['#1d8cf8', '#00d6b4', '#ffbc11', '#d048b6', '#51cbce', '#8965e0', '#2dce89'];
 
     let acumuladoGrados = 0;
     
+    // Mapeamos las operaciones reales (Ventas)
     const operacionesConSectores = listaOperaciones.map((op, index) => {
-      const porcentajeOp = (op.vendido / totalVendido) * 100;
+      const porcentajeOp = baseCalculo > 0 ? (op.vendido / baseCalculo) * 100 : 0;
       const porcentajeStr = porcentajeOp.toFixed(2);
       const grados = (porcentajeOp / 100) * 360;
       const midAngle = acumuladoGrados + (grados / 2);
@@ -81,13 +96,41 @@ export const Dashboard = () => {
 
       return {
         ...op,
-        semanaIndex: index + 1,
+        isFaltante: false,
+        semanaIndex: String(index + 1), // CORRECCIÓN TS: Forzamos a que sea un string
         porcentajeStr,
         midAngle,
         color,
         gradientPart
       };
     });
+
+    // Añadimos el sector "Faltante" si aún no se ha cumplido la meta
+    if (faltante > 0) {
+      const porcentajeFaltante = (faltante / baseCalculo) * 100;
+      const gradosFaltante = (porcentajeFaltante / 100) * 360;
+      const midAngleFaltante = acumuladoGrados + (gradosFaltante / 2);
+      const colorFaltante = '#ff4c4c'; // Rojo para el faltante
+      
+      const inicioFaltante = acumuladoGrados;
+      acumuladoGrados += gradosFaltante;
+      const gradientPartFaltante = `${colorFaltante} ${inicioFaltante}deg ${acumuladoGrados}deg`;
+
+      operacionesConSectores.push({
+        id: 'faltante-item',
+        isFaltante: true,
+        semanaIndex: '-', // Ahora concuerda porque ambos son strings
+        desde: '-',
+        hasta: '-',
+        vendido: faltante,
+        porcentajeStr: porcentajeFaltante.toFixed(2),
+        midAngle: midAngleFaltante,
+        color: colorFaltante,
+        gradientPart: gradientPartFaltante,
+        tallerPadre: '-', // CORRECCIÓN TS: Añadimos las propiedades faltantes
+        porcentajeAporte: 0 // CORRECCIÓN TS: Añadimos las propiedades faltantes
+      });
+    }
 
     return {
       operaciones: operacionesConSectores,
@@ -125,7 +168,46 @@ export const Dashboard = () => {
     return { datosPorMes, totales };
   }, [registros, filtroAno, filtroTaller]);
 
-  // --- MOTOR RENDERIZADOR DINÁMICO DE GRÁFICOS ---
+  // Análisis de Datos para el Gráfico Mensual
+  const datosGraficoMensual = useMemo(() => {
+    const mesesConVentas = reporteMensual.datosPorMes.filter(d => d.ventas > 0);
+    if (mesesConVentas.length === 0) return null;
+
+    const totalVentasMensuales = mesesConVentas.reduce((acc, d) => acc + d.ventas, 0);
+    const colores = ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849'];
+
+    let acumuladoGrados = 0;
+
+    const operacionesConSectores = mesesConVentas.map((op, index) => {
+      const porcentajeOp = (op.ventas / totalVentasMensuales) * 100;
+      const porcentajeStr = porcentajeOp.toFixed(2);
+      const grados = (porcentajeOp / 100) * 360;
+      const midAngle = acumuladoGrados + (grados / 2);
+      const color = colores[index % colores.length];
+
+      const inicio = acumuladoGrados;
+      acumuladoGrados += grados;
+      const gradientPart = `${color} ${inicio}deg ${acumuladoGrados}deg`;
+
+      return {
+        id: op.mes,
+        label: op.mes,
+        vendido: op.ventas,
+        porcentajeStr,
+        midAngle,
+        color,
+        gradientPart
+      };
+    });
+
+    return {
+      operaciones: operacionesConSectores,
+      gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`,
+      totalVendido: totalVentasMensuales
+    };
+  }, [reporteMensual]);
+
+  // --- MOTOR RENDERIZADOR DINÁMICO DE GRÁFICOS (SUPERIOR) ---
   const renderGrafico = () => {
     if (!analisisOperaciones) return <p className="detail-text" style={{ textAlign: 'center', padding: '3rem', fontStyle: 'italic' }}>Sin datos para graficar.</p>;
 
@@ -137,7 +219,7 @@ export const Dashboard = () => {
       const mascaraDonut = isDonut ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
 
       return (
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3D ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '260px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3D ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '320px' }}>
           {is3D ? (
             <div className="pie-chart-wrapper" style={{ margin: 0 }}>
               <div className="pie-chart-3d" style={{ width: '250px', height: '250px', position: 'relative', transformStyle: 'preserve-3d', transform: 'rotateX(60deg) rotateZ(15deg)', transition: 'transform 0.6s' }}>
@@ -165,7 +247,7 @@ export const Dashboard = () => {
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
             {operaciones.map(op => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
-              const radioBase = is3D ? 160 : 145;
+              const radioBase = is3D ? 195 : 175; // Distancia aumentada para separar tarjetas
               const rawX = Math.cos(rad) * radioBase;
               const rawY = Math.sin(rad) * radioBase;
               let finalX = rawX;
@@ -267,12 +349,153 @@ export const Dashboard = () => {
     }
   };
 
+  // --- MOTOR RENDERIZADOR DINÁMICO DE GRÁFICOS (INFERIOR/MENSUAL) ---
+  const renderGraficoMensual = () => {
+    if (!datosGraficoMensual) return <p className="detail-text" style={{ textAlign: 'center', padding: '3rem', fontStyle: 'italic' }}>Sin datos mensuales para graficar.</p>;
+
+    const { operaciones, gradient } = datosGraficoMensual;
+    const maxVendido = Math.max(...operaciones.map(o => o.vendido));
+
+    if (tipoGraficoMensual === 'torta' || tipoGraficoMensual === 'anillo') {
+      const isDonut = tipoGraficoMensual === 'anillo';
+      const mascaraDonut = isDonut ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
+
+      return (
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3DMensual ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '320px' }}>
+          {is3DMensual ? (
+            <div className="pie-chart-wrapper" style={{ margin: 0 }}>
+              <div className="pie-chart-3d" style={{ width: '250px', height: '250px', position: 'relative', transformStyle: 'preserve-3d', transform: 'rotateX(60deg) rotateZ(15deg)', transition: 'transform 0.6s' }}>
+                {Array.from({ length: 25 }).map((_, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      position: 'absolute', inset: 0, borderRadius: '50%',
+                      background: gradient,
+                      transform: `translateZ(-${i}px)`,
+                      WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut,
+                      filter: i > 0 ? 'brightness(0.65) contrast(1.2)' : 'none',
+                      opacity: hoveredMes ? 0.8 : 1
+                    } as React.CSSProperties}
+                  >
+                    {i === 24 && <div className="pie-shadow" style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', filter: 'blur(20px)', transform: 'translateZ(-5px)' }}></div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} />
+          )}
+
+          <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
+            {operaciones.map(op => {
+              const rad = (op.midAngle - 90) * (Math.PI / 180);
+              const radioBase = is3DMensual ? 195 : 175; // Distancia aumentada para separar tarjetas
+              const rawX = Math.cos(rad) * radioBase;
+              const rawY = Math.sin(rad) * radioBase;
+              let finalX = rawX;
+              let finalY = rawY;
+
+              if (is3DMensual) {
+                const ySquashed = rawY * 0.5;
+                const angle15 = 15 * (Math.PI / 180);
+                finalX = rawX * Math.cos(angle15) - ySquashed * Math.sin(angle15);
+                finalY = rawX * Math.sin(angle15) + ySquashed * Math.cos(angle15) + 15;
+              }
+
+              const isHovered = hoveredMes === op.id;
+              const isDimmed = hoveredMes !== null && !isHovered;
+
+              return (
+                <div key={`hablador-mes-${op.id}`} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
+                  style={{
+                    position: 'absolute', left: `${finalX}px`, top: `${finalY}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`,
+                    backgroundColor: 'var(--bg-panel)', border: `1px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px',
+                    boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100,
+                    opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer'
+                  }}
+                >
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    if (tipoGraficoMensual === 'barras') {
+      return (
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '240px', width: '100%', padding: '1rem', marginTop: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', transform: is3DMensual ? 'perspective(1000px) rotateX(20deg) rotateY(-10deg)' : 'none', transformStyle: 'preserve-3d', transition: 'transform 0.6s', position: 'relative' }}>
+          {operaciones.map((op) => {
+            const altura = maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0;
+            const isHovered = hoveredMes === op.id;
+            const isDimmed = hoveredMes !== null && !isHovered;
+
+            return (
+              <div key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
+                style={{
+                  width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative',
+                  borderRadius: is3DMensual ? '2px' : '4px 4px 0 0', boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none',
+                  backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none',
+                  opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer'
+              }}>
+                <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{formatearMoneda(op.vendido)}</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (tipoGraficoMensual === 'lineas') {
+      const puntosLinea = operaciones.map((op, i) => {
+        const x = (i / Math.max(1, operaciones.length - 1)) * 100;
+        const y = 100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0);
+        return `${x},${y}`;
+      }).join(' ');
+
+      return (
+        <div style={{ height: '240px', width: '100%', padding: '1rem', marginTop: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', transform: is3DMensual ? 'perspective(1000px) rotateX(30deg) rotateY(-15deg)' : 'none', transformStyle: 'preserve-3d', transition: 'transform 0.6s', position: 'relative' }}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible', position: 'absolute', inset: 0 }}>
+            {is3DMensual && <filter id="shadow-mensual"><feDropShadow dx="0" dy="15" stdDeviation="5" floodColor="rgba(0,0,0,0.7)" /></filter>}
+            <polyline points={puntosLinea} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" filter={is3DMensual ? "url(#shadow-mensual)" : "none"} vectorEffect="non-scaling-stroke" />
+          </svg>
+          
+          {operaciones.map((op, i) => {
+            const x = (i / Math.max(1, operaciones.length - 1)) * 100;
+            const y = 100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0);
+            const isHovered = hoveredMes === op.id;
+            const isDimmed = hoveredMes !== null && !isHovered;
+
+            return (
+              <div key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
+                style={{
+                  position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%',
+                  transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)',
+                  boxShadow: is3DMensual ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer'
+              }}>
+                <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
+                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{formatearMoneda(op.vendido)}</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="animate-in fade-in">
       <div className="page-header">
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
           
-          {/* LÓGICA DEL LOGO REDISEÑADA PARA EL DASHBOARD */}
           {tallerActivo && tallerActivo.logo ? (
             <div style={{ 
               width: '180px', height: '70px', borderRadius: '8px', overflow: 'hidden', 
@@ -332,6 +555,7 @@ export const Dashboard = () => {
       </div>
 
       <div className="dashboard-grid-custom">
+        {/* TARJETA SUPERIOR: OPERACIONES SEMANALES */}
         <div className="card" style={{ marginBottom: 0 }}>
           <h3 className="detail-section-title">Progreso de la Meta (Operaciones #)</h3>
           <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none', background: 'transparent', marginTop: '1rem' }}>
@@ -364,13 +588,33 @@ export const Dashboard = () => {
                           cursor: 'pointer'
                         }}
                       >
-                        <td style={{ textAlign: 'center' }}><span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{op.semanaIndex}</span></td>
-                        <td>
-                          <div style={{fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600}}>{formatearFecha(op.desde)}</div>
-                          <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{formatearFecha(op.hasta)}</div>
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</td>
-                        <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
+                        {op.isFaltante ? (
+                          <>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                                <AlertTriangle size={12} />
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 700}}>Faltante por Cumplir</div>
+                              <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>Meta no alcanzada</div>
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>{formatearMoneda(op.vendido)}</td>
+                            <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
+                          </>
+                        ) : (
+                          <>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{op.semanaIndex}</span>
+                            </td>
+                            <td>
+                              <div style={{fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600}}>{formatearFecha(op.desde)}</div>
+                              <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{formatearFecha(op.hasta)}</div>
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</td>
+                            <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
+                          </>
+                        )}
                       </tr>
                     );
                   })
@@ -381,7 +625,6 @@ export const Dashboard = () => {
         </div>
 
         <div className="card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TIPO DE GRÁFICO:</label>
@@ -431,8 +674,10 @@ export const Dashboard = () => {
                   >
                     <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
                     <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
-                      <span style={{fontWeight: 500}}>Venta semana {op.semanaIndex}</span>
-                      <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>
+                      <span style={{fontWeight: 500}}>
+                        {op.isFaltante ? 'Faltante por Cumplir' : `Venta semana ${op.semanaIndex}`}
+                      </span>
+                      <strong style={{ color: op.isFaltante ? 'var(--danger)' : 'var(--text-main)', fontWeight: 600 }}>
                         {op.porcentajeStr}%
                       </strong>
                     </div>
@@ -444,13 +689,14 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
+      {/* TARJETA INFERIOR: REPORTE MENSUAL */}
+      <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Reporte Mensual Consolidado</h3>
           {filtroAno !== 'Todos' && <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Año Fiscal: {filtroAno}</span>}
         </div>
         
-        <table className="table" style={{ width: '100%' }}>
+        <table className="table" style={{ width: '100%', marginBottom: '2rem' }}>
           <thead>
             <tr>
               <th>Mes</th>
@@ -484,6 +730,71 @@ export const Dashboard = () => {
             </tr>
           </tfoot>
         </table>
+
+        {/* NUEVA SECCIÓN: GRÁFICO MENSUAL */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>GRÁFICO MENSUAL:</label>
+              <select 
+                value={tipoGraficoMensual} 
+                onChange={(e) => setTipoGraficoMensual(e.target.value as TipoGrafico)}
+                style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="barras">Barras (Bar)</option>
+                <option value="lineas">Líneas (Line)</option>
+                <option value="anillo">Anillo (Donut)</option>
+                <option value="torta">Torta (Pie)</option>
+              </select>
+            </div>
+            
+            <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <button
+                style={{ padding: '0.4rem 1rem', border: 'none', background: is3DMensual ? 'var(--primary)' : 'transparent', color: is3DMensual ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}
+                onClick={() => setIs3DMensual(true)}
+              >3D</button>
+              <button
+                style={{ padding: '0.4rem 1rem', border: 'none', background: !is3DMensual ? 'var(--primary)' : 'transparent', color: !is3DMensual ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}
+                onClick={() => setIs3DMensual(false)}
+              >2D</button>
+            </div>
+          </div>
+
+          <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+            {renderGraficoMensual()}
+          </div>
+
+          {datosGraficoMensual && (
+            <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '800px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
+              {datosGraficoMensual.operaciones.map((op) => {
+                const isHovered = hoveredMes === op.id;
+                const isDimmed = hoveredMes !== null && !isHovered;
+
+                return (
+                  <li 
+                    key={op.id} 
+                    onMouseEnter={() => setHoveredMes(op.id)}
+                    onMouseLeave={() => setHoveredMes(null)}
+                    style={{ 
+                      display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)',
+                      backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent',
+                      padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer',
+                      opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s'
+                    }}
+                  >
+                    <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
+                      <span style={{fontWeight: 500}}>Ventas {op.label}</span>
+                      <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>
+                        {op.porcentajeStr}%
+                      </strong>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

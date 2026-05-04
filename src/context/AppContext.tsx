@@ -71,7 +71,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log("⬆️ Enviando taller a Firebase...", nuevoTaller);
       await setDoc(doc(db, 'talleres', nuevoTaller.id), nuevoTaller);
-      alert("✅ Taller guardado correctamente en la nube");
+      // El aviso fue eliminado para evitar el spam al reordenar la tabla
     } catch (error) {
       console.error("Error al guardar el taller:", error);
       alert("Error al guardar en Firebase. Revisa la consola.");

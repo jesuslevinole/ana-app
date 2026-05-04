@@ -23,6 +23,8 @@ export interface Taller {
   id: string;
   nombre: string;
   logo: string; // Guardaremos la imagen en formato Base64
+  direccion?: string; // Añadido para corregir el error de la vista
+  orden?: number;     // Añadido para guardar la posición en la tabla
 }
 
 // Añadida la vista 'talleres'

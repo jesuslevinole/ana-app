@@ -21,6 +21,12 @@ export const FormularioRegistro = () => {
   const [hasta, setHasta] = useState('');
   const [vendido, setVendido] = useState(0);
 
+  // --- ORDENAR LOS TALLERES SEGÚN EL CATÁLOGO ---
+  const talleresOrdenados = useMemo(() => {
+    if (!contexto?.talleres) return [];
+    return [...contexto.talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  }, [contexto?.talleres]);
+
   const logrado = useMemo(() => detalles.reduce((acc, d) => acc + d.vendido, 0), [detalles]);
   const faltante = Math.max(meta - logrado, 0);
   const porcentajeCumplido = meta > 0 ? Number(((logrado / meta) * 100).toFixed(2)) : 0;
@@ -86,8 +92,8 @@ export const FormularioRegistro = () => {
               style={{ cursor: 'pointer' }}
             >
               <option value="" disabled>Seleccione un taller...</option>
-              {contexto?.talleres && contexto.talleres.length > 0 ? (
-                contexto.talleres.map(t => (
+              {talleresOrdenados.length > 0 ? (
+                talleresOrdenados.map(t => (
                   <option key={t.id} value={t.nombre}>{t.nombre}</option>
                 ))
               ) : (

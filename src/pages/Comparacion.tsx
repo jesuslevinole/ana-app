@@ -10,20 +10,26 @@ const TRIMESTRES = {
   'Q4': ['Octubre', 'Noviembre', 'Diciembre']
 };
 
-type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
+type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas' | 'mixto';
 
 export const Comparacion = () => {
   const contexto = useContext(AppContext);
   if (!contexto) return null;
-  const { registros } = contexto;
+  const { registros, talleres } = contexto;
 
   const currentYear = new Date().getFullYear().toString();
   
   const anosDisponibles = useMemo(() => Array.from(new Set(registros.map(r => r.ano.toString()))).sort(), [registros]);
-  const talleresDisponibles = useMemo(() => Array.from(new Set(registros.map(r => r.taller))).sort(), [registros]);
+  
+  // --- ORDENAR LOS TALLERES SEGÚN EL CATÁLOGO PARA EL FILTRO ---
+  const talleresDisponibles = useMemo(() => {
+    return [...talleres]
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+      .map(t => t.nombre);
+  }, [talleres]);
 
   // Filtros
-  const [taller, setTaller] = useState<string>(talleresDisponibles[0] || 'Todos');
+  const [taller, setTaller] = useState<string>('Todos'); // Iniciamos en 'Todos' por defecto
   const [ano1, setAno1] = useState<string>(currentYear);
   const [trimestre1, setTrimestre1] = useState<keyof typeof TRIMESTRES>('Q1');
   const [ano2, setAno2] = useState<string>(currentYear);
@@ -228,6 +234,76 @@ export const Comparacion = () => {
         </div>
       );
     }
+
+    // 4. MIXTO (Combo Barras + Línea)
+    if (tipo === 'mixto') {
+      const puntosLinea = data.map((op, i) => {
+        const xCenter = ((i + 0.5) * (100 / data.length));
+        const y = 100 - (maxVal > 0 ? (op.ventas / maxVal) * 85 : 0);
+        return `${xCenter},${y}`;
+      }).join(' ');
+
+      return (
+        <div style={{ height: '240px', width: '100%', padding: '1rem', marginTop: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', transform: is3D ? 'perspective(1000px) rotateX(20deg) rotateY(-10deg)' : 'none', transformStyle: 'preserve-3d', transition: 'transform 0.6s', position: 'relative' }}>
+          
+          {/* Capa 1: Barras */}
+          {data.map((op, i) => {
+            const altura = maxVal > 0 ? (op.ventas / maxVal) * 85 : 0;
+            const xCenter = ((i + 0.5) * (100 / data.length));
+            const isHovered = hoveredId === op.id;
+            const isDimmed = hoveredId !== null && !isHovered;
+
+            return (
+              <div key={`bar-${op.id}`} onMouseEnter={() => setHoveredId(op.id)} onMouseLeave={() => setHoveredId(null)}
+                style={{
+                  position: 'absolute',
+                  left: `${xCenter}%`,
+                  bottom: '0',
+                  transform: `translateX(-50%) ${isHovered ? 'translateY(-5px)' : 'none'}`,
+                  width: `${Math.max(15, 60 / data.length)}%`,
+                  height: `${altura}%`,
+                  backgroundColor: op.color,
+                  borderRadius: is3D ? '2px' : '4px 4px 0 0',
+                  boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none',
+                  backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none',
+                  opacity: isDimmed ? 0.3 : 0.7, // Ligeramente transparente para resaltar la línea
+                  transition: 'all 0.3s ease', cursor: 'pointer'
+                }}
+              />
+            );
+          })}
+
+          {/* Capa 2: Línea SVG Overlay */}
+          <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible', position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            {is3D && <filter id="shadow-mixto"><feDropShadow dx="0" dy="10" stdDeviation="4" floodColor="rgba(0,0,0,0.6)" /></filter>}
+            <polyline points={puntosLinea} fill="none" stroke="var(--text-main)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" filter={is3D ? "url(#shadow-mixto)" : "none"} vectorEffect="non-scaling-stroke" />
+          </svg>
+
+          {/* Capa 3: Puntos y Habladores */}
+          {data.map((op, i) => {
+            const xCenter = ((i + 0.5) * (100 / data.length));
+            const y = 100 - (maxVal > 0 ? (op.ventas / maxVal) * 85 : 0);
+            const isHovered = hoveredId === op.id;
+            const isDimmed = hoveredId !== null && !isHovered;
+
+            return (
+              <div key={`pt-${op.id}`} onMouseEnter={() => setHoveredId(op.id)} onMouseLeave={() => setHoveredId(null)}
+                style={{
+                  position: 'absolute', left: `${xCenter}%`, top: `${y}%`, width: '12px', height: '12px', backgroundColor: 'var(--text-main)', borderRadius: '50%',
+                  transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: `2px solid ${op.color}`,
+                  boxShadow: is3D ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer'
+                }}
+              >
+                <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s', pointerEvents: 'none' }}>
+                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{formatearMoneda(op.ventas)}</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
   };
 
   return (
@@ -326,7 +402,11 @@ export const Comparacion = () => {
               <h3 className="detail-section-title" style={{ border: 'none', margin: 0 }}>Desglose {trimestre1}</h3>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <select value={tipoGrafico1} onChange={(e) => setTipoGrafico1(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}>
-                  <option value="barras">Barras</option><option value="torta">Torta</option><option value="anillo">Anillo</option><option value="lineas">Líneas</option>
+                  <option value="barras">Barras</option>
+                  <option value="torta">Torta</option>
+                  <option value="anillo">Anillo</option>
+                  <option value="lineas">Líneas</option>
+                  <option value="mixto">Mixto (Combo)</option>
                 </select>
                 <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <button style={{ padding: '0.3rem 0.6rem', border: 'none', background: is3D1 ? 'var(--primary)' : 'transparent', color: is3D1 ? 'white' : 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }} onClick={() => setIs3D1(true)}>3D</button>
@@ -414,7 +494,11 @@ export const Comparacion = () => {
 
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <select value={tipoGrafico2} onChange={(e) => setTipoGrafico2(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}>
-                  <option value="barras">Barras</option><option value="torta">Torta</option><option value="anillo">Anillo</option><option value="lineas">Líneas</option>
+                  <option value="barras">Barras</option>
+                  <option value="torta">Torta</option>
+                  <option value="anillo">Anillo</option>
+                  <option value="lineas">Líneas</option>
+                  <option value="mixto">Mixto (Combo)</option>
                 </select>
                 <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <button style={{ padding: '0.3rem 0.6rem', border: 'none', background: is3D2 ? 'var(--primary)' : 'transparent', color: is3D2 ? 'white' : 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }} onClick={() => setIs3D2(true)}>3D</button>
