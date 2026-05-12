@@ -14,8 +14,9 @@ export const Registros = () => {
   const [filtroMes, setFiltroMes] = useState('');
   const [filtroTaller, setFiltroTaller] = useState('');
 
-  // Estados para el nuevo detalle rápido dentro del modal
+  // Estados para el formulario de detalle rápido dentro del modal
   const [mostrarFormDetalle, setMostrarFormDetalle] = useState(false);
+  const [detalleEditandoId, setDetalleEditandoId] = useState<string | null>(null);
   const [nuevoDesde, setNuevoDesde] = useState('');
   const [nuevoHasta, setNuevoHasta] = useState('');
   const [nuevoVendido, setNuevoVendido] = useState<number>(0);
@@ -33,7 +34,6 @@ export const Registros = () => {
     return Array.from(new Set(meses));
   }, [contexto.registros]);
 
-  // CORRECCIÓN AQUÍ: Tomamos el catálogo oficial y respetamos el orden configurado
   const talleresDisponibles = useMemo(() => {
     return [...contexto.talleres]
       .sort((a, b) => (a.orden || 0) - (b.orden || 0))
@@ -44,12 +44,10 @@ export const Registros = () => {
   const registrosFiltrados = useMemo(() => {
     let resultado = contexto.registros;
 
-    // Filtros por dropdowns
     if (filtroAno) resultado = resultado.filter(r => r.ano.toString() === filtroAno);
     if (filtroMes) resultado = resultado.filter(r => r.mes === filtroMes);
     if (filtroTaller) resultado = resultado.filter(r => r.taller === filtroTaller);
 
-    // Filtro por barra de búsqueda general
     if (busqueda.trim()) {
       const busquedaLower = busqueda.toLowerCase();
       resultado = resultado.filter(r => 
@@ -74,21 +72,60 @@ export const Registros = () => {
     } 
   };
 
-  // --- LÓGICA PARA AGREGAR DETALLE DESDE EL MODAL ---
-  const agregarDetalleRapido = async () => {
+  // --- LÓGICA DE DETALLES EN MODAL (AGREGAR Y EDITAR) ---
+  const toggleFormDetalle = () => {
+    if (mostrarFormDetalle) {
+      setMostrarFormDetalle(false);
+      setDetalleEditandoId(null);
+      setNuevoDesde('');
+      setNuevoHasta('');
+      setNuevoVendido(0);
+    } else {
+      setMostrarFormDetalle(true);
+    }
+  };
+
+  const iniciarEdicionDetalle = (det: Detalle) => {
+    setDetalleEditandoId(det.id);
+    setNuevoDesde(det.desde);
+    setNuevoHasta(det.hasta);
+    setNuevoVendido(det.vendido);
+    setMostrarFormDetalle(true);
+  };
+
+  const guardarDetalleRapido = async () => {
     if (!registroSeleccionado || !nuevoDesde || !nuevoHasta || nuevoVendido <= 0) {
       return alert('Complete todos los campos con valores válidos.');
     }
 
-    const nuevoItemDetalle: Detalle = {
-      id: crypto.randomUUID(),
-      desde: nuevoDesde,
-      hasta: nuevoHasta,
-      vendido: nuevoVendido,
-      porcentajeAporte: Number(((nuevoVendido / registroSeleccionado.meta) * 100).toFixed(2))
-    };
+    let nuevosDetalles = [...registroSeleccionado.detalles];
 
-    const nuevosDetalles = [...registroSeleccionado.detalles, nuevoItemDetalle];
+    if (detalleEditandoId) {
+      // Modo Edición: Actualizar detalle existente
+      nuevosDetalles = nuevosDetalles.map(d => {
+        if (d.id === detalleEditandoId) {
+          return {
+            ...d,
+            desde: nuevoDesde,
+            hasta: nuevoHasta,
+            vendido: nuevoVendido,
+            porcentajeAporte: Number(((nuevoVendido / registroSeleccionado.meta) * 100).toFixed(2))
+          };
+        }
+        return d;
+      });
+    } else {
+      // Modo Agregar: Nuevo detalle
+      const nuevoItemDetalle: Detalle = {
+        id: crypto.randomUUID(),
+        desde: nuevoDesde,
+        hasta: nuevoHasta,
+        vendido: nuevoVendido,
+        porcentajeAporte: Number(((nuevoVendido / registroSeleccionado.meta) * 100).toFixed(2))
+      };
+      nuevosDetalles.push(nuevoItemDetalle);
+    }
+
     const nuevoLogrado = nuevosDetalles.reduce((acc, d) => acc + d.vendido, 0);
     
     const registroActualizado: Registro = {
@@ -99,23 +136,38 @@ export const Registros = () => {
       porcentajeCumplido: Number(((nuevoLogrado / registroSeleccionado.meta) * 100).toFixed(2))
     };
 
-    // Sincronizar con Firebase
     await contexto.agregarRegistro(registroActualizado);
-    
-    // Actualizar estado local del modal para reflejar cambios
     setRegistroSeleccionado(registroActualizado);
     
-    // Limpiar formulario interno
     setNuevoDesde(''); setNuevoHasta(''); setNuevoVendido(0);
+    setDetalleEditandoId(null);
     setMostrarFormDetalle(false);
+  };
+
+  const eliminarDetalleRapido = async (idDetalle: string) => {
+    if (!registroSeleccionado) return;
+    if (!window.confirm('¿Está seguro de eliminar esta operación?')) return;
+
+    const nuevosDetalles = registroSeleccionado.detalles.filter(d => d.id !== idDetalle);
+    const nuevoLogrado = nuevosDetalles.reduce((acc, d) => acc + d.vendido, 0);
+
+    const registroActualizado: Registro = {
+      ...registroSeleccionado,
+      detalles: nuevosDetalles,
+      logrado: nuevoLogrado,
+      faltante: Math.max(registroSeleccionado.meta - nuevoLogrado, 0),
+      porcentajeCumplido: Number(((nuevoLogrado / registroSeleccionado.meta) * 100).toFixed(2))
+    };
+
+    await contexto.agregarRegistro(registroActualizado);
+    setRegistroSeleccionado(registroActualizado);
   };
 
   return (
     <div className="animate-in fade-in">
-      {/* HEADER PRINCIPAL */}
       <div className="page-header" style={{ alignItems: 'center' }}>
         <div className="page-title">
-          <FileText size={24} color="var(--primary)" />
+          <FileText color="var(--primary)" size={24} />
           <div>
             <h2>Gestión de Registros</h2>
             <p className="page-subtitle">Explorador de datos sincronizado en la nube</p>
@@ -124,7 +176,7 @@ export const Registros = () => {
         
         <div className="header-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <div style={{ position: 'relative', width: '280px' }}>
-            <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
             <input 
               type="text" 
               placeholder="Buscar por taller, mes o año..." 
@@ -148,54 +200,39 @@ export const Registros = () => {
         </div>
       </div>
 
-      {/* BARRA DE FILTROS SUPERIOR */}
       <div style={{
-        backgroundColor: 'var(--bg-panel)',
-        borderRadius: '12px',
-        padding: '1.5rem',
-        marginBottom: '1.5rem',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '1.5rem',
-        border: '1px solid var(--border)',
+        backgroundColor: 'var(--bg-panel)', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem',
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem', border: '1px solid var(--border)',
         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
       }}>
-        {/* Filtro Año */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Año</label>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Año</label>
           <select 
             className="form-control" 
-            style={{ width: '100%', backgroundColor: 'var(--bg-body)', border: '1px solid transparent', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', appearance: 'auto' }}
-            value={filtroAno} 
-            onChange={e => setFiltroAno(e.target.value)}
+            style={{ width: '100%', backgroundColor: 'var(--bg-body)', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)' }}
+            value={filtroAno} onChange={e => setFiltroAno(e.target.value)}
           >
             <option value="">Todos los años</option>
             {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
-
-        {/* Filtro Mes */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Mes</label>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Mes</label>
           <select 
             className="form-control" 
-            style={{ width: '100%', backgroundColor: 'var(--bg-body)', border: '1px solid transparent', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', appearance: 'auto' }}
-            value={filtroMes} 
-            onChange={e => setFiltroMes(e.target.value)}
+            style={{ width: '100%', backgroundColor: 'var(--bg-body)', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)' }}
+            value={filtroMes} onChange={e => setFiltroMes(e.target.value)}
           >
             <option value="">Todos los meses</option>
             {mesesDisponibles.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
-
-        {/* Filtro Taller */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem', letterSpacing: '0.5px' }}>Taller</label>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Taller</label>
           <select 
             className="form-control" 
-            style={{ width: '100%', backgroundColor: 'var(--bg-body)', border: '1px solid transparent', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer', appearance: 'auto' }}
-            value={filtroTaller} 
-            onChange={e => setFiltroTaller(e.target.value)}
+            style={{ width: '100%', backgroundColor: 'var(--bg-body)', padding: '0.8rem', borderRadius: '8px', color: 'var(--text-main)' }}
+            value={filtroTaller} onChange={e => setFiltroTaller(e.target.value)}
           >
             <option value="">Todos los talleres</option>
             {talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
@@ -203,7 +240,6 @@ export const Registros = () => {
         </div>
       </div>
 
-      {/* TABLA DE REGISTROS CON ACCIONES INTEGRADAS */}
       <div className="table-wrapper">
         <table className="table">
           <thead>
@@ -218,50 +254,24 @@ export const Registros = () => {
           </thead>
           <tbody>
             {registrosFiltrados.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No se encontraron registros que coincidan con los filtros.</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Sin resultados.</td></tr>
             ) : (
               registrosFiltrados.map((r) => (
-                <tr 
-                  key={r.id} 
-                  className="clickable" 
-                  onClick={() => setRegistroSeleccionado(r)}
-                  style={{ transition: 'background-color 0.2s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-highlight)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  <td style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
-                    {/* El stopPropagation evita que se abra el modal de detalle al hacer clic en editar/eliminar */}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleEditar(r); }}
-                      style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Editar Registro"
-                    >
+                <tr key={r.id} className="clickable" onClick={() => setRegistroSeleccionado(r)}>
+                  <td style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                    <button onClick={(e) => { e.stopPropagation(); handleEditar(r); }} style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', padding: '0.4rem', borderRadius: '6px' }} title="Editar">
                       <Pencil size={15} />
                     </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); handleEliminar(r.id); }}
-                      style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Eliminar Registro"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); handleEliminar(r.id); }} style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', padding: '0.4rem', borderRadius: '6px' }} title="Eliminar">
                       <Trash2 size={15} />
                     </button>
                   </td>
-                  <td data-label="Periodo:">
-                    <strong style={{color: 'var(--text-main)'}}>{r.mes}</strong> <span style={{color: 'var(--text-muted)'}}>{r.ano}</span>
-                  </td>
-                  <td data-label="Taller:">{r.taller}</td>
-                  <td data-label="Meta:" style={{textAlign:'right', color: 'var(--text-muted)'}}>
-                    {formatearMoneda(r.meta)}
-                  </td>
-                  <td data-label="Logrado:" style={{textAlign:'right', color: 'var(--text-main)', fontWeight: 600}}>
-                    {formatearMoneda(r.logrado)}
-                  </td>
-                  <td data-label="Cumplido:">
-                    <span style={{ 
-                      padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, 
-                      backgroundColor: r.porcentajeCumplido >= 100 ? 'rgba(0, 214, 180, 0.15)' : 'rgba(29, 140, 248, 0.15)', 
-                      color: r.porcentajeCumplido >= 100 ? 'var(--success)' : 'var(--primary)' 
-                    }}>
+                  <td><strong>{r.mes}</strong> <span style={{color: 'var(--text-muted)'}}>{r.ano}</span></td>
+                  <td>{r.taller}</td>
+                  <td style={{textAlign:'right'}}>{formatearMoneda(r.meta)}</td>
+                  <td style={{textAlign:'right'}}>{formatearMoneda(r.logrado)}</td>
+                  <td>
+                    <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: r.porcentajeCumplido >= 100 ? 'rgba(0, 214, 180, 0.15)' : 'rgba(29, 140, 248, 0.15)', color: r.porcentajeCumplido >= 100 ? 'var(--success)' : 'var(--primary)' }}>
                       {r.porcentajeCumplido.toFixed(2)}%
                     </span>
                   </td>
@@ -272,136 +282,68 @@ export const Registros = () => {
         </table>
       </div>
 
-      {/* MODAL DE DETALLES SUPER ELEGANTE */}
       {registroSeleccionado && (
-        <div style={{
-          position: 'fixed', inset: 0, backgroundColor: 'rgba(10, 11, 14, 0.9)', backdropFilter: 'blur(8px)',
-          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-        }}>
-          <div className="animate-in zoom-in-95 duration-300" style={{
-            backgroundColor: 'var(--bg-body)', borderRadius: '24px', width: '100%', maxWidth: '950px',
-            maxHeight: '92vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)',
-            boxShadow: '0 0 50px rgba(0,0,0,0.6)', overflow: 'hidden'
-          }}>
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(10, 11, 14, 0.9)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="animate-in zoom-in-95" style={{ backgroundColor: 'var(--bg-body)', borderRadius: '24px', width: '100%', maxWidth: '950px', maxHeight: '92vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', overflow: 'hidden' }}>
             
-            {/* CABECERA MODAL */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 2.5rem', borderBottom: '1px solid var(--border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)', letterSpacing: '0.5px' }}>
-                <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{registroSeleccionado.ano}</span> Detalles del Registro
-              </h2>
-              
+              <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)' }}>Detalles del Registro</h2>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <button className="btn btn-primary" onClick={() => handleEditar(registroSeleccionado)} style={{ borderRadius: '10px' }}>
-                  <Pencil size={16} /> Editar
-                </button>
-                <button className="btn btn-danger" onClick={() => handleEliminar(registroSeleccionado.id)} style={{ borderRadius: '10px' }}>
-                  <Trash2 size={16} /> Eliminar
-                </button>
-                <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border)', margin: '0 0.5rem' }}></div>
-                <button onClick={() => setRegistroSeleccionado(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={24} />
-                </button>
+                <button className="btn btn-primary" onClick={() => handleEditar(registroSeleccionado)}><Pencil size={16} /> Editar</button>
+                <button className="btn btn-danger" onClick={() => handleEliminar(registroSeleccionado.id)}><Trash2 size={16} /> Eliminar</button>
+                <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border)' }}></div>
+                <button onClick={() => { setRegistroSeleccionado(null); setMostrarFormDetalle(false); setDetalleEditandoId(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)' }}><X size={24} /></button>
               </div>
             </div>
 
-            {/* CUERPO MODAL */}
             <div style={{ padding: '2.5rem', overflowY: 'auto' }}>
-              
-              {/* GRID SUPERIOR DE KPIS */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2.5rem', marginBottom: '3.5rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Fecha de Registro:</label>
-                  <div style={{ fontSize: '1.15rem', color: 'var(--text-main)', fontWeight: 500 }}>{registroSeleccionado.mes} {registroSeleccionado.ano}</div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Sucursal / Taller:</label>
-                  <div style={{ fontSize: '1.15rem', color: 'var(--primary)', fontWeight: 700 }}>{registroSeleccionado.taller}</div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Estatus:</label>
-                  <span style={{ 
-                    padding: '6px 14px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, 
-                    backgroundColor: registroSeleccionado.porcentajeCumplido >= 100 ? 'rgba(0, 214, 180, 0.1)' : 'rgba(255, 141, 114, 0.1)',
-                    color: registroSeleccionado.porcentajeCumplido >= 100 ? 'var(--success)' : 'var(--danger)',
-                    border: `1px solid ${registroSeleccionado.porcentajeCumplido >= 100 ? 'rgba(0,214,180,0.2)' : 'rgba(255,141,114,0.2)'}`
-                  }}>
-                    {registroSeleccionado.porcentajeCumplido >= 100 ? 'LOGRADO' : 'PENDIENTE'}
-                  </span>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Meta Inicial:</label>
-                  <div style={{ fontSize: '1.35rem', color: 'var(--text-main)', fontWeight: 600 }}>{formatearMoneda(registroSeleccionado.meta)}</div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Logrado:</label>
-                  <div style={{ fontSize: '1.35rem', color: 'var(--primary)', fontWeight: 700 }}>{formatearMoneda(registroSeleccionado.logrado)}</div>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Trabajo Pendiente:</label>
-                  <div style={{ fontSize: '1.35rem', color: 'var(--danger)', fontWeight: 600 }}>{formatearMoneda(registroSeleccionado.faltante)}</div>
-                </div>
+                {/* KPIs del Modal (Fecha, Taller, Estatus, Meta, Logrado, Faltante) */}
+                <div><label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fecha:</label><div style={{ fontSize: '1.15rem' }}>{registroSeleccionado.mes} {registroSeleccionado.ano}</div></div>
+                <div><label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Taller:</label><div style={{ fontSize: '1.15rem', color: 'var(--primary)', fontWeight: 700 }}>{registroSeleccionado.taller}</div></div>
+                <div><label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Estatus:</label><br/><span style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 800, backgroundColor: registroSeleccionado.porcentajeCumplido >= 100 ? 'rgba(0, 214, 180, 0.1)' : 'rgba(255, 141, 114, 0.1)', color: registroSeleccionado.porcentajeCumplido >= 100 ? 'var(--success)' : 'var(--danger)' }}>{registroSeleccionado.porcentajeCumplido >= 100 ? 'LOGRADO' : 'PENDIENTE'}</span></div>
+                <div><label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Meta:</label><div style={{ fontSize: '1.35rem' }}>{formatearMoneda(registroSeleccionado.meta)}</div></div>
+                <div><label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Logrado:</label><div style={{ fontSize: '1.35rem', color: 'var(--primary)', fontWeight: 700 }}>{formatearMoneda(registroSeleccionado.logrado)}</div></div>
+                <div><label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Pendiente:</label><div style={{ fontSize: '1.35rem', color: 'var(--danger)' }}>{formatearMoneda(registroSeleccionado.faltante)}</div></div>
               </div>
 
-              {/* SECCIÓN DE OPERACIONES */}
               <div style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '20px', border: '1px solid var(--border)', padding: '2rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                  <h3 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: 'var(--text-main)' }}>Operaciones Relacionadas</h3>
-                  <button 
-                    onClick={() => setMostrarFormDetalle(!mostrarFormDetalle)}
-                    className="btn btn-outline" 
-                    style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', borderRadius: '10px', color: 'var(--primary)', borderColor: 'var(--primary)' }}
-                  >
+                  <h3 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700 }}>Operaciones Relacionadas</h3>
+                  <button onClick={toggleFormDetalle} className="btn btn-outline" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', borderRadius: '10px', color: 'var(--primary)', borderColor: 'var(--primary)' }}>
                     {mostrarFormDetalle ? <X size={14} /> : <Plus size={14} />} {mostrarFormDetalle ? 'Cancelar' : 'Agregar Operación'}
                   </button>
                 </div>
 
-                {/* FORMULARIO INLINE DE AGREGAR DETALLE */}
                 {mostrarFormDetalle && (
-                  <div className="animate-in slide-in-from-top-2" style={{ 
-                    display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1rem', 
-                    padding: '1.25rem', backgroundColor: 'var(--bg-body)', borderRadius: '12px', 
-                    border: '1px solid var(--primary)', marginBottom: '1.5rem', alignItems: 'end'
-                  }}>
-                    <div className="form-group" style={{marginBottom:0}}>
-                      <label className="form-label" style={{fontSize:'0.7rem'}}>Desde</label>
-                      <input type="date" className="form-control" value={nuevoDesde} onChange={e => setNuevoDesde(e.target.value)} />
-                    </div>
-                    <div className="form-group" style={{marginBottom:0}}>
-                      <label className="form-label" style={{fontSize:'0.7rem'}}>Hasta</label>
-                      <input type="date" className="form-control" value={nuevoHasta} onChange={e => setNuevoHasta(e.target.value)} />
-                    </div>
-                    <div className="form-group" style={{marginBottom:0}}>
-                      <label className="form-label" style={{fontSize:'0.7rem'}}>Monto Vendido</label>
-                      <input type="number" className="form-control" value={nuevoVendido || ''} onChange={e => setNuevoVendido(Number(e.target.value))} />
-                    </div>
-                    <button className="btn btn-primary" onClick={agregarDetalleRapido} style={{padding:'0.65rem 1.25rem', borderRadius:'8px'}}>
-                      <Save size={16} />
-                    </button>
+                  <div className="animate-in slide-in-from-top-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '1rem', padding: '1.25rem', backgroundColor: 'var(--bg-body)', borderRadius: '12px', border: '1px solid var(--primary)', marginBottom: '1.5rem', alignItems: 'end' }}>
+                    <div style={{display:'flex', flexDirection:'column'}}><label style={{fontSize:'0.7rem'}}>Desde</label><input type="date" className="form-control" value={nuevoDesde} onChange={e => setNuevoDesde(e.target.value)} /></div>
+                    <div style={{display:'flex', flexDirection:'column'}}><label style={{fontSize:'0.7rem'}}>Hasta</label><input type="date" className="form-control" value={nuevoHasta} onChange={e => setNuevoHasta(e.target.value)} /></div>
+                    <div style={{display:'flex', flexDirection:'column'}}><label style={{fontSize:'0.7rem'}}>Monto</label><input type="number" className="form-control" value={nuevoVendido || ''} onChange={e => setNuevoVendido(Number(e.target.value))} /></div>
+                    <button className="btn btn-primary" onClick={guardarDetalleRapido} title={detalleEditandoId ? "Actualizar" : "Guardar"}><Save size={16} /></button>
                   </div>
                 )}
                 
                 <table className="table" style={{ width: '100%' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '1rem 0.5rem', width: '60px', color: 'var(--text-muted)' }}>#</th>
-                      <th style={{ padding: '1rem 0.5rem', textAlign: 'left' }}>FECHA DESDE</th>
-                      <th style={{ padding: '1rem 0.5rem', textAlign: 'left' }}>FECHA HASTA</th>
-                      <th style={{ padding: '1rem 0.5rem', textAlign: 'right' }}>MONTO VENDIDO</th>
-                      <th style={{ padding: '1rem 0.5rem', textAlign: 'center' }}>% APORTE</th>
-                    </tr>
+                    <tr><th style={{ width: '60px' }}>#</th><th>FECHA DESDE</th><th>FECHA HASTA</th><th style={{ textAlign: 'right' }}>MONTO</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'center' }}>ACCIONES</th></tr>
                   </thead>
                   <tbody>
                     {registroSeleccionado.detalles.length === 0 ? (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>No hay operaciones registradas.</td></tr>
+                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay operaciones.</td></tr>
                     ) : (
                       registroSeleccionado.detalles.map((det, idx) => (
-                        <tr key={det.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                          <td style={{ padding: '1.25rem 0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>{String(idx + 1).padStart(3, '0')}</td>
-                          <td style={{ padding: '1.25rem 0.5rem', fontSize: '0.9rem' }}>{formatearFecha(det.desde)}</td>
-                          <td style={{ padding: '1.25rem 0.5rem', fontSize: '0.9rem' }}>{formatearFecha(det.hasta)}</td>
-                          <td style={{ padding: '1.25rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(det.vendido)}</td>
-                          <td style={{ padding: '1.25rem 0.5rem', textAlign: 'center' }}>
-                            <span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{det.porcentajeAporte.toFixed(2)}%</span>
+                        <tr key={det.id} style={{ backgroundColor: detalleEditandoId === det.id ? 'var(--bg-highlight)' : 'transparent' }}>
+                          <td>{String(idx + 1).padStart(3, '0')}</td>
+                          <td>{formatearFecha(det.desde)}</td>
+                          <td>{formatearFecha(det.hasta)}</td>
+                          <td style={{ textAlign: 'right' }}>{formatearMoneda(det.vendido)}</td>
+                          <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--primary)', fontWeight: 800 }}>{det.porcentajeAporte.toFixed(2)}%</span></td>
+                          <td style={{ textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                              <button onClick={() => iniciarEdicionDetalle(det)} style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', padding: '0.4rem', borderRadius: '6px' }} title="Editar"><Pencil size={14} /></button>
+                              <button onClick={() => eliminarDetalleRapido(det.id)} style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', padding: '0.4rem', borderRadius: '6px' }} title="Eliminar"><Trash2 size={14} /></button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -409,7 +351,6 @@ export const Registros = () => {
                   </tbody>
                 </table>
               </div>
-
             </div>
           </div>
         </div>
