@@ -1,7 +1,7 @@
 import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { formatearFecha, formatearMoneda, MESES } from '../utils/formatters';
-import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle } from 'lucide-react';
+import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer } from 'lucide-react';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
@@ -25,20 +25,16 @@ export const Dashboard = () => {
   const [is3DMensual, setIs3DMensual] = useState<boolean>(true);
   const [hoveredMes, setHoveredMes] = useState<string | null>(null);
 
+  // Fecha actual para el reporte PDF
+  const fechaReporte = useMemo(() => {
+    const opciones: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date().toLocaleDateString('es-ES', opciones);
+  }, []);
+
   // Listas únicas para selectores
   const anosDisponibles = useMemo(() => Array.from(new Set(registros.map(r => r.ano.toString()))).sort(), [registros]);
-  
-  const talleresDisponibles = useMemo(() => {
-    return [...talleres]
-      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
-      .map(t => t.nombre);
-  }, [talleres]);
-
-  // Buscar el logo del taller seleccionado
-  const tallerActivo = useMemo(() => {
-    if (filtroTaller === 'Todos') return null;
-    return talleres.find(t => t.nombre === filtroTaller) || null;
-  }, [filtroTaller, talleres]);
+  const talleresDisponibles = useMemo(() => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)).map(t => t.nombre), [talleres]);
+  const tallerActivo = useMemo(() => filtroTaller === 'Todos' ? null : talleres.find(t => t.nombre === filtroTaller) || null, [filtroTaller, talleres]);
 
   // Lógica de Filtrado Principal
   const registrosFiltrados = useMemo(() => {
@@ -61,111 +57,62 @@ export const Dashboard = () => {
 
   // Análisis de Operaciones para el Gráfico Principal
   const analisisOperaciones = useMemo(() => {
-    const listaOperaciones = registrosFiltrados.flatMap(r => 
-      r.detalles.map(d => ({
-        ...d,
-        tallerPadre: r.taller
-      }))
-    );
-
+    const listaOperaciones = registrosFiltrados.flatMap(r => r.detalles.map(d => ({ ...d, tallerPadre: r.taller })));
     const totalVendido = listaOperaciones.reduce((acc, op) => acc + op.vendido, 0);
     const metaTotal = registrosFiltrados.reduce((acc, r) => acc + r.meta, 0);
     const faltante = Math.max(metaTotal - totalVendido, 0);
 
-    // Si no hay ventas ni meta, no mostramos gráfico
     if (totalVendido === 0 && metaTotal === 0) return null;
 
-    // La base de los porcentajes ahora es la Meta (o el total vendido si superó la meta)
     const baseCalculo = Math.max(metaTotal, totalVendido);
-
     const colores = ['#1d8cf8', '#00d6b4', '#ffbc11', '#d048b6', '#51cbce', '#8965e0', '#2dce89'];
-
     let acumuladoGrados = 0;
     
-    // Mapeamos las operaciones reales (Ventas)
     const operacionesConSectores = listaOperaciones.map((op, index) => {
       const porcentajeOp = baseCalculo > 0 ? (op.vendido / baseCalculo) * 100 : 0;
-      const porcentajeStr = porcentajeOp.toFixed(2);
       const grados = (porcentajeOp / 100) * 360;
       const midAngle = acumuladoGrados + (grados / 2);
       const color = colores[index % colores.length];
-      
       const inicio = acumuladoGrados;
       acumuladoGrados += grados;
-      const gradientPart = `${color} ${inicio}deg ${acumuladoGrados}deg`;
-
-      return {
-        ...op,
-        isFaltante: false,
-        semanaIndex: String(index + 1), // CORRECCIÓN TS: Forzamos a que sea un string
-        porcentajeStr,
-        midAngle,
-        color,
-        gradientPart
-      };
+      return { ...op, isFaltante: false, semanaIndex: String(index + 1), porcentajeStr: porcentajeOp.toFixed(2), midAngle, color, gradientPart: `${color} ${inicio}deg ${acumuladoGrados}deg` };
     });
 
-    // Añadimos el sector "Faltante" si aún no se ha cumplido la meta
     if (faltante > 0) {
       const porcentajeFaltante = (faltante / baseCalculo) * 100;
       const gradosFaltante = (porcentajeFaltante / 100) * 360;
       const midAngleFaltante = acumuladoGrados + (gradosFaltante / 2);
-      const colorFaltante = '#ff4c4c'; // Rojo para el faltante
-      
+      const colorFaltante = '#ff4c4c'; 
       const inicioFaltante = acumuladoGrados;
       acumuladoGrados += gradosFaltante;
-      const gradientPartFaltante = `${colorFaltante} ${inicioFaltante}deg ${acumuladoGrados}deg`;
-
       operacionesConSectores.push({
-        id: 'faltante-item',
-        isFaltante: true,
-        semanaIndex: '-', // Ahora concuerda porque ambos son strings
-        desde: '-',
-        hasta: '-',
-        vendido: faltante,
-        porcentajeStr: porcentajeFaltante.toFixed(2),
-        midAngle: midAngleFaltante,
-        color: colorFaltante,
-        gradientPart: gradientPartFaltante,
-        tallerPadre: '-', // CORRECCIÓN TS: Añadimos las propiedades faltantes
-        porcentajeAporte: 0 // CORRECCIÓN TS: Añadimos las propiedades faltantes
+        id: 'faltante-item', isFaltante: true, semanaIndex: '-', desde: '-', hasta: '-', vendido: faltante,
+        porcentajeStr: porcentajeFaltante.toFixed(2), midAngle: midAngleFaltante, color: colorFaltante,
+        gradientPart: `${colorFaltante} ${inicioFaltante}deg ${acumuladoGrados}deg`, tallerPadre: '-', porcentajeAporte: 0
       });
     }
 
-    return {
-      operaciones: operacionesConSectores,
-      gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`,
-      totalVendido
-    };
+    return { operaciones: operacionesConSectores, gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`, totalVendido };
   }, [registrosFiltrados]);
 
   // Lógica de Reporte Mensual
   const reporteMensual = useMemo(() => {
     const datosPorMes = MESES.map(mes => {
-      const registrosMes = registros.filter(r => {
-        const matchAno = filtroAno === 'Todos' || r.ano.toString() === filtroAno;
-        const matchTaller = filtroTaller === 'Todos' || r.taller === filtroTaller;
-        return r.mes === mes && matchAno && matchTaller;
-      });
-
+      const registrosMes = registros.filter(r => (filtroAno === 'Todos' || r.ano.toString() === filtroAno) && (filtroTaller === 'Todos' || r.taller === filtroTaller) && r.mes === mes);
       const meta = registrosMes.reduce((acc, r) => acc + r.meta, 0);
       const ventas = registrosMes.reduce((acc, r) => acc + r.logrado, 0);
       const porCumplir = Math.max(meta - ventas, 0);
-      
-      const pctVentas = meta > 0 ? (ventas / meta) * 100 : 0;
-      const pctPorCumplir = meta > 0 ? (porCumplir / meta) * 100 : 0;
-
-      return { mes, meta, ventas, pctVentas, porCumplir, pctPorCumplir };
+      return { 
+        mes, 
+        meta, 
+        ventas, 
+        pctVentas: meta > 0 ? (ventas / meta) * 100 : 0, 
+        porCumplir,
+        pctPorCumplir: meta > 0 ? (porCumplir / meta) * 100 : 0
+      };
     });
-
-    const totales = {
-      meta: datosPorMes.reduce((acc, m) => acc + m.meta, 0),
-      ventas: datosPorMes.reduce((acc, m) => acc + m.ventas, 0),
-      porCumplir: 0
-    };
-    totales.porCumplir = Math.max(totales.meta - totales.ventas, 0);
-
-    return { datosPorMes, totales };
+    const totales = { meta: datosPorMes.reduce((acc, m) => acc + m.meta, 0), ventas: datosPorMes.reduce((acc, m) => acc + m.ventas, 0) };
+    return { datosPorMes, totales: { ...totales, porCumplir: Math.max(totales.meta - totales.ventas, 0) } };
   }, [registros, filtroAno, filtroTaller]);
 
   // Análisis de Datos para el Gráfico Mensual
@@ -175,83 +122,49 @@ export const Dashboard = () => {
 
     const totalVentasMensuales = mesesConVentas.reduce((acc, d) => acc + d.ventas, 0);
     const colores = ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849'];
-
     let acumuladoGrados = 0;
 
     const operacionesConSectores = mesesConVentas.map((op, index) => {
       const porcentajeOp = (op.ventas / totalVentasMensuales) * 100;
-      const porcentajeStr = porcentajeOp.toFixed(2);
       const grados = (porcentajeOp / 100) * 360;
-      const midAngle = acumuladoGrados + (grados / 2);
       const color = colores[index % colores.length];
-
       const inicio = acumuladoGrados;
       acumuladoGrados += grados;
-      const gradientPart = `${color} ${inicio}deg ${acumuladoGrados}deg`;
-
-      return {
-        id: op.mes,
-        label: op.mes,
-        vendido: op.ventas,
-        porcentajeStr,
-        midAngle,
-        color,
-        gradientPart
-      };
+      return { id: op.mes, label: op.mes, vendido: op.ventas, porcentajeStr: porcentajeOp.toFixed(2), midAngle: inicio + (grados / 2), color, gradientPart: `${color} ${inicio}deg ${acumuladoGrados}deg` };
     });
 
-    return {
-      operaciones: operacionesConSectores,
-      gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`,
-      totalVendido: totalVentasMensuales
-    };
+    return { operaciones: operacionesConSectores, gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`, totalVendido: totalVentasMensuales };
   }, [reporteMensual]);
 
-  // --- MOTOR RENDERIZADOR DINÁMICO DE GRÁFICOS (SUPERIOR) ---
+  // --- RENDERIZADOR GRÁFICO SUPERIOR (WEB ORIGINAL) ---
   const renderGrafico = () => {
     if (!analisisOperaciones) return <p className="detail-text" style={{ textAlign: 'center', padding: '3rem', fontStyle: 'italic' }}>Sin datos para graficar.</p>;
-
     const { operaciones, gradient } = analisisOperaciones;
     const maxVendido = Math.max(...operaciones.map(o => o.vendido));
 
     if (tipoGrafico === 'torta' || tipoGrafico === 'anillo') {
-      const isDonut = tipoGrafico === 'anillo';
-      const mascaraDonut = isDonut ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
-
+      const mascaraDonut = tipoGrafico === 'anillo' ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
       return (
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3D ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '320px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3D ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '260px' }}>
           {is3D ? (
             <div className="pie-chart-wrapper" style={{ margin: 0 }}>
               <div className="pie-chart-3d" style={{ width: '250px', height: '250px', position: 'relative', transformStyle: 'preserve-3d', transform: 'rotateX(60deg) rotateZ(15deg)', transition: 'transform 0.6s' }}>
                 {Array.from({ length: 25 }).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: 'absolute', inset: 0, borderRadius: '50%',
-                      background: gradient,
-                      transform: `translateZ(-${i}px)`,
-                      WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut,
-                      filter: i > 0 ? 'brightness(0.65) contrast(1.2)' : 'none',
-                      opacity: hoveredOp ? 0.8 : 1
-                    } as React.CSSProperties}
-                  >
+                  <div key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: gradient, transform: `translateZ(-${i}px)`, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, filter: i > 0 ? 'brightness(0.65) contrast(1.2)' : 'none', opacity: hoveredOp ? 0.8 : 1 } as React.CSSProperties}>
                     {i === 24 && <div className="pie-shadow" style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', filter: 'blur(20px)', transform: 'translateZ(-5px)' }}></div>}
                   </div>
                 ))}
               </div>
             </div>
-          ) : (
-            <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} />
-          )}
-
+          ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} /> )}
+          
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
             {operaciones.map(op => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
-              const radioBase = is3D ? 195 : 175; // Distancia aumentada para separar tarjetas
+              const radioBase = is3D ? 160 : 145; 
               const rawX = Math.cos(rad) * radioBase;
               const rawY = Math.sin(rad) * radioBase;
-              let finalX = rawX;
-              let finalY = rawY;
+              let finalX = rawX; let finalY = rawY;
 
               if (is3D) {
                 const ySquashed = rawY * 0.5;
@@ -265,13 +178,7 @@ export const Dashboard = () => {
 
               return (
                 <div key={`hablador-${op.id}`} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
-                  style={{
-                    position: 'absolute', left: `${finalX}px`, top: `${finalY}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`,
-                    backgroundColor: 'var(--bg-panel)', border: `1px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px',
-                    boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100,
-                    opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer'
-                  }}
+                  style={{ position: 'absolute', left: `${finalX}px`, top: `${finalY}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `1px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                 >
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</span>
                   <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -290,15 +197,9 @@ export const Dashboard = () => {
             const altura = maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0;
             const isHovered = hoveredOp === op.id;
             const isDimmed = hoveredOp !== null && !isHovered;
-
             return (
               <div key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
-                style={{
-                  width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative',
-                  borderRadius: is3D ? '2px' : '4px 4px 0 0', boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none',
-                  backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none',
-                  opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer'
-              }}>
+                style={{ width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3D ? '2px' : '4px 4px 0 0', boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{formatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -311,32 +212,21 @@ export const Dashboard = () => {
     }
 
     if (tipoGrafico === 'lineas') {
-      const puntosLinea = operaciones.map((op, i) => {
-        const x = (i / Math.max(1, operaciones.length - 1)) * 100;
-        const y = 100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0);
-        return `${x},${y}`;
-      }).join(' ');
-
+      const puntosLinea = operaciones.map((op, i) => `${(i / Math.max(1, operaciones.length - 1)) * 100},${100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0)}`).join(' ');
       return (
         <div style={{ height: '240px', width: '100%', padding: '1rem', marginTop: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', transform: is3D ? 'perspective(1000px) rotateX(30deg) rotateY(-15deg)' : 'none', transformStyle: 'preserve-3d', transition: 'transform 0.6s', position: 'relative' }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible', position: 'absolute', inset: 0 }}>
-            {is3D && <filter id="shadow"><feDropShadow dx="0" dy="15" stdDeviation="5" floodColor="rgba(0,0,0,0.7)" /></filter>}
-            <polyline points={puntosLinea} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" filter={is3D ? "url(#shadow)" : "none"} vectorEffect="non-scaling-stroke" />
+            {is3D && <filter id="shadow-line"><feDropShadow dx="0" dy="15" stdDeviation="5" floodColor="rgba(0,0,0,0.7)" /></filter>}
+            <polyline points={puntosLinea} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" filter={is3D ? "url(#shadow-line)" : "none"} vectorEffect="non-scaling-stroke" />
           </svg>
-          
           {operaciones.map((op, i) => {
             const x = (i / Math.max(1, operaciones.length - 1)) * 100;
             const y = 100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0);
             const isHovered = hoveredOp === op.id;
             const isDimmed = hoveredOp !== null && !isHovered;
-
             return (
               <div key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
-                style={{
-                  position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%',
-                  transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)',
-                  boxShadow: is3D ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer'
-              }}>
+                style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%', transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)', boxShadow: is3D ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{formatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -349,51 +239,35 @@ export const Dashboard = () => {
     }
   };
 
-  // --- MOTOR RENDERIZADOR DINÁMICO DE GRÁFICOS (INFERIOR/MENSUAL) ---
+  // --- RENDERIZADOR GRÁFICO INFERIOR (WEB ORIGINAL) ---
   const renderGraficoMensual = () => {
     if (!datosGraficoMensual) return <p className="detail-text" style={{ textAlign: 'center', padding: '3rem', fontStyle: 'italic' }}>Sin datos mensuales para graficar.</p>;
-
     const { operaciones, gradient } = datosGraficoMensual;
     const maxVendido = Math.max(...operaciones.map(o => o.vendido));
 
     if (tipoGraficoMensual === 'torta' || tipoGraficoMensual === 'anillo') {
-      const isDonut = tipoGraficoMensual === 'anillo';
-      const mascaraDonut = isDonut ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
-
+      const mascaraDonut = tipoGraficoMensual === 'anillo' ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
       return (
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3DMensual ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '320px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3DMensual ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '260px' }}>
           {is3DMensual ? (
             <div className="pie-chart-wrapper" style={{ margin: 0 }}>
               <div className="pie-chart-3d" style={{ width: '250px', height: '250px', position: 'relative', transformStyle: 'preserve-3d', transform: 'rotateX(60deg) rotateZ(15deg)', transition: 'transform 0.6s' }}>
                 {Array.from({ length: 25 }).map((_, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: 'absolute', inset: 0, borderRadius: '50%',
-                      background: gradient,
-                      transform: `translateZ(-${i}px)`,
-                      WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut,
-                      filter: i > 0 ? 'brightness(0.65) contrast(1.2)' : 'none',
-                      opacity: hoveredMes ? 0.8 : 1
-                    } as React.CSSProperties}
-                  >
+                  <div key={i} style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: gradient, transform: `translateZ(-${i}px)`, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, filter: i > 0 ? 'brightness(0.65) contrast(1.2)' : 'none', opacity: hoveredMes ? 0.8 : 1 } as React.CSSProperties}>
                     {i === 24 && <div className="pie-shadow" style={{ position: 'absolute', inset: '-5px', borderRadius: '50%', background: 'rgba(0,0,0,0.5)', filter: 'blur(20px)', transform: 'translateZ(-5px)' }}></div>}
                   </div>
                 ))}
               </div>
             </div>
-          ) : (
-            <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} />
-          )}
-
+          ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} /> )}
+          
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
             {operaciones.map(op => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
-              const radioBase = is3DMensual ? 195 : 175; // Distancia aumentada para separar tarjetas
+              const radioBase = is3DMensual ? 160 : 145; 
               const rawX = Math.cos(rad) * radioBase;
               const rawY = Math.sin(rad) * radioBase;
-              let finalX = rawX;
-              let finalY = rawY;
+              let finalX = rawX; let finalY = rawY;
 
               if (is3DMensual) {
                 const ySquashed = rawY * 0.5;
@@ -407,13 +281,7 @@ export const Dashboard = () => {
 
               return (
                 <div key={`hablador-mes-${op.id}`} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
-                  style={{
-                    position: 'absolute', left: `${finalX}px`, top: `${finalY}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`,
-                    backgroundColor: 'var(--bg-panel)', border: `1px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px',
-                    boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100,
-                    opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer'
-                  }}
+                  style={{ position: 'absolute', left: `${finalX}px`, top: `${finalY}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `1px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                 >
                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</span>
                   <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -432,15 +300,9 @@ export const Dashboard = () => {
             const altura = maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0;
             const isHovered = hoveredMes === op.id;
             const isDimmed = hoveredMes !== null && !isHovered;
-
             return (
               <div key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
-                style={{
-                  width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative',
-                  borderRadius: is3DMensual ? '2px' : '4px 4px 0 0', boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none',
-                  backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none',
-                  opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer'
-              }}>
+                style={{ width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3DMensual ? '2px' : '4px 4px 0 0', boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{formatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -453,32 +315,21 @@ export const Dashboard = () => {
     }
 
     if (tipoGraficoMensual === 'lineas') {
-      const puntosLinea = operaciones.map((op, i) => {
-        const x = (i / Math.max(1, operaciones.length - 1)) * 100;
-        const y = 100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0);
-        return `${x},${y}`;
-      }).join(' ');
-
+      const puntosLinea = operaciones.map((op, i) => `${(i / Math.max(1, operaciones.length - 1)) * 100},${100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0)}`).join(' ');
       return (
         <div style={{ height: '240px', width: '100%', padding: '1rem', marginTop: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)', borderLeft: '1px solid var(--border)', transform: is3DMensual ? 'perspective(1000px) rotateX(30deg) rotateY(-15deg)' : 'none', transformStyle: 'preserve-3d', transition: 'transform 0.6s', position: 'relative' }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible', position: 'absolute', inset: 0 }}>
-            {is3DMensual && <filter id="shadow-mensual"><feDropShadow dx="0" dy="15" stdDeviation="5" floodColor="rgba(0,0,0,0.7)" /></filter>}
-            <polyline points={puntosLinea} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" filter={is3DMensual ? "url(#shadow-mensual)" : "none"} vectorEffect="non-scaling-stroke" />
+            {is3DMensual && <filter id="shadow-mensual-lineas"><feDropShadow dx="0" dy="15" stdDeviation="5" floodColor="rgba(0,0,0,0.7)" /></filter>}
+            <polyline points={puntosLinea} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" filter={is3DMensual ? "url(#shadow-mensual-lineas)" : "none"} vectorEffect="non-scaling-stroke" />
           </svg>
-          
           {operaciones.map((op, i) => {
             const x = (i / Math.max(1, operaciones.length - 1)) * 100;
             const y = 100 - (maxVendido > 0 ? (op.vendido / maxVendido) * 85 : 0);
             const isHovered = hoveredMes === op.id;
             const isDimmed = hoveredMes !== null && !isHovered;
-
             return (
               <div key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
-                style={{
-                  position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%',
-                  transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)',
-                  boxShadow: is3DMensual ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer'
-              }}>
+                style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%', transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)', boxShadow: is3DMensual ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{formatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -492,302 +343,246 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="animate-in fade-in">
-      <div className="page-header">
-        <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+    <>
+      {/* MAGIA CSS: ESTILOS QUE SEPARAN LA WEB DE LA IMPRESIÓN */}
+      <style>{`
+        @media screen {
+          .print-only-report { display: none !important; }
+        }
+        
+        @media print {
+          @page { size: A4 portrait; margin: 15mm 10mm; }
           
-          {tallerActivo && tallerActivo.logo ? (
-            <div style={{ 
-              width: '180px', height: '70px', borderRadius: '8px', overflow: 'hidden', 
-              border: '1px solid var(--border)', backgroundColor: 'var(--bg-panel)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              padding: '0.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)'
-            }}>
-              <img src={tallerActivo.logo} alt={tallerActivo.nombre} style={{ 
-                maxWidth: '100%', maxHeight: '100%', objectFit: 'contain'
-              }} />
+          /* RESETEAR CONTENEDORES WEB PARA LA IMPRESIÓN */
+          html, body, #root, .app-layout, .main-content {
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+            position: static !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+
+          /* OCULTAR TODO EL DASHBOARD WEB */
+          .web-only-dashboard, .sidebar, .top-nav { display: none !important; }
+          
+          /* MOSTRAR SOLO EL REPORTE ESTÁTICO */
+          .print-only-report { 
+            display: block !important; 
+            width: 100% !important;
+            font-family: Arial, Helvetica, sans-serif !important;
+          }
+
+          /* ESTILOS EXCLUSIVOS DEL REPORTE IMPRESO */
+          .print-only-report .report-header {
+            display: flex !important; justify-content: space-between !important; align-items: flex-end !important;
+            background-color: #1e293b !important; color: #ffffff !important;
+            padding: 25px !important; margin-bottom: 25px !important; border-radius: 12px !important;
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+          }
+          .print-only-report .report-header h1 { color: #ffffff !important; font-size: 24pt !important; margin: 0 !important; }
+          .print-only-report .report-header p { color: #cbd5e1 !important; }
+
+          .print-only-report .section-executive-title {
+            display: block !important; font-size: 13pt !important; font-weight: 800 !important; color: #1e293b !important;
+            text-transform: uppercase !important; margin: 25px 0 15px 0 !important; border-left: 5px solid #1d8cf8 !important;
+            padding-left: 10px !important; page-break-after: avoid !important;
+          }
+          .print-only-report .kpi-print-row {
+            display: flex !important; gap: 15px !important; margin-bottom: 25px !important; page-break-inside: avoid !important;
+          }
+          .print-only-report .kpi-item {
+            flex: 1 !important; border: 1px solid #e2e8f0 !important; padding: 15px !important; text-align: center !important;
+            background: #f8fafc !important; border-radius: 8px !important;
+          }
+          .print-only-report .kpi-val { font-size: 14pt !important; font-weight: 900 !important; margin-top: 5px !important; }
+          .print-only-report .card-print {
+            border: 1px solid #e2e8f0 !important; border-radius: 10px !important; margin-bottom: 25px !important;
+            padding: 15px !important; page-break-inside: avoid !important;
+          }
+          .print-only-report table { width: 100% !important; border-collapse: collapse !important; }
+          .print-only-report th { background: #f1f5f9 !important; padding: 8px !important; border-bottom: 2px solid #cbd5e1 !important; font-size: 9pt !important; text-align: left; }
+          .print-only-report td { padding: 8px !important; border-bottom: 1px solid #f1f5f9 !important; font-size: 9pt !important; }
+          .print-only-report tr:nth-child(even) { background: #fcfcfc !important; }
+          .print-only-report .chart-print-box { position: relative !important; height: 280px !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 15px 0 !important; }
+          .print-only-report .page-break { page-break-before: always !important; height: 1px !important; display: block !important; margin: 0 !important; }
+          
+          * { scrollbar-width: none !important; }
+          ::-webkit-scrollbar { display: none !important; }
+        }
+      `}</style>
+
+      {/* =========================================================================
+          1. VISTA WEB ORIGINAL (INTACTA E INTERACTIVA)
+      ========================================================================= */}
+      <div className="web-only-dashboard animate-in fade-in">
+        <div className="page-header">
+          <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            {tallerActivo && tallerActivo.logo ? (
+              <div style={{ width: '180px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)', backgroundColor: 'var(--bg-panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '0.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}>
+                <img src={tallerActivo.logo} alt={tallerActivo.nombre} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              </div>
+            ) : (
+              <PieIcon size={32} color="var(--primary)" />
+            )}
+            <div>
+              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Executive Dashboard {tallerActivo ? `- ${tallerActivo.nombre}` : ''}</h2>
+              <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Visualización Dinámica e Inteligencia de Datos</p>
             </div>
-          ) : (
-            <PieIcon size={32} color="var(--primary)" />
-          )}
-          
-          <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Executive Dashboard {tallerActivo ? `- ${tallerActivo.nombre}` : ''}</h2>
-            <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Visualización Dinámica e Inteligencia de Datos</p>
+          </div>
+          <button onClick={() => window.print()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600 }}>
+            <Printer size={18} /> Exportar PDF
+          </button>
+        </div>
+
+        <div className="filter-bar">
+          <div className="filter-group"><label>Año</label><select value={filtroAno} onChange={(e) => setFiltroAno(e.target.value)}><option value="Todos">Todos los años</option>{anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}</select></div>
+          <div className="filter-group"><label>Mes</label><select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)}><option value="Todos">Todos los meses</option>{MESES.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
+          <div className="filter-group"><label>Taller</label><select value={filtroTaller} onChange={(e) => setFiltroTaller(e.target.value)}><option value="Todos">Todos los talleres</option>{talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+        </div>
+
+        <div className="kpi-grid">
+          <div className="kpi-card meta"><div className="kpi-title">Meta Total <Target size={16} /></div><div className="kpi-value">{formatearMoneda(kpis.metaTotal)}</div></div>
+          <div className="kpi-card logrado"><div className="kpi-title">Logrado <TrendingUp size={16} color="var(--primary)" /></div><div className="kpi-value" style={{ color: 'var(--primary)' }}>{formatearMoneda(kpis.logradoTotal)}</div></div>
+          <div className="kpi-card faltante"><div className="kpi-title">Faltante <AlertTriangle size={16} color="var(--danger)" /></div><div className="kpi-value" style={{ color: 'var(--danger)' }}>{formatearMoneda(kpis.faltanteTotal)}</div></div>
+          <div className="kpi-card">
+            <div className="circular-progress-container">
+              <div><div className="kpi-title">Cumplido</div><div className="kpi-subtitle">Total</div></div>
+              <div className="circular-progress" style={{ background: `conic-gradient(${kpis.porcentajeGlobal >= 100 ? 'var(--success)' : 'var(--primary)'} ${kpis.porcentajeGlobal * 3.6}deg, var(--bg-body) 0deg)` }}><span className="circular-progress-value">{kpis.porcentajeGlobal.toFixed(2)}%</span></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="filter-bar">
-        <div className="filter-group">
-          <label>Año</label>
-          <select value={filtroAno} onChange={(e) => setFiltroAno(e.target.value)}>
-            <option value="Todos">Todos los años</option>
-            {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Mes</label>
-          <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)}>
-            <option value="Todos">Todos los meses</option>
-            {MESES.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Taller</label>
-          <select value={filtroTaller} onChange={(e) => setFiltroTaller(e.target.value)}>
-            <option value="Todos">Todos los talleres</option>
-            {talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-      </div>
+        <div className="dashboard-grid-custom">
+          <div className="card" style={{ marginBottom: 0 }}>
+            <h3 className="detail-section-title">Progreso de la Meta (Operaciones #)</h3>
+            <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none', background: 'transparent', marginTop: '1rem' }}>
+              <table className="table" style={{ width: '100%' }}>
+                <thead><tr><th style={{ width: '60px', textAlign: 'center' }}># Ref</th><th>Desde / Hasta</th><th style={{ textAlign: 'right' }}>Venta</th><th style={{ textAlign: 'center' }}>%</th></tr></thead>
+                <tbody>
+                  {!analisisOperaciones ? (<tr><td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No se encontraron registros activos.</td></tr>) : (
+                    analisisOperaciones.operaciones.map((op) => {
+                      const isHovered = hoveredOp === op.id;
+                      const isDimmed = hoveredOp !== null && !isHovered;
+                      return (
+                        <tr key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)} style={{ backgroundColor: isHovered ? 'var(--bg-highlight)' : 'transparent', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s', cursor: 'pointer' }}>
+                          {op.isFaltante ? (
+                            <>
+                              <td style={{ textAlign: 'center' }}><span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}><AlertTriangle size={12} /></span></td>
+                              <td><div style={{fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 700}}>Faltante por Cumplir</div><div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>Meta no alcanzada</div></td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>{formatearMoneda(op.vendido)}</td>
+                              <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
+                            </>
+                          ) : (
+                            <>
+                              <td style={{ textAlign: 'center' }}><span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{op.semanaIndex}</span></td>
+                              <td><div style={{fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600}}>{formatearFecha(op.desde)}</div><div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{formatearFecha(op.hasta)}</div></td>
+                              <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</td>
+                              <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
+                            </>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="kpi-grid">
-        <div className="kpi-card meta"><div className="kpi-title">Meta Total <Target size={16} /></div><div className="kpi-value">{formatearMoneda(kpis.metaTotal)}</div></div>
-        <div className="kpi-card logrado"><div className="kpi-title">Logrado <TrendingUp size={16} color="var(--primary)" /></div><div className="kpi-value" style={{ color: 'var(--primary)' }}>{formatearMoneda(kpis.logradoTotal)}</div></div>
-        <div className="kpi-card faltante"><div className="kpi-title">Faltante <AlertTriangle size={16} color="var(--danger)" /></div><div className="kpi-value" style={{ color: 'var(--danger)' }}>{formatearMoneda(kpis.faltanteTotal)}</div></div>
-        <div className="kpi-card">
-          <div className="circular-progress-container">
-            <div><div className="kpi-title">Cumplido</div><div className="kpi-subtitle">Total</div></div>
-            <div className="circular-progress" style={{ background: `conic-gradient(${kpis.porcentajeGlobal >= 100 ? 'var(--success)' : 'var(--primary)'} ${kpis.porcentajeGlobal * 3.6}deg, var(--bg-body) 0deg)` }}><span className="circular-progress-value">{kpis.porcentajeGlobal.toFixed(2)}%</span></div>
+          <div className="card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TIPO DE GRÁFICO:</label>
+                <select value={tipoGrafico} onChange={(e) => setTipoGrafico(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}>
+                  <option value="anillo">Anillo (Donut)</option><option value="torta">Torta (Pie)</option><option value="barras">Barras (Bar)</option><option value="lineas">Líneas (Line)</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <button style={{ padding: '0.4rem 1rem', border: 'none', background: is3D ? 'var(--primary)' : 'transparent', color: is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => setIs3D(true)}>3D</button>
+                <button style={{ padding: '0.4rem 1rem', border: 'none', background: !is3D ? 'var(--primary)' : 'transparent', color: !is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => setIs3D(false)}>2D</button>
+              </div>
+            </div>
+            {renderGrafico()}
+            {analisisOperaciones && (
+              <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                {analisisOperaciones.operaciones.map((op) => {
+                  const isHovered = hoveredOp === op.id;
+                  const isDimmed = hoveredOp !== null && !isHovered;
+                  return (
+                    <li key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s' }}>
+                      <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
+                        <span style={{fontWeight: 500}}>{op.isFaltante ? 'Faltante por Cumplir' : `Venta semana ${op.semanaIndex}`}</span>
+                        <strong style={{ color: op.isFaltante ? 'var(--danger)' : 'var(--text-main)', fontWeight: 600 }}>{op.porcentajeStr}%</strong>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="dashboard-grid-custom">
-        {/* TARJETA SUPERIOR: OPERACIONES SEMANALES */}
-        <div className="card" style={{ marginBottom: 0 }}>
-          <h3 className="detail-section-title">Progreso de la Meta (Operaciones #)</h3>
-          <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none', background: 'transparent', marginTop: '1rem' }}>
-            <table className="table" style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '60px', textAlign: 'center' }}># Ref</th>
-                  <th>Desde / Hasta</th>
-                  <th style={{ textAlign: 'right' }}>Venta</th>
-                  <th style={{ textAlign: 'center' }}>%</th>
+        <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Reporte Mensual Consolidado</h3>
+            {filtroAno !== 'Todos' && <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Año Fiscal: {filtroAno}</span>}
+          </div>
+          <table className="table" style={{ width: '100%' }}>
+            <thead><tr><th>Mes</th><th style={{ textAlign: 'right' }}>Meta</th><th style={{ textAlign: 'right' }}>Ventas</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'right' }}>Por Cumplir</th><th style={{ textAlign: 'center' }}>%</th></tr></thead>
+            <tbody>
+              {reporteMensual.datosPorMes.map(fila => (
+                <tr key={fila.mes}>
+                  <td><strong>{fila.mes}</strong></td>
+                  <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{fila.meta > 0 ? formatearMoneda(fila.meta) : '-'}</td>
+                  <td style={{ textAlign: 'right', fontWeight: fila.ventas > 0 ? 600 : 400, color: fila.ventas > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{fila.ventas > 0 ? formatearMoneda(fila.ventas) : '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>{fila.pctVentas.toFixed(2)}%</span>}</td>
+                  <td style={{ textAlign: 'right', color: fila.porCumplir > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{fila.meta > 0 ? formatearMoneda(fila.porCumplir) : '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{fila.pctPorCumplir.toFixed(2)}%</span>}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {!analisisOperaciones ? (
-                  <tr><td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No se encontraron registros activos.</td></tr>
-                ) : (
-                  analisisOperaciones.operaciones.map((op) => {
-                    const isHovered = hoveredOp === op.id;
-                    const isDimmed = hoveredOp !== null && !isHovered;
-                    
-                    return (
-                      <tr 
-                        key={op.id}
-                        onMouseEnter={() => setHoveredOp(op.id)}
-                        onMouseLeave={() => setHoveredOp(null)}
-                        style={{
-                          backgroundColor: isHovered ? 'var(--bg-highlight)' : 'transparent',
-                          opacity: isDimmed ? 0.4 : 1,
-                          transition: 'all 0.2s',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {op.isFaltante ? (
-                          <>
-                            <td style={{ textAlign: 'center' }}>
-                              <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-                                <AlertTriangle size={12} />
-                              </span>
-                            </td>
-                            <td>
-                              <div style={{fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 700}}>Faltante por Cumplir</div>
-                              <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>Meta no alcanzada</div>
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>{formatearMoneda(op.vendido)}</td>
-                            <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
-                          </>
-                        ) : (
-                          <>
-                            <td style={{ textAlign: 'center' }}>
-                              <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{op.semanaIndex}</span>
-                            </td>
-                            <td>
-                              <div style={{fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600}}>{formatearFecha(op.desde)}</div>
-                              <div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{formatearFecha(op.hasta)}</div>
-                            </td>
-                            <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{formatearMoneda(op.vendido)}</td>
-                            <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
+                <td style={{ padding: '1rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>Total</strong></td>
+                <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(reporteMensual.totales.meta)}</td>
+                <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)', fontSize: '1.05rem' }}>{formatearMoneda(reporteMensual.totales.ventas)}</td>
+                <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--primary)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
+                <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--danger)' }}>{formatearMoneda(reporteMensual.totales.porCumplir)}</td>
+                <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--danger)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.porCumplir / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
-        <div className="card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div className="card" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TIPO DE GRÁFICO:</label>
-              <select 
-                value={tipoGrafico} 
-                onChange={(e) => setTipoGrafico(e.target.value as TipoGrafico)}
-                style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
-              >
-                <option value="anillo">Anillo (Donut)</option>
-                <option value="torta">Torta (Pie)</option>
-                <option value="barras">Barras (Bar)</option>
-                <option value="lineas">Líneas (Line)</option>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TENDENCIA MENSUAL:</label>
+              <select value={tipoGraficoMensual} onChange={(e) => setTipoGraficoMensual(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}>
+                <option value="barras">Barras (Bar)</option><option value="lineas">Líneas (Line)</option><option value="anillo">Anillo (Donut)</option><option value="torta">Torta (Pie)</option>
               </select>
             </div>
-            
             <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <button
-                style={{ padding: '0.4rem 1rem', border: 'none', background: is3D ? 'var(--primary)' : 'transparent', color: is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}
-                onClick={() => setIs3D(true)}
-              >3D</button>
-              <button
-                style={{ padding: '0.4rem 1rem', border: 'none', background: !is3D ? 'var(--primary)' : 'transparent', color: !is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}
-                onClick={() => setIs3D(false)}
-              >2D</button>
+              <button style={{ padding: '0.4rem 1rem', border: 'none', background: is3DMensual ? 'var(--primary)' : 'transparent', color: is3DMensual ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => setIs3DMensual(true)}>3D</button>
+              <button style={{ padding: '0.4rem 1rem', border: 'none', background: !is3DMensual ? 'var(--primary)' : 'transparent', color: !is3DMensual ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }} onClick={() => setIs3DMensual(false)}>2D</button>
             </div>
           </div>
-
-          {renderGrafico()}
-
-          {analisisOperaciones && (
-            <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-              {analisisOperaciones.operaciones.map((op) => {
-                const isHovered = hoveredOp === op.id;
-                const isDimmed = hoveredOp !== null && !isHovered;
-
-                return (
-                  <li 
-                    key={op.id} 
-                    onMouseEnter={() => setHoveredOp(op.id)}
-                    onMouseLeave={() => setHoveredOp(null)}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)',
-                      backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent',
-                      padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer',
-                      opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s'
-                    }}
-                  >
-                    <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
-                      <span style={{fontWeight: 500}}>
-                        {op.isFaltante ? 'Faltante por Cumplir' : `Venta semana ${op.semanaIndex}`}
-                      </span>
-                      <strong style={{ color: op.isFaltante ? 'var(--danger)' : 'var(--text-main)', fontWeight: 600 }}>
-                        {op.porcentajeStr}%
-                      </strong>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      {/* TARJETA INFERIOR: REPORTE MENSUAL */}
-      <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Reporte Mensual Consolidado</h3>
-          {filtroAno !== 'Todos' && <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Año Fiscal: {filtroAno}</span>}
-        </div>
-        
-        <table className="table" style={{ width: '100%', marginBottom: '2rem' }}>
-          <thead>
-            <tr>
-              <th>Mes</th>
-              <th style={{ textAlign: 'right' }}>Meta</th>
-              <th style={{ textAlign: 'right' }}>Ventas</th>
-              <th style={{ textAlign: 'center' }}>%</th>
-              <th style={{ textAlign: 'right' }}>Por Cumplir</th>
-              <th style={{ textAlign: 'center' }}>%</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reporteMensual.datosPorMes.map(fila => (
-              <tr key={fila.mes}>
-                <td><strong>{fila.mes}</strong></td>
-                <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{fila.meta > 0 ? formatearMoneda(fila.meta) : '-'}</td>
-                <td style={{ textAlign: 'right', fontWeight: fila.ventas > 0 ? 600 : 400, color: fila.ventas > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{fila.ventas > 0 ? formatearMoneda(fila.ventas) : '-'}</td>
-                <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>{fila.pctVentas.toFixed(2)}%</span>}</td>
-                <td style={{ textAlign: 'right', color: fila.porCumplir > 0 ? 'var(--danger)' : 'var(--text-muted)' }}>{fila.meta > 0 ? formatearMoneda(fila.porCumplir) : '-'}</td>
-                <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{fila.pctPorCumplir.toFixed(2)}%</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-              <td style={{ padding: '1rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>Total</strong></td>
-              <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(reporteMensual.totales.meta)}</td>
-              <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)', fontSize: '1.05rem' }}>{formatearMoneda(reporteMensual.totales.ventas)}</td>
-              <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--primary)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
-              <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--danger)' }}>{formatearMoneda(reporteMensual.totales.porCumplir)}</td>
-              <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--danger)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.porCumplir / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* NUEVA SECCIÓN: GRÁFICO MENSUAL */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>GRÁFICO MENSUAL:</label>
-              <select 
-                value={tipoGraficoMensual} 
-                onChange={(e) => setTipoGraficoMensual(e.target.value as TipoGrafico)}
-                style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}
-              >
-                <option value="barras">Barras (Bar)</option>
-                <option value="lineas">Líneas (Line)</option>
-                <option value="anillo">Anillo (Donut)</option>
-                <option value="torta">Torta (Pie)</option>
-              </select>
-            </div>
-            
-            <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-              <button
-                style={{ padding: '0.4rem 1rem', border: 'none', background: is3DMensual ? 'var(--primary)' : 'transparent', color: is3DMensual ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}
-                onClick={() => setIs3DMensual(true)}
-              >3D</button>
-              <button
-                style={{ padding: '0.4rem 1rem', border: 'none', background: !is3DMensual ? 'var(--primary)' : 'transparent', color: !is3DMensual ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s' }}
-                onClick={() => setIs3DMensual(false)}
-              >2D</button>
-            </div>
-          </div>
-
           <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
             {renderGraficoMensual()}
           </div>
-
           {datosGraficoMensual && (
-            <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '800px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem' }}>
+            <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '800px', gap: '0.5rem' }}>
               {datosGraficoMensual.operaciones.map((op) => {
                 const isHovered = hoveredMes === op.id;
                 const isDimmed = hoveredMes !== null && !isHovered;
-
                 return (
-                  <li 
-                    key={op.id} 
-                    onMouseEnter={() => setHoveredMes(op.id)}
-                    onMouseLeave={() => setHoveredMes(null)}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)',
-                      backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent',
-                      padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer',
-                      opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s'
-                    }}
-                  >
+                  <li key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent', cursor: 'pointer', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s', padding: '0.4rem', borderRadius: '6px' }}>
                     <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
                     <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
                       <span style={{fontWeight: 500}}>Ventas {op.label}</span>
-                      <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>
-                        {op.porcentajeStr}%
-                      </strong>
+                      <strong style={{ color: 'var(--text-main)', fontWeight: 600 }}>{op.porcentajeStr}%</strong>
                     </div>
                   </li>
                 );
@@ -796,6 +591,148 @@ export const Dashboard = () => {
           )}
         </div>
       </div>
-    </div>
+
+      {/* =========================================================================
+          2. VISTA PDF EXCLUSIVA (TOTALMENTE OCULTA EN LA WEB)
+      ========================================================================= */}
+      <div className="print-only-report">
+        
+        {/* Encabezado oscuro armonioso y sin Zulia */}
+        <div className="report-header">
+          <div>
+            <h1 style={{ fontSize: '24pt', margin: 0 }}>Reporte de Gestión Ejecutiva</h1>
+            <p style={{ fontSize: '11pt', marginTop: '5px' }}>
+              {tallerActivo ? `Sucursal: ${tallerActivo.nombre}` : 'Consolidado Global de Operaciones'}
+            </p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ margin: 0, fontWeight: 600, fontSize: '12pt' }}>{fechaReporte}</p>
+          </div>
+        </div>
+
+        <h3 className="section-executive-title">Resumen de Indicadores Clave (KPIs)</h3>
+        <div className="kpi-print-row">
+          <div className="kpi-item"><div style={{fontSize:'8pt', color:'#64748b'}}>META PROGRAMADA</div><div className="kpi-val">{formatearMoneda(kpis.metaTotal)}</div></div>
+          <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'8pt', color:'#1d8cf8'}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{formatearMoneda(kpis.logradoTotal)}</div></div>
+          <div className="kpi-item"><div style={{fontSize:'8pt', color:'#f56036'}}>DÉFICIT / FALTANTE</div><div className="kpi-val" style={{color:'#f56036'}}>{formatearMoneda(kpis.faltanteTotal)}</div></div>
+          <div className="kpi-item"><div style={{fontSize:'8pt', color:'#10b981'}}>% CUMPLIMIENTO</div><div className="kpi-val" style={{color:'#10b981'}}>{kpis.porcentajeGlobal}%</div></div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
+          <div className="card-print">
+            <h3 className="section-executive-title" style={{marginTop:0, border: 'none'}}>Detalle Operativo Semanal</h3>
+            <table>
+              <thead><tr><th style={{textAlign:'center'}}>REF</th><th>PERIODO DE ACTIVIDAD</th><th style={{textAlign:'right'}}>MONTO</th><th style={{textAlign:'center'}}>%</th></tr></thead>
+              <tbody>
+                {analisisOperaciones?.operaciones.map((op) => (
+                  <tr key={`print-${op.id}`}>
+                    <td style={{textAlign:'center', fontWeight:700}}>{op.semanaIndex}</td>
+                    <td>{op.isFaltante ? 'Faltante de Cierre' : `${formatearFecha(op.desde)} al ${formatearFecha(op.hasta)}`}</td>
+                    <td style={{textAlign:'right', fontWeight:700, color: op.isFaltante ? '#f56036' : '#1e293b'}}>{formatearMoneda(op.vendido)}</td>
+                    <td style={{textAlign:'center'}}>{op.porcentajeStr}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card-print">
+            <h3 className="section-executive-title" style={{marginTop:0, border: 'none'}}>Distribución de Logros</h3>
+            <div className="chart-print-box">
+              
+              {/* DONUT FIJO PARA EL PDF CON UN CÍRCULO BLANCO SUPERPUESTO */}
+              <div style={{ 
+                width: '200px', height: '200px', borderRadius: '50%', 
+                background: analisisOperaciones?.gradient, 
+                position: 'relative',
+                WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'
+              }}>
+                 <div style={{ 
+                   position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', 
+                   width: '110px', height: '110px', backgroundColor: '#ffffff', borderRadius: '50%', zIndex: 5 
+                 }} />
+              </div>
+              
+              {/* Etiquetas estáticas alrededor del gráfico PDF */}
+              <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 10 }}>
+                {analisisOperaciones?.operaciones.map((op) => {
+                  const rad = (op.midAngle - 90) * (Math.PI / 180);
+                  const r = 135; 
+                  const x = Math.cos(rad) * r;
+                  const y = Math.sin(rad) * r;
+
+                  return (
+                    <div key={`print-lbl-${op.id}`} style={{
+                      position: 'absolute', left: `${x}px`, top: `${y}px`, transform: 'translate(-50%, -50%)',
+                      backgroundColor: '#ffffff', border: `2px solid ${op.color}`, padding: '4px 8px', borderRadius: '6px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact'
+                    }}>
+                      <span style={{ fontSize: '7pt', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>
+                        {op.isFaltante ? 'Faltante' : `Semana ${op.semanaIndex}`}
+                      </span>
+                      <span style={{ fontSize: '8pt', fontWeight: 900, color: op.color }}>
+                        {op.porcentajeStr}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="page-break"></div>
+
+        <div className="card-print">
+          <h3 className="section-executive-title" style={{marginTop:0, border: 'none'}}>Estado de Resultados Consolidado por Mes</h3>
+          <table>
+            <thead><tr><th>MES</th><th style={{textAlign:'right'}}>META</th><th style={{textAlign:'right'}}>VENTAS REALES</th><th style={{textAlign:'center'}}>EFECTIVIDAD</th><th style={{textAlign:'right'}}>FALTANTE</th></tr></thead>
+            <tbody>
+              {reporteMensual.datosPorMes.map(f => (
+                <tr key={`print-mes-${f.mes}`}>
+                  <td><strong>{f.mes}</strong></td>
+                  <td style={{textAlign:'right'}}>{f.meta > 0 ? formatearMoneda(f.meta) : '-'}</td>
+                  <td style={{textAlign:'right', fontWeight:700}}>{f.ventas > 0 ? formatearMoneda(f.ventas) : '-'}</td>
+                  <td style={{textAlign:'center'}}>{f.meta > 0 ? `${f.pctVentas.toFixed(2)}%` : '-'}</td>
+                  <td style={{textAlign:'right', color:'#f56036'}}>{f.porCumplir > 0 ? formatearMoneda(f.porCumplir) : '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot style={{background:'#f8fafc'}}>
+              <tr>
+                <td style={{fontWeight: 900}}>TOTAL ANUAL</td>
+                <td style={{textAlign:'right', fontWeight: 900}}>{formatearMoneda(reporteMensual.totales.meta)}</td>
+                <td style={{textAlign:'right', color:'#1d8cf8', fontWeight: 900}}>{formatearMoneda(reporteMensual.totales.ventas)}</td>
+                <td style={{textAlign:'center', fontWeight: 900}}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas/reporteMensual.totales.meta)*100).toFixed(2) : 0}%</td>
+                <td style={{textAlign:'right', color:'#f56036', fontWeight: 900}}>{formatearMoneda(reporteMensual.totales.porCumplir)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div className="card-print">
+          <h3 className="section-executive-title" style={{marginTop:0, border: 'none'}}>Tendencia Anual de Desempeño</h3>
+          <div className="chart-print-box" style={{height:'260px'}}>
+             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '15px', padding: '0 20px', borderBottom: '2px solid #cbd5e1', paddingTop: '20px' }}>
+                {reporteMensual.datosPorMes.filter(m => m.ventas > 0).map(m => (
+                  <div key={`bar-${m.mes}`} style={{ flex: 1, backgroundColor: '#1d8cf8', height: `${(m.ventas / Math.max(...reporteMensual.datosPorMes.map(x => x.ventas))) * 100}%`, borderRadius: '4px 4px 0 0', position: 'relative', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                    
+                    {/* Etiquetas superior (Monto) e inferior (Mes) para gráfico de barras PDF */}
+                    <div style={{ position: 'absolute', top: '-25px', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
+                       <span style={{ fontSize: '7.5pt', fontWeight: 800, color: '#1e293b' }}>{formatearMoneda(m.ventas)}</span>
+                    </div>
+                    
+                    <div style={{ position: 'absolute', bottom: '-22px', width: '100%', textAlign: 'center', fontSize: '8pt', fontWeight: 700, color: '#64748b' }}>
+                      {m.mes.substring(0,3)}
+                    </div>
+                  </div>
+                ))}
+             </div>
+          </div>
+        </div>
+
+      </div>
+    </>
   );
 };
