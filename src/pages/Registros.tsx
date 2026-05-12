@@ -1,6 +1,5 @@
 import { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
-import { formatearMoneda } from '../utils/formatters';
 import type { Registro, Detalle } from '../types';
 import { FileText, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
 
@@ -13,6 +12,16 @@ const formatearFechaMDY = (fecha: string) => {
     return `${mes}/${dia}/${ano}`;
   }
   return fecha;
+};
+
+// Función local para forzar el formato Monetario: Coma (,) para miles y Punto (.) para decimales
+const miFormatearMoneda = (valor: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(valor).replace('$', '$ ');
 };
 
 export const Registros = () => {
@@ -316,10 +325,10 @@ export const Registros = () => {
                   </td>
                   <td data-label="Taller:">{r.taller}</td>
                   <td data-label="Meta:" style={{textAlign:'right', color: 'var(--text-muted)'}}>
-                    {formatearMoneda(r.meta)}
+                    {miFormatearMoneda(r.meta)}
                   </td>
                   <td data-label="Logrado:" style={{textAlign:'right', color: 'var(--text-main)', fontWeight: 600}}>
-                    {formatearMoneda(r.logrado)}
+                    {miFormatearMoneda(r.logrado)}
                   </td>
                   <td data-label="Cumplido:">
                     <span style={{ 
@@ -395,15 +404,15 @@ export const Registros = () => {
                 </div>
                 <div>
                   <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Meta Inicial:</label>
-                  <div style={{ fontSize: '1.35rem', color: 'var(--text-main)', fontWeight: 600 }}>{formatearMoneda(registroSeleccionado.meta)}</div>
+                  <div style={{ fontSize: '1.35rem', color: 'var(--text-main)', fontWeight: 600 }}>{miFormatearMoneda(registroSeleccionado.meta)}</div>
                 </div>
                 <div>
                   <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Logrado:</label>
-                  <div style={{ fontSize: '1.35rem', color: 'var(--primary)', fontWeight: 700 }}>{formatearMoneda(registroSeleccionado.logrado)}</div>
+                  <div style={{ fontSize: '1.35rem', color: 'var(--primary)', fontWeight: 700 }}>{miFormatearMoneda(registroSeleccionado.logrado)}</div>
                 </div>
                 <div>
                   <label style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '0.75rem' }}>Trabajo Pendiente:</label>
-                  <div style={{ fontSize: '1.35rem', color: 'var(--danger)', fontWeight: 600 }}>{formatearMoneda(registroSeleccionado.faltante)}</div>
+                  <div style={{ fontSize: '1.35rem', color: 'var(--danger)', fontWeight: 600 }}>{miFormatearMoneda(registroSeleccionado.faltante)}</div>
                 </div>
               </div>
 
@@ -465,7 +474,7 @@ export const Registros = () => {
                           <td style={{ padding: '1.25rem 0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>{String(idx + 1).padStart(3, '0')}</td>
                           <td style={{ padding: '1.25rem 0.5rem', fontSize: '0.9rem' }}>{formatearFechaMDY(det.desde)}</td>
                           <td style={{ padding: '1.25rem 0.5rem', fontSize: '0.9rem' }}>{formatearFechaMDY(det.hasta)}</td>
-                          <td style={{ padding: '1.25rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(det.vendido)}</td>
+                          <td style={{ padding: '1.25rem 0.5rem', textAlign: 'right', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(det.vendido)}</td>
                           <td style={{ padding: '1.25rem 0.5rem', textAlign: 'center' }}>
                             <span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{det.porcentajeAporte.toFixed(2)}%</span>
                           </td>

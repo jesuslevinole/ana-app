@@ -1,6 +1,5 @@
 import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
-import { formatearMoneda } from '../utils/formatters';
 import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react';
 
 const TRIMESTRES = {
@@ -11,6 +10,16 @@ const TRIMESTRES = {
 };
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas' | 'mixto';
+
+// Función local para forzar el formato Monetario: Coma (,) para miles y Punto (.) para decimales
+const miFormatearMoneda = (valor: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(valor).replace('$', '$ ');
+};
 
 export const Comparacion = () => {
   const contexto = useContext(AppContext);
@@ -158,7 +167,7 @@ export const Comparacion = () => {
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer'
                   }}
                 >
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(op.ventas)}</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(op.ventas)}</span>
                   <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
                 </div>
               );
@@ -186,7 +195,7 @@ export const Comparacion = () => {
                 }}
               >
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{formatearMoneda(op.ventas)}</span>
+                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.ventas)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
                 </div>
               </div>
@@ -225,7 +234,7 @@ export const Comparacion = () => {
                 }}
               >
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
-                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{formatearMoneda(op.ventas)}</span>
+                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.ventas)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
                 </div>
               </div>
@@ -295,7 +304,7 @@ export const Comparacion = () => {
                 }}
               >
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s', pointerEvents: 'none' }}>
-                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{formatearMoneda(op.ventas)}</span>
+                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.ventas)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
                 </div>
               </div>
@@ -380,7 +389,7 @@ export const Comparacion = () => {
                           <strong style={{ color: 'var(--text-main)' }}>{d.label}</strong>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: d.ventas > 0 ? 600 : 400 }}>{d.ventas > 0 ? formatearMoneda(d.ventas) : '-'}</td>
+                      <td style={{ textAlign: 'right', fontWeight: d.ventas > 0 ? 600 : 400 }}>{d.ventas > 0 ? miFormatearMoneda(d.ventas) : '-'}</td>
                       <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{d.pctStr}%</td>
                     </tr>
                   )
@@ -389,7 +398,7 @@ export const Comparacion = () => {
               <tfoot>
                 <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
                   <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}>TOTAL {trimestre1}</strong></td>
-                  <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)' }}>{formatearMoneda(periodo1.total)}</td>
+                  <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)' }}>{miFormatearMoneda(periodo1.total)}</td>
                   <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{periodo1.total > 0 ? '100.00%' : '0.00%'}</td>
                 </tr>
               </tfoot>
@@ -463,7 +472,7 @@ export const Comparacion = () => {
                           <strong style={{ color: 'var(--text-main)' }}>{d.label}</strong>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{d.ventas > 0 ? formatearMoneda(d.ventas) : '-'}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{d.ventas > 0 ? miFormatearMoneda(d.ventas) : '-'}</td>
                       <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>{d.pctStr}%</td>
                     </tr>
                   )
@@ -472,7 +481,7 @@ export const Comparacion = () => {
               <tfoot>
                 <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
                   <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}>TOTAL COMPARADO</strong></td>
-                  <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{formatearMoneda(totalAmbosPeriodos)}</td>
+                  <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(totalAmbosPeriodos)}</td>
                   <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{totalAmbosPeriodos > 0 ? '100.00%' : '0.00%'}</td>
                 </tr>
               </tfoot>
