@@ -15,12 +15,13 @@ const miFormatearFecha = (fechaStr: string) => {
 
 const miFormatearMoneda = (valor: number) => {
   // en-US asegura comas para miles y puntos para decimales
+  // Usamos \u00A0 (Non-breaking space) para evitar que el $ se separe del número.
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(valor).replace('$', '$ ');
+  }).format(valor).replace('$', '$\u00A0');
 };
 
 export const Dashboard = () => {
@@ -64,14 +65,16 @@ export const Dashboard = () => {
     });
   }, [registros, filtroAno, filtroMes, filtroTaller]);
 
-  // Cálculos de KPIs Agregados (CON LÓGICA DE EXCEDENTE)
+  // Cálculos de KPIs Agregados (CON LÓGICA DE EXCEDENTE Y PORCENTAJES REALES)
   const kpis = useMemo(() => {
     const metaTotal = registrosFiltrados.reduce((acc, r) => acc + r.meta, 0);
     const logradoTotal = registrosFiltrados.reduce((acc, r) => acc + r.logrado, 0);
     const isExcedente = logradoTotal > metaTotal;
     const faltanteTotal = isExcedente ? logradoTotal - metaTotal : Math.max(metaTotal - logradoTotal, 0);
-    const porcentajeGlobal = metaTotal > 0 ? Math.min(Number(((logradoTotal / metaTotal) * 100).toFixed(2)), 100) : 0;
-    return { metaTotal, logradoTotal, faltanteTotal, porcentajeGlobal, isExcedente };
+    const porcentajeGlobal = metaTotal > 0 ? Number(((logradoTotal / metaTotal) * 100).toFixed(2)) : 0;
+    const porcentajeFaltanteExcedente = metaTotal > 0 ? Number(((faltanteTotal / metaTotal) * 100).toFixed(2)) : 0;
+    
+    return { metaTotal, logradoTotal, faltanteTotal, porcentajeGlobal, isExcedente, porcentajeFaltanteExcedente };
   }, [registrosFiltrados]);
 
   // Análisis de Operaciones para el Gráfico Principal
@@ -123,7 +126,6 @@ export const Dashboard = () => {
         gradientPart: `${colorFaltante} ${inicioFaltante}deg ${acumuladoGrados}deg`, tallerPadre: '-', porcentajeAporte: 0
       });
     } else if (totalVendido > metaTotal) {
-      // SI HAY EXCEDENTE: Lo guardamos para agregarlo en la tabla, pero NO en el gráfico
       excedenteObj = {
         valor: totalVendido - metaTotal,
         porcentaje: metaTotal > 0 ? ((totalVendido - metaTotal) / metaTotal) * 100 : 100
@@ -139,19 +141,25 @@ export const Dashboard = () => {
       const registrosMes = registros.filter(r => (filtroAno === 'Todos' || r.ano.toString() === filtroAno) && (filtroTaller === 'Todos' || r.taller === filtroTaller) && r.mes === mes);
       const meta = registrosMes.reduce((acc, r) => acc + r.meta, 0);
       const ventas = registrosMes.reduce((acc, r) => acc + r.logrado, 0);
+      const numSemanas = registrosMes.reduce((acc, r) => acc + (r.detalles ? r.detalles.length : 0), 0);
       const isExcedente = ventas > meta;
       const porCumplir = isExcedente ? ventas - meta : Math.max(meta - ventas, 0);
       return { 
         mes, 
         meta, 
         ventas, 
+        numSemanas,
         pctVentas: meta > 0 ? (ventas / meta) * 100 : 0, 
         porCumplir,
         isExcedente,
         pctPorCumplir: meta > 0 ? (porCumplir / meta) * 100 : 0 
       };
     });
-    const totales = { meta: datosPorMes.reduce((acc, m) => acc + m.meta, 0), ventas: datosPorMes.reduce((acc, m) => acc + m.ventas, 0) };
+    const totales = { 
+      meta: datosPorMes.reduce((acc, m) => acc + m.meta, 0), 
+      ventas: datosPorMes.reduce((acc, m) => acc + m.ventas, 0),
+      numSemanas: datosPorMes.reduce((acc, m) => acc + m.numSemanas, 0)
+    };
     return { datosPorMes, totales: { ...totales, porCumplir: Math.abs(totales.meta - totales.ventas), isExcedente: totales.ventas > totales.meta } };
   }, [registros, filtroAno, filtroTaller]);
 
@@ -176,7 +184,7 @@ export const Dashboard = () => {
     return { operaciones: operacionesConSectores, gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`, totalVendido: totalVentasMensuales };
   }, [reporteMensual]);
 
-  // --- RENDERIZADOR GRÁFICO SUPERIOR (WEB CON FLECHAS) ---
+  // --- RENDERIZADOR GRÁFICO SUPERIOR (WEB CON ETIQUETAS COMPACTAS) ---
   const renderGrafico = () => {
     if (!analisisOperaciones) return <p className="detail-text" style={{ textAlign: 'center', padding: '3rem', fontStyle: 'italic' }}>Sin datos para graficar.</p>;
     const { operaciones, gradient } = analisisOperaciones;
@@ -185,7 +193,7 @@ export const Dashboard = () => {
     if (tipoGrafico === 'torta' || tipoGrafico === 'anillo') {
       const mascaraDonut = tipoGrafico === 'anillo' ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
       return (
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3D ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '260px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: is3D ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '380px' }}>
           {is3D ? (
             <div className="pie-chart-wrapper" style={{ margin: 0 }}>
               <div className="pie-chart-3d" style={{ width: '250px', height: '250px', position: 'relative', transformStyle: 'preserve-3d', transform: 'rotateX(60deg) rotateZ(15deg)', transition: 'transform 0.6s' }}>
@@ -199,12 +207,12 @@ export const Dashboard = () => {
           ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} /> )}
           
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
-            {operaciones.map(op => {
+            {operaciones.map((op, index) => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
               
-              // Ajustes de distancia solicitados
-              const rBase = is3D ? 120 : 120; // Borde del gráfico
-              const rCard = is3D ? 230 : 210; // Tarjeta mucho más lejos
+              const rBase = 115; 
+              // Reducimos la dispersión: Máximo 185px para evitar desbordes en pantallas normales
+              const rCard = 150 + (index % 2 === 0 ? 0 : 35); 
 
               let xBase = Math.cos(rad) * rBase;
               let yBase = Math.sin(rad) * rBase;
@@ -213,13 +221,18 @@ export const Dashboard = () => {
 
               if (is3D) {
                 const angle15 = 15 * (Math.PI / 180);
+                const cos15 = Math.cos(angle15);
+                const sin15 = Math.sin(angle15);
+
                 const apply3D = (x: number, y: number) => {
-                  const ySquashed = y * 0.5;
+                  const xRot = x * cos15 - y * sin15;
+                  const yRot = x * sin15 + y * cos15;
                   return {
-                    x: x * Math.cos(angle15) - ySquashed * Math.sin(angle15),
-                    y: x * Math.sin(angle15) + ySquashed * Math.cos(angle15) + 15
-                  }
+                    x: xRot,
+                    y: (yRot * 0.5) + 15
+                  };
                 };
+                
                 const base3d = apply3D(xBase, yBase);
                 const card3d = apply3D(xCard, yCard);
                 xBase = base3d.x; yBase = base3d.y;
@@ -231,13 +244,10 @@ export const Dashboard = () => {
 
               return (
                 <div key={`hablador-${op.id}`}>
-                  {/* Flecha/Línea Señalizadora */}
-                  {isHovered && (
-                    <svg style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', zIndex: 90, pointerEvents: 'none' }}>
-                      <line x1={xBase} y1={yBase} x2={xCard} y2={yCard} stroke={op.color} strokeWidth="2" strokeDasharray="3,3" />
-                      <circle cx={xBase} cy={yBase} r="5" fill={op.color} />
-                    </svg>
-                  )}
+                  <svg style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', zIndex: 90, pointerEvents: 'none', opacity: isHovered ? 1 : 0.4 }}>
+                    <line x1={xBase} y1={yBase} x2={xCard} y2={yCard} stroke={op.color} strokeWidth={isHovered ? "3" : "1.5"} strokeDasharray="4,3" />
+                    <circle cx={xBase} cy={yBase} r="5" fill={op.color} />
+                  </svg>
                   
                   <div onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
                     style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
@@ -264,7 +274,7 @@ export const Dashboard = () => {
               <div key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
                 style={{ width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3D ? '2px' : '4px 4px 0 0', boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.vendido)}</span>
+                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
@@ -302,7 +312,7 @@ export const Dashboard = () => {
     }
   };
 
-  // --- RENDERIZADOR GRÁFICO INFERIOR (WEB CON FLECHAS) ---
+  // --- RENDERIZADOR GRÁFICO INFERIOR (WEB) ---
   const renderGraficoMensual = () => {
     if (!datosGraficoMensual) return <p className="detail-text" style={{ textAlign: 'center', padding: '3rem', fontStyle: 'italic' }}>Sin datos mensuales para graficar.</p>;
     const { operaciones, gradient } = datosGraficoMensual;
@@ -311,7 +321,7 @@ export const Dashboard = () => {
     if (tipoGraficoMensual === 'torta' || tipoGraficoMensual === 'anillo') {
       const mascaraDonut = tipoGraficoMensual === 'anillo' ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
       return (
-        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', margin: is3DMensual ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '260px' }}>
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: is3DMensual ? '1rem auto 3.5rem auto' : '2rem 0 3rem 0', width: '100%', height: '380px' }}>
           {is3DMensual ? (
             <div className="pie-chart-wrapper" style={{ margin: 0 }}>
               <div className="pie-chart-3d" style={{ width: '250px', height: '250px', position: 'relative', transformStyle: 'preserve-3d', transform: 'rotateX(60deg) rotateZ(15deg)', transition: 'transform 0.6s' }}>
@@ -325,11 +335,11 @@ export const Dashboard = () => {
           ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} /> )}
           
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
-            {operaciones.map(op => {
+            {operaciones.map((op, index) => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
               
-              const rBase = is3DMensual ? 120 : 120; 
-              const rCard = is3DMensual ? 230 : 210; 
+              const rBase = 115; 
+              const rCard = 150 + (index % 2 === 0 ? 0 : 35); 
 
               let xBase = Math.cos(rad) * rBase;
               let yBase = Math.sin(rad) * rBase;
@@ -338,12 +348,16 @@ export const Dashboard = () => {
 
               if (is3DMensual) {
                 const angle15 = 15 * (Math.PI / 180);
+                const cos15 = Math.cos(angle15);
+                const sin15 = Math.sin(angle15);
+
                 const apply3D = (x: number, y: number) => {
-                  const ySquashed = y * 0.5;
+                  const xRot = x * cos15 - y * sin15;
+                  const yRot = x * sin15 + y * cos15;
                   return {
-                    x: x * Math.cos(angle15) - ySquashed * Math.sin(angle15),
-                    y: x * Math.sin(angle15) + ySquashed * Math.cos(angle15) + 15
-                  }
+                    x: xRot,
+                    y: (yRot * 0.5) + 15
+                  };
                 };
                 const base3d = apply3D(xBase, yBase);
                 const card3d = apply3D(xCard, yCard);
@@ -356,12 +370,10 @@ export const Dashboard = () => {
 
               return (
                 <div key={`hablador-mes-${op.id}`}>
-                  {isHovered && (
-                    <svg style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', zIndex: 90, pointerEvents: 'none' }}>
-                      <line x1={xBase} y1={yBase} x2={xCard} y2={yCard} stroke={op.color} strokeWidth="2" strokeDasharray="3,3" />
-                      <circle cx={xBase} cy={yBase} r="5" fill={op.color} />
-                    </svg>
-                  )}
+                  <svg style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', zIndex: 90, pointerEvents: 'none', opacity: isHovered ? 1 : 0.4 }}>
+                    <line x1={xBase} y1={yBase} x2={xCard} y2={yCard} stroke={op.color} strokeWidth={isHovered ? "3" : "1.5"} strokeDasharray="4,3" />
+                    <circle cx={xBase} cy={yBase} r="5" fill={op.color} />
+                  </svg>
                   
                   <div onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
                     style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
@@ -388,7 +400,7 @@ export const Dashboard = () => {
               <div key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
                 style={{ width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3DMensual ? '2px' : '4px 4px 0 0', boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.vendido)}</span>
+                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
@@ -435,10 +447,8 @@ export const Dashboard = () => {
         }
         
         @media print {
-          /* PDF EN HORIZONTAL LANDSCAPE */
           @page { size: A4 landscape; margin: 15mm 10mm; }
           
-          /* RESETEAR CONTENEDORES WEB PARA LA IMPRESIÓN */
           html, body, #root, .app-layout, .main-content {
             height: auto !important;
             min-height: auto !important;
@@ -448,17 +458,14 @@ export const Dashboard = () => {
             color: #000000 !important;
           }
 
-          /* OCULTAR TODO EL DASHBOARD WEB */
           .web-only-dashboard, .sidebar, .top-nav { display: none !important; }
           
-          /* MOSTRAR SOLO EL REPORTE ESTÁTICO */
           .print-only-report { 
             display: block !important; 
             width: 100% !important;
             font-family: Arial, Helvetica, sans-serif !important;
           }
 
-          /* ESTILOS EXCLUSIVOS DEL REPORTE IMPRESO */
           .print-only-report .report-header {
             display: flex !important; justify-content: space-between !important; align-items: flex-end !important;
             background-color: #1e293b !important; color: #ffffff !important;
@@ -529,28 +536,51 @@ export const Dashboard = () => {
         </div>
 
         <div className="kpi-grid">
-          <div className="kpi-card meta"><div className="kpi-title">Meta Total <Target size={16} /></div><div className="kpi-value">{miFormatearMoneda(kpis.metaTotal)}</div></div>
-          <div className="kpi-card logrado"><div className="kpi-title">Logrado <TrendingUp size={16} color="var(--primary)" /></div><div className="kpi-value" style={{ color: 'var(--primary)' }}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
+          <div className="kpi-card meta">
+            <div className="kpi-title">Meta Total <Target size={16} /></div>
+            <div className="kpi-value" style={{ whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.metaTotal)}</div>
+          </div>
+          <div className="kpi-card logrado">
+            <div className="kpi-title">Logrado <TrendingUp size={16} color="var(--primary)" /></div>
+            <div className="kpi-value" style={{ color: 'var(--primary)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.logradoTotal)}</div>
+          </div>
           
-          <div className="kpi-card faltante" style={kpis.isExcedente ? { borderLeftColor: 'var(--success)' } : {}}>
-            <div className="kpi-title" style={{ color: kpis.isExcedente ? 'var(--success)' : 'var(--danger)' }}>
-              {kpis.isExcedente ? 'Excedente' : 'Faltante'} <AlertTriangle size={16} />
+          <div className="kpi-card faltante" style={{ position: 'relative', ...(kpis.isExcedente ? { borderLeftColor: 'var(--success)' } : {}) }}>
+            {/* SOLO EL PORCENTAJE Y ALERTA, PARTE SUPERIOR DERECHA */}
+            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              {kpis.isExcedente ? <TrendingUp size={16} color="var(--success)" /> : <AlertTriangle size={16} color="var(--danger)" />}
+              {kpis.porcentajeFaltanteExcedente}%
             </div>
-            <div className="kpi-value" style={{ color: kpis.isExcedente ? 'var(--success)' : 'var(--danger)' }}>
-              {miFormatearMoneda(kpis.faltanteTotal)}
+            
+            <div style={{ paddingRight: '5.5rem' }}>
+              <div className="kpi-title" style={{ color: kpis.isExcedente ? 'var(--success)' : 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {kpis.isExcedente ? 'Excedente' : 'Faltante'}
+              </div>
+              <div className="kpi-value" style={{ color: kpis.isExcedente ? 'var(--success)' : 'var(--danger)', marginTop: '0.5rem', whiteSpace: 'nowrap' }}>
+                {miFormatearMoneda(kpis.faltanteTotal)}
+              </div>
             </div>
           </div>
           
-          <div className="kpi-card">
-            <div className="circular-progress-container">
-              <div><div className="kpi-title">Cumplido</div><div className="kpi-subtitle">Total</div></div>
-              <div className="circular-progress" style={{ background: `conic-gradient(${kpis.porcentajeGlobal >= 100 ? 'var(--success)' : 'var(--primary)'} ${kpis.porcentajeGlobal * 3.6}deg, var(--bg-body) 0deg)` }}><span className="circular-progress-value">{kpis.porcentajeGlobal}%</span></div>
+          <div className="kpi-card" style={{ position: 'relative' }}>
+            {/* SOLO EL PORCENTAJE E ICONO, PARTE SUPERIOR DERECHA */}
+            <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              <Target size={16} color="var(--primary)" />
+              {kpis.porcentajeGlobal}%
+            </div>
+            
+            <div style={{ paddingRight: '5.5rem' }}>
+              <div className="kpi-title" style={{ color: 'var(--text-main)' }}>
+                Cumplido
+              </div>
+              <div className="kpi-value" style={{ color: 'var(--primary)', marginTop: '0.5rem', whiteSpace: 'nowrap' }}>
+                {miFormatearMoneda(kpis.logradoTotal)}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* LAYOUT 2 COLUMNAS (TABLA IZQ, GRÁFICO DER) */}
-        <div className="dashboard-grid-custom" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '2rem' }}>
+        <div className="dashboard-grid-custom">
           <div className="card" style={{ marginBottom: 0 }}>
             <h3 className="detail-section-title">Progreso de la Meta (Operaciones #)</h3>
             <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none', background: 'transparent', marginTop: '1rem' }}>
@@ -583,7 +613,6 @@ export const Dashboard = () => {
                         );
                       })}
                       
-                      {/* NUEVA FILA DE EXCEDENTE (SOLO SI APLICA) */}
                       {analisisOperaciones.excedenteObj && (
                         <tr style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
                           <td style={{ textAlign: 'center' }}>
@@ -652,11 +681,12 @@ export const Dashboard = () => {
             {filtroAno !== 'Todos' && <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Año Fiscal: {filtroAno}</span>}
           </div>
           <table className="table" style={{ width: '100%' }}>
-            <thead><tr><th>Mes</th><th style={{ textAlign: 'right' }}>Meta</th><th style={{ textAlign: 'right' }}>Ventas</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'right' }}>Diferencia</th><th style={{ textAlign: 'center' }}>Estado</th></tr></thead>
+            <thead><tr><th>Mes</th><th style={{ textAlign: 'center' }}>Semanas</th><th style={{ textAlign: 'right' }}>Meta</th><th style={{ textAlign: 'right' }}>Ventas</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'right' }}>Diferencia</th><th style={{ textAlign: 'center' }}>Estado</th></tr></thead>
             <tbody>
               {reporteMensual.datosPorMes.map(fila => (
                 <tr key={fila.mes}>
                   <td><strong>{fila.mes}</strong></td>
+                  <td style={{ textAlign: 'center' }}>{fila.numSemanas}</td>
                   <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{fila.meta > 0 ? miFormatearMoneda(fila.meta) : '-'}</td>
                   <td style={{ textAlign: 'right', fontWeight: fila.ventas > 0 ? 600 : 400, color: fila.ventas > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{fila.ventas > 0 ? miFormatearMoneda(fila.ventas) : '-'}</td>
                   <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>{fila.pctVentas.toFixed(2)}%</span>}</td>
@@ -676,6 +706,7 @@ export const Dashboard = () => {
                    return (
                      <>
                         <td style={{ padding: '1rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>Total</strong></td>
+                        <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{reporteMensual.totales.numSemanas}</td>
                         <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(reporteMensual.totales.meta)}</td>
                         <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)', fontSize: '1.05rem' }}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
                         <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--primary)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
@@ -816,12 +847,12 @@ export const Dashboard = () => {
 
                 {/* Etiquetas CON SEÑALADORES (Líneas) alrededor del gráfico PDF */}
                 <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 10 }}>
-                  {analisisOperaciones?.operaciones.map((op) => {
+                  {analisisOperaciones?.operaciones.map((op, index) => {
                     const rad = (op.midAngle - 90) * (Math.PI / 180);
                     
                     const rBase = 90;
                     const rLineEnd = 130;
-                    const rCard = 160; 
+                    const rCard = 160 + (index % 2 === 0 ? 0 : 30); 
 
                     const xBase = Math.cos(rad) * rBase;
                     const yBase = Math.sin(rad) * rBase;
@@ -871,11 +902,12 @@ export const Dashboard = () => {
         <div className="card-print">
           <h3 className="section-executive-title" style={{marginTop:0, border: 'none'}}>Estado de Resultados Consolidado por Mes</h3>
           <table>
-            <thead><tr><th>MES</th><th style={{textAlign:'right'}}>META</th><th style={{textAlign:'right'}}>VENTAS REALES</th><th style={{textAlign:'center'}}>EFECTIVIDAD</th><th style={{textAlign:'right'}}>DIFERENCIA</th><th style={{textAlign:'center'}}>ESTADO</th></tr></thead>
+            <thead><tr><th>MES</th><th style={{textAlign:'center'}}>SEMANAS</th><th style={{textAlign:'right'}}>META</th><th style={{textAlign:'right'}}>VENTAS REALES</th><th style={{textAlign:'center'}}>EFECTIVIDAD</th><th style={{textAlign:'right'}}>DIFERENCIA</th><th style={{textAlign:'center'}}>ESTADO</th></tr></thead>
             <tbody>
               {reporteMensual.datosPorMes.map(f => (
                 <tr key={`print-mes-${f.mes}`}>
                   <td><strong>{f.mes}</strong></td>
+                  <td style={{textAlign:'center'}}>{f.numSemanas}</td>
                   <td style={{textAlign:'right'}}>{f.meta > 0 ? miFormatearMoneda(f.meta) : '-'}</td>
                   <td style={{textAlign:'right', fontWeight:700}}>{f.ventas > 0 ? miFormatearMoneda(f.ventas) : '-'}</td>
                   <td style={{textAlign:'center'}}>{f.meta > 0 ? `${f.pctVentas.toFixed(2)}%` : '-'}</td>
@@ -887,11 +919,12 @@ export const Dashboard = () => {
             <tfoot style={{background:'#f8fafc'}}>
               <tr>
                 <td style={{fontWeight: 900}}>TOTAL ANUAL</td>
+                <td style={{textAlign:'center', fontWeight: 900}}>{reporteMensual.totales.numSemanas}</td>
                 <td style={{textAlign:'right', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.meta)}</td>
                 <td style={{textAlign:'right', color:'#1d8cf8', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
                 <td style={{textAlign:'center', fontWeight: 900}}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas/reporteMensual.totales.meta)*100).toFixed(2) : 0}%</td>
                 <td style={{textAlign:'right', color: reporteMensual.totales.isExcedente ? '#10b981' : '#f56036', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.porCumplir)}</td>
-                <td style={{textAlign:'center', color: reporteMensual.totales.isExcedente ? '#10b981' : '#f56036', fontWeight: 900}}>{reporteMensual.totales.isExcedente ? 'EXCEDENTE TOTAL' : 'FALTANTE TOTAL'}</td>
+                <td style={{textAlign:'center', fontWeight: 900, color: reporteMensual.totales.isExcedente ? '#10b981' : '#f56036'}}>{reporteMensual.totales.isExcedente ? 'EXCEDENTE' : 'FALTANTE'}</td>
               </tr>
             </tfoot>
           </table>

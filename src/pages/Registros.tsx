@@ -61,9 +61,10 @@ export const Registros = () => {
       .map(t => t.nombre);
   }, [contexto.talleres]);
 
-  // --- APLICAR FILTROS Y BÚSQUEDA ---
+  // --- APLICAR FILTROS, BÚSQUEDA Y ORDENAMIENTO ---
   const registrosFiltrados = useMemo(() => {
-    let resultado = contexto.registros;
+    // Se hace una copia para poder ordenar sin mutar el contexto original
+    let resultado = [...contexto.registros];
 
     // Filtros por dropdowns
     if (filtroAno) resultado = resultado.filter(r => r.ano.toString() === filtroAno);
@@ -79,6 +80,23 @@ export const Registros = () => {
         r.ano.toString().includes(busquedaLower)
       );
     }
+
+    // MAPA DE MESES PARA EL ORDENAMIENTO CRONOLÓGICO
+    const ordenMeses: Record<string, number> = {
+      'Enero': 1, 'Febrero': 2, 'Marzo': 3, 'Abril': 4, 'Mayo': 5, 'Junio': 6,
+      'Julio': 7, 'Agosto': 8, 'Septiembre': 9, 'Octubre': 10, 'Noviembre': 11, 'Diciembre': 12
+    };
+
+    // ORDENAR: Año más reciente primero, luego Mes más reciente
+    resultado.sort((a, b) => {
+      if (b.ano !== a.ano) {
+        return b.ano - a.ano; // Ordenar por año de mayor a menor
+      }
+      // Si es el mismo año, ordenamos por mes usando el mapa
+      const mesA = ordenMeses[a.mes] || 0;
+      const mesB = ordenMeses[b.mes] || 0;
+      return mesB - mesA; // Ordenar por mes de mayor a menor
+    });
 
     return resultado;
   }, [contexto.registros, busqueda, filtroAno, filtroMes, filtroTaller]);

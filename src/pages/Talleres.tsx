@@ -1,6 +1,6 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
-import { Store, Plus, Trash2, Image as ImageIcon, Pencil, MapPin, ArrowUp, ArrowDown, Save, X } from 'lucide-react';
+import { Store, Plus, Trash2, Image as ImageIcon, Pencil, MapPin, GripVertical, Save, X } from 'lucide-react';
 import type { Taller } from '../types';
 
 export const Talleres = () => {
@@ -13,6 +13,9 @@ export const Talleres = () => {
   const [nombre, setNombre] = useState('');
   const [direccion, setDireccion] = useState('');
   const [logoBase64, setLogoBase64] = useState<string>('');
+
+  // Estados para Drag and Drop
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   if (!contexto) return null;
 
@@ -73,21 +76,41 @@ export const Talleres = () => {
     cancelarEdicion();
   };
 
-  const moverOrden = (index: number, direccionMov: 'arriba' | 'abajo') => {
+  // --- LÓGICA DE DRAG AND DROP ---
+  const handleDragStart = (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox requiere que se establezca información en el dataTransfer para permitir el drag
+    e.dataTransfer.setData('text/plain', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>) => {
+    e.preventDefault(); // Necesario para permitir que se suelte el elemento
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === dropIndex) return;
+
     const nuevosTalleres = [...talleresOrdenados];
-    const nuevaPos = direccionMov === 'arriba' ? index - 1 : index + 1;
+    const draggedItem = nuevosTalleres[draggedIndex];
 
-    if (nuevaPos < 0 || nuevaPos >= nuevosTalleres.length) return;
+    // Remover de la posición original
+    nuevosTalleres.splice(draggedIndex, 1);
+    // Insertar en la nueva posición
+    nuevosTalleres.splice(dropIndex, 0, draggedItem);
 
-    // Intercambiar posiciones
-    const temp = nuevosTalleres[index];
-    nuevosTalleres[index] = nuevosTalleres[nuevaPos];
-    nuevosTalleres[nuevaPos] = temp;
-
-    // Actualizar propiedad orden y guardar todos
+    // Actualizar la propiedad 'orden' de todos los elementos y guardar
     nuevosTalleres.forEach((t, i) => {
       contexto.agregarTaller({ ...t, orden: i });
     });
+
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   return (
@@ -134,27 +157,26 @@ export const Talleres = () => {
                   </tr>
                 ) : (
                   talleresOrdenados.map((taller, index) => (
-                    <tr key={taller.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-panel)'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                    <tr 
+                      key={taller.id} 
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      style={{ 
+                        borderBottom: '1px solid var(--border)', 
+                        transition: 'all 0.2s',
+                        opacity: draggedIndex === index ? 0.4 : 1,
+                      }} 
+                      onMouseOver={(e) => { if(draggedIndex !== index) e.currentTarget.style.backgroundColor = 'var(--bg-panel)' }} 
+                      onMouseOut={(e) => { if(draggedIndex !== index) e.currentTarget.style.backgroundColor = 'transparent' }}
+                    >
                       
-                      {/* ORDEN */}
+                      {/* DRAG HANDLE */}
                       <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                          <button 
-                            onClick={() => moverOrden(index, 'arriba')} 
-                            disabled={index === 0} 
-                            style={{ background: 'transparent', border: 'none', color: index === 0 ? 'var(--border)' : 'var(--text-muted)', cursor: index === 0 ? 'default' : 'pointer', padding: '2px' }}
-                            title="Mover arriba"
-                          >
-                            <ArrowUp size={16} />
-                          </button>
-                          <button 
-                            onClick={() => moverOrden(index, 'abajo')} 
-                            disabled={index === talleresOrdenados.length - 1} 
-                            style={{ background: 'transparent', border: 'none', color: index === talleresOrdenados.length - 1 ? 'var(--border)' : 'var(--text-muted)', cursor: index === talleresOrdenados.length - 1 ? 'default' : 'pointer', padding: '2px' }}
-                            title="Mover abajo"
-                          >
-                            <ArrowDown size={16} />
-                          </button>
+                        <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)', cursor: 'grab' }} title="Arrastrar para reordenar">
+                          <GripVertical size={20} />
                         </div>
                       </td>
 
@@ -162,7 +184,7 @@ export const Talleres = () => {
                       <td style={{ padding: '1rem 1.5rem' }}>
                         <div style={{ width: '60px', height: '60px', backgroundColor: 'var(--bg-panel)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid var(--border)' }}>
                           {taller.logo ? (
-                            <img src={taller.logo} alt={taller.nombre} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                            <img src={taller.logo} alt={taller.nombre} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} draggable="false" />
                           ) : (
                             <ImageIcon size={20} color="var(--text-muted)" />
                           )}
