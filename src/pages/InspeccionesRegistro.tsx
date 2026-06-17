@@ -234,27 +234,27 @@ export const InspeccionesRegistro = () => {
               ) : (
                 <>
                   <h3 className="detail-section-title">Información Principal</h3>
-                  <div className="grid-layout" style={{ marginTop: '1rem' }}>
-                    <div className="form-group">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                    <div className="form-group" style={{ minWidth: 0, gridColumn: '1 / -1' }}>
                       <label className="form-label">Taller</label>
-                      <select className="form-control" value={taller} onChange={(e) => setTaller(e.target.value)}>
+                      <select className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={taller} onChange={(e) => setTaller(e.target.value)}>
                         <option value="">Seleccione un taller...</option>
                         {talleresOrdenados.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">Año</label>
-                      <input type="number" className="form-control" value={ano} onChange={(e) => setAno(e.target.value)} />
+                      <input type="number" className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={ano} onChange={(e) => setAno(e.target.value)} />
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">Mes</label>
-                      <select className="form-control" value={mes} onChange={(e) => setMes(e.target.value)}>
+                      <select className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={mes} onChange={(e) => setMes(e.target.value)}>
                         {MESES.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
-                    <div className="form-group">
+                    <div className="form-group" style={{ minWidth: 0, gridColumn: '1 / -1' }}>
                       <label className="form-label">Inspecciones</label>
-                      <input type="number" min={0} className="form-control" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="0" />
+                      <input type="number" min={0} className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="0" />
                     </div>
                   </div>
 
