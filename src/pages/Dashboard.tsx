@@ -24,6 +24,9 @@ const miFormatearMoneda = (valor: number) => {
   }).format(valor).replace('$', '$\u00A0');
 };
 
+// Clave de almacenamiento local para las semanas editadas manualmente
+const STORAGE_SEMANAS = 'roelca_semanas_editadas_v1';
+
 export const Dashboard = () => {
   const contexto = useContext(AppContext);
   if (!contexto) return null;
@@ -46,6 +49,35 @@ export const Dashboard = () => {
   const [tipoGraficoMensual, setTipoGraficoMensual] = useState<TipoGrafico>('barras');
   const [is3DMensual, setIs3DMensual] = useState<boolean>(true);
   const [hoveredMes, setHoveredMes] = useState<string | null>(null);
+
+  // --- CAMBIO 3: Semanas editables y persistentes (por Año + Taller + Mes) ---
+  const [semanasEditadas, setSemanasEditadas] = useState<Record<string, number>>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_SEMANAS);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const claveSemana = (mes: string) => `${filtroAno}__${filtroTaller}__${mes}`;
+
+  const getSemanas = (mes: string, computado: number) => {
+    const k = claveSemana(mes);
+    return semanasEditadas[k] !== undefined ? semanasEditadas[k] : computado;
+  };
+
+  const guardarSemanas = (mes: string, valor: number) => {
+    setSemanasEditadas(prev => {
+      const next = { ...prev, [claveSemana(mes)]: valor };
+      try {
+        localStorage.setItem(STORAGE_SEMANAS, JSON.stringify(next));
+      } catch {
+        // almacenamiento no disponible: se mantiene en memoria durante la sesión
+      }
+      return next;
+    });
+  };
 
   // Fecha actual para el reporte PDF (Forzada a MM/DD/YYYY local)
   const fechaReporte = useMemo(() => {
@@ -166,6 +198,11 @@ export const Dashboard = () => {
     };
     return { datosPorMes, totales: { ...totales, porCumplir: Math.abs(totales.meta - totales.ventas), isExcedente: totales.ventas > totales.meta } };
   }, [registros, filtroAno, filtroTaller]);
+
+  // Total de semanas mostrado considerando las ediciones manuales
+  const totalSemanasMostrado = useMemo(() => {
+    return reporteMensual.datosPorMes.reduce((acc, m) => acc + getSemanas(m.mes, m.numSemanas), 0);
+  }, [reporteMensual, semanasEditadas, filtroAno, filtroTaller]);
 
   // Análisis de Datos para el Gráfico Mensual
   const datosGraficoMensual = useMemo(() => {
@@ -442,6 +479,10 @@ export const Dashboard = () => {
     }
   };
 
+  // Datos preparados para la gráfica de tendencia del PDF (contenida, sin desborde)
+  const tendenciaPDF = reporteMensual.datosPorMes.filter(m => m.ventas > 0);
+  const maxTendenciaPDF = Math.max(...tendenciaPDF.map(m => m.ventas), 1);
+
   return (
     <>
       {/* MAGIA CSS: ESTILOS QUE SEPARAN LA WEB DE LA IMPRESIÓN */}
@@ -472,41 +513,52 @@ export const Dashboard = () => {
             font-family: Arial, Helvetica, sans-serif !important;
           }
 
-          /* ESTILOS EXCLUSIVOS DEL REPORTE IMPRESO */
+          /* CAMBIO 2: ENCABEZADO CENTRADO */
           .print-only-report .report-header {
-            display: flex !important; justify-content: space-between !important; align-items: flex-end !important;
+            display: flex !important; flex-direction: column !important;
+            justify-content: center !important; align-items: center !important; text-align: center !important;
             background-color: #1e293b !important; color: #ffffff !important;
-            padding: 15px !important; margin-bottom: 15px !important; border-radius: 12px !important;
+            padding: 16px !important; margin-bottom: 16px !important; border-radius: 12px !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
-          .print-only-report .report-header h1 { color: #ffffff !important; font-size: 20pt !important; margin: 0 !important; }
-          .print-only-report .report-header p { color: #cbd5e1 !important; margin: 5px 0 0 0 !important;}
+          .print-only-report .report-header h1 { color: #ffffff !important; font-size: 20pt !important; margin: 0 !important; letter-spacing: 0.5px !important; }
+          .print-only-report .report-header p { color: #cbd5e1 !important; margin: 4px 0 0 0 !important;}
 
+          /* CAMBIO 2: TÍTULOS DE SECCIÓN CENTRADOS */
           .print-only-report .section-executive-title {
             display: block !important; font-size: 11pt !important; font-weight: 800 !important; color: #1e293b !important;
-            text-transform: uppercase !important; margin: 0 0 10px 0 !important; border-left: 5px solid #1d8cf8 !important;
-            padding-left: 10px !important; page-break-after: avoid !important;
+            text-transform: uppercase !important; margin: 0 0 12px 0 !important; letter-spacing: 0.5px !important;
+            text-align: center !important;
+            border-bottom: 2px solid #1d8cf8 !important; padding: 0 0 6px 0 !important;
+            page-break-after: avoid !important;
           }
           .print-only-report .kpi-print-row {
-            display: flex !important; gap: 15px !important; margin-bottom: 15px !important; page-break-inside: avoid !important;
+            display: flex !important; gap: 15px !important; margin-bottom: 16px !important; page-break-inside: avoid !important;
           }
           .print-only-report .kpi-item {
             flex: 1 !important; border: 1px solid #e2e8f0 !important; padding: 10px !important; text-align: center !important;
             background: #f8fafc !important; border-radius: 8px !important;
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
           .print-only-report .kpi-val { font-size: 14pt !important; font-weight: 900 !important; margin-top: 5px !important; }
           
           .print-only-report .card-print {
             border: 1px solid #e2e8f0 !important; border-radius: 10px !important; margin-bottom: 0 !important;
-            padding: 10px 15px !important; page-break-inside: avoid !important;
+            padding: 12px 15px !important; page-break-inside: avoid !important; overflow: hidden !important;
           }
           
           .print-only-report table { width: 100% !important; border-collapse: collapse !important; }
-          .print-only-report th { background: #f1f5f9 !important; padding: 6px !important; border-bottom: 2px solid #cbd5e1 !important; font-size: 8pt !important; text-align: left; }
+          .print-only-report th { background: #f1f5f9 !important; padding: 6px !important; border-bottom: 2px solid #cbd5e1 !important; font-size: 8pt !important; text-align: left; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           .print-only-report td { padding: 6px !important; border-bottom: 1px solid #f1f5f9 !important; font-size: 8pt !important; }
           .print-only-report tr:nth-child(even) { background: #fcfcfc !important; }
+
+          /* CAMBIO 1: forzar impresión de colores en SVG y barras para que nada se vea vacío */
+          .print-only-report svg circle, .print-only-report svg rect, .print-only-report svg path,
+          .print-only-report .swatch, .print-only-report .bar-pdf {
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+          }
           
-          .print-only-report .chart-print-box { position: relative !important; height: 200px !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 5px 0 !important; }
+          .print-only-report .chart-print-box { position: relative !important; display: flex !important; justify-content: center !important; align-items: center !important; margin: 5px 0 !important; overflow: hidden !important; }
           
           * { scrollbar-width: none !important; }
           ::-webkit-scrollbar { display: none !important; }
@@ -697,13 +749,25 @@ export const Dashboard = () => {
                 <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Reporte Mensual Consolidado</h3>
                 {filtroAno !== 'Todos' && <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}>Año Fiscal: {filtroAno}</span>}
               </div>
+              {/* CAMBIO 3: la columna "Semanas" va primero y es editable/guardable */}
               <table className="table" style={{ width: '100%' }}>
-                <thead><tr><th>Mes</th><th style={{ textAlign: 'center' }}>Semanas</th><th style={{ textAlign: 'right' }}>Meta</th><th style={{ textAlign: 'right' }}>Ventas</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'right' }}>Diferencia</th><th style={{ textAlign: 'center' }}>Estado</th></tr></thead>
+                <thead><tr><th style={{ textAlign: 'center' }}>Semanas</th><th>Mes</th><th style={{ textAlign: 'right' }}>Meta</th><th style={{ textAlign: 'right' }}>Ventas</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'right' }}>Diferencia</th><th style={{ textAlign: 'center' }}>Estado</th></tr></thead>
                 <tbody>
                   {reporteMensual.datosPorMes.map(fila => (
                     <tr key={fila.mes}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="number"
+                          min={0}
+                          value={getSemanas(fila.mes, fila.numSemanas)}
+                          onChange={(e) => {
+                            const v = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                            guardarSemanas(fila.mes, isNaN(v) ? 0 : Math.max(0, v));
+                          }}
+                          style={{ width: '56px', textAlign: 'center', backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.3rem', fontSize: '0.85rem', fontWeight: 700, outline: 'none' }}
+                        />
+                      </td>
                       <td><strong>{fila.mes}</strong></td>
-                      <td style={{ textAlign: 'center' }}>{fila.numSemanas}</td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{fila.meta > 0 ? miFormatearMoneda(fila.meta) : '-'}</td>
                       <td style={{ textAlign: 'right', fontWeight: fila.ventas > 0 ? 600 : 400, color: fila.ventas > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{fila.ventas > 0 ? miFormatearMoneda(fila.ventas) : '-'}</td>
                       <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>{fila.pctVentas.toFixed(2)}%</span>}</td>
@@ -719,22 +783,16 @@ export const Dashboard = () => {
                 {/* LÓGICA DE EXCEDENTE EN EL FOOTER DE LA TABLA */}
                 <tfoot>
                   <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                    {(() => {
-                       return (
-                         <>
-                            <td style={{ padding: '1rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>Total</strong></td>
-                            <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{reporteMensual.totales.numSemanas}</td>
-                            <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(reporteMensual.totales.meta)}</td>
-                            <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)', fontSize: '1.05rem' }}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
-                            <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--primary)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
-                            <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: reporteMensual.totales.isExcedente ? 'var(--success)' : 'var(--danger)' }}>
-                               <div style={{fontSize: '0.7rem', textTransform: 'uppercase'}}>{reporteMensual.totales.isExcedente ? 'Excedente Total' : 'Faltante Total'}</div>
-                               {miFormatearMoneda(reporteMensual.totales.porCumplir)}
-                            </td>
-                            <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: reporteMensual.totales.isExcedente ? 'var(--success)' : 'var(--danger)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.porCumplir / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
-                         </>
-                       )
-                    })()}
+                    <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 800, color: 'var(--text-main)' }}>{totalSemanasMostrado}</td>
+                    <td style={{ padding: '1rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>Total</strong></td>
+                    <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(reporteMensual.totales.meta)}</td>
+                    <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)', fontSize: '1.05rem' }}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
+                    <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: 'var(--primary)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
+                    <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: reporteMensual.totales.isExcedente ? 'var(--success)' : 'var(--danger)' }}>
+                       <div style={{fontSize: '0.7rem', textTransform: 'uppercase'}}>{reporteMensual.totales.isExcedente ? 'Excedente Total' : 'Faltante Total'}</div>
+                       {miFormatearMoneda(reporteMensual.totales.porCumplir)}
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '1rem' }}><span style={{ color: reporteMensual.totales.isExcedente ? 'var(--success)' : 'var(--danger)', fontWeight: 800 }}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.porCumplir / reporteMensual.totales.meta) * 100).toFixed(2) : 0}%</span></td>
                   </tr>
                 </tfoot>
               </table>
@@ -784,16 +842,13 @@ export const Dashboard = () => {
       {filtrosCompletos && (
         <div className="print-only-report">
           
+          {/* CAMBIO 2: encabezado centrado */}
           <div className="report-header">
-            <div>
-              <h1 style={{ fontSize: '24pt', margin: 0 }}>Reporte de Gestión Ejecutiva</h1>
-              <p style={{ fontSize: '11pt', marginTop: '5px' }}>
-                {tallerActivo ? `Sucursal: ${tallerActivo.nombre}` : 'Consolidado Global de Operaciones'}
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontWeight: 600, fontSize: '12pt' }}>{fechaReporte}</p>
-            </div>
+            <h1 style={{ margin: 0 }}>Reporte de Gestión Ejecutiva</h1>
+            <p style={{ fontSize: '11pt', marginTop: '5px' }}>
+              {tallerActivo ? `Sucursal: ${tallerActivo.nombre}` : 'Consolidado Global de Operaciones'}
+            </p>
+            <p className="report-fecha" style={{ fontWeight: 600, fontSize: '11pt', marginTop: '4px' }}>{fechaReporte}</p>
           </div>
 
           <h3 className="section-executive-title">Resumen de Indicadores Clave (KPIs)</h3>
@@ -810,7 +865,7 @@ export const Dashboard = () => {
           </div>
 
           {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '15px', marginBottom: '15px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '15px', marginBottom: '15px', alignItems: 'start' }}>
             <div className="card-print">
               <h3 className="section-executive-title">Detalle Operativo Semanal</h3>
               <table>
@@ -836,77 +891,66 @@ export const Dashboard = () => {
               </table>
             </div>
 
+            {/* CAMBIO 1: distribución de logros = anillo CONTENIDO + leyenda (sin habladores que se salgan) */}
             <div className="card-print">
               <h3 className="section-executive-title">Distribución de Logros</h3>
-              <div className="chart-print-box">
-                <div style={{ position: 'relative', width: '180px', height: '180px' }}>
-                  <svg width="180" height="180" viewBox="0 0 42 42" style={{ transform: 'rotate(-90deg)', overflow: 'visible', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-                    {(() => {
-                      let offsetSvg = 0;
-                      return analisisOperaciones?.operaciones.map(op => {
-                        const percentVal = typeof op.porcentajeOpRaw === 'number' ? op.porcentajeOpRaw : parseFloat(op.porcentajeStr);
-                        const dash = `${percentVal} ${100 - percentVal}`;
-                        const currentOff = -offsetSvg;
-                        offsetSvg += percentVal;
-                        return (
-                          <circle
-                            key={`svg-print-${op.id}`}
-                            cx="21" cy="21" r="15.9154943"
-                            fill="transparent"
-                            stroke={op.color}
-                            strokeWidth="8"
-                            strokeDasharray={dash}
-                            strokeDashoffset={currentOff}
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-
-                  <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 10 }}>
-                    {analisisOperaciones?.operaciones.map((op, index) => {
-                      const rad = (op.midAngle - 90) * (Math.PI / 180);
-                      const rBase = 80;
-                      const rLineEnd = 110;
-                      const rCard = 135 + (index % 2 === 0 ? 0 : 25); 
-
-                      const xBase = Math.cos(rad) * rBase;
-                      const yBase = Math.sin(rad) * rBase;
-                      const xLineEnd = Math.cos(rad) * rLineEnd;
-                      const yLineEnd = Math.sin(rad) * rLineEnd;
-                      const xCard = Math.cos(rad) * rCard;
-                      const yCard = Math.sin(rad) * rCard;
-
-                      return (
-                        <div key={`print-lbl-${op.id}`}>
-                          <svg width="1" height="1" style={{ position: 'absolute', overflow: 'visible', zIndex: 9, left: 0, top: 0 }}>
-                            <line x1={xBase} y1={yBase} x2={xLineEnd} y2={yLineEnd} stroke={op.color} strokeWidth="1.5" strokeDasharray="3,3" />
-                          </svg>
-                          <div style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: 'translate(-50%, -50%)', backgroundColor: '#ffffff', border: `2px solid ${op.color}`, padding: '4px 8px', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', zIndex: 10 }}>
-                            <span style={{ fontSize: '6pt', fontWeight: 700, color: '#64748b', whiteSpace: 'nowrap' }}>{op.isFaltante ? 'Faltante' : `Semana ${op.semanaIndex}`}</span>
-                            <span style={{ fontSize: '7pt', fontWeight: 900, color: op.color }}>{op.porcentajeStr}%</span>
-                          </div>
-                        </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                <svg viewBox="0 0 200 200" style={{ width: '150px', height: '150px', display: 'block' }}>
+                  {(() => {
+                    const cx = 100, cy = 100, R = 70, SW = 30;
+                    const C = 2 * Math.PI * R;
+                    const ops = analisisOperaciones?.operaciones || [];
+                    let offset = 0;
+                    return ops.map(op => {
+                      const pct = typeof op.porcentajeOpRaw === 'number' ? op.porcentajeOpRaw : parseFloat(op.porcentajeStr);
+                      const dash = (pct / 100) * C;
+                      const el = (
+                        <circle
+                          key={`seg-${op.id}`}
+                          cx={cx} cy={cy} r={R}
+                          fill="none"
+                          stroke={op.color}
+                          strokeWidth={SW}
+                          strokeDasharray={`${dash} ${C - dash}`}
+                          strokeDashoffset={-offset}
+                          transform={`rotate(-90 ${cx} ${cy})`}
+                        />
                       );
-                    })}
-                  </div>
+                      offset += dash;
+                      return el;
+                    });
+                  })()}
+                </svg>
+                <div style={{ width: '100%' }}>
+                  {(analisisOperaciones?.operaciones || []).map(op => (
+                    <div key={`leg-${op.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0', fontSize: '7.5pt', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+                        <span className="swatch" style={{ width: '9px', height: '9px', borderRadius: '2px', backgroundColor: op.color, display: 'inline-block', flexShrink: 0 }}></span>
+                        <span style={{ color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{op.isFaltante ? 'Faltante' : `Semana ${op.semanaIndex}`}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: '#1e293b', fontWeight: 700 }}>{miFormatearMoneda(op.vendido)}</span>
+                        <span style={{ color: op.color, fontWeight: 800, minWidth: '40px', textAlign: 'right' }}>{op.porcentajeStr}%</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
+          </div>{/* cierre de la grilla de 2 columnas */}
 
           <div className="page-break"></div>
 
-          {/* LA TABLA MENSUAL TOMA EL 100% DEL PDF EN LA SEGUNDA PÁGINA */}
+          {/* CAMBIO 3 (consistencia): en el PDF la columna SEM también va primero y usa el valor editado */}
           <div className="card-print" style={{ marginBottom: '15px' }}>
             <h3 className="section-executive-title">Estado de Resultados Mensual</h3>
             <table>
-              <thead><tr><th>MES</th><th style={{textAlign:'center'}}>SEM</th><th style={{textAlign:'right'}}>META</th><th style={{textAlign:'right'}}>VENTAS</th><th style={{textAlign:'center'}}>%</th><th style={{textAlign:'right'}}>DIFERENCIA</th></tr></thead>
+              <thead><tr><th style={{textAlign:'center'}}>SEM</th><th>MES</th><th style={{textAlign:'right'}}>META</th><th style={{textAlign:'right'}}>VENTAS</th><th style={{textAlign:'center'}}>%</th><th style={{textAlign:'right'}}>DIFERENCIA</th></tr></thead>
               <tbody>
                 {reporteMensual.datosPorMes.map(f => (
                   <tr key={`print-mes-${f.mes}`}>
+                    <td style={{textAlign:'center'}}>{getSemanas(f.mes, f.numSemanas)}</td>
                     <td><strong>{f.mes.substring(0,3)}</strong></td>
-                    <td style={{textAlign:'center'}}>{f.numSemanas}</td>
                     <td style={{textAlign:'right'}}>{f.meta > 0 ? miFormatearMoneda(f.meta) : '-'}</td>
                     <td style={{textAlign:'right', fontWeight:700}}>{f.ventas > 0 ? miFormatearMoneda(f.ventas) : '-'}</td>
                     <td style={{textAlign:'center'}}>{f.meta > 0 ? `${f.pctVentas.toFixed(2)}%` : '-'}</td>
@@ -916,8 +960,8 @@ export const Dashboard = () => {
               </tbody>
               <tfoot style={{background:'#f8fafc'}}>
                 <tr>
+                  <td style={{textAlign:'center', fontWeight: 900}}>{totalSemanasMostrado}</td>
                   <td style={{fontWeight: 900}}>TOTAL</td>
-                  <td style={{textAlign:'center', fontWeight: 900}}>{reporteMensual.totales.numSemanas}</td>
                   <td style={{textAlign:'right', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.meta)}</td>
                   <td style={{textAlign:'right', color:'#1d8cf8', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
                   <td style={{textAlign:'center', fontWeight: 900}}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas/reporteMensual.totales.meta)*100).toFixed(2) : 0}%</td>
@@ -927,22 +971,28 @@ export const Dashboard = () => {
             </table>
           </div>
 
-          {/* LA GRÁFICA DE TENDENCIA TOMA EL 100% DEL PDF EN LA SEGUNDA PÁGINA */}
+          {/* CAMBIO 1: tendencia contenida, etiquetas dentro del recuadro */}
           <div className="card-print">
             <h3 className="section-executive-title">Tendencia de Desempeño</h3>
-            <div className="chart-print-box" style={{height:'180px'}}>
-               <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '10px', padding: '0 10px', borderBottom: '2px solid #cbd5e1', paddingTop: '15px' }}>
-                  {reporteMensual.datosPorMes.filter(m => m.ventas > 0).map(m => (
-                    <div key={`bar-${m.mes}`} style={{ flex: 1, backgroundColor: '#1d8cf8', height: `${(m.ventas / Math.max(...reporteMensual.datosPorMes.map(x => x.ventas))) * 100}%`, borderRadius: '4px 4px 0 0', position: 'relative', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                      <div style={{ position: 'absolute', top: '-20px', width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column' }}>
-                         <span style={{ fontSize: '6pt', fontWeight: 800, color: '#1e293b' }}>{miFormatearMoneda(m.ventas)}</span>
+            <div className="chart-print-box" style={{ flexDirection: 'column' }}>
+              <div style={{ width: '100%', position: 'relative' }}>
+                <div style={{ height: '170px', display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '22px 12px 0 12px', borderBottom: '2px solid #cbd5e1' }}>
+                  {tendenciaPDF.map(m => {
+                    const h = (m.ventas / maxTendenciaPDF) * 100;
+                    return (
+                      <div key={`bar-${m.mes}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
+                        <span style={{ fontSize: '6.5pt', fontWeight: 800, color: '#1e293b', marginBottom: '3px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(m.ventas)}</span>
+                        <div className="bar-pdf" style={{ width: '100%', maxWidth: '44px', height: `${h}%`, backgroundColor: '#1d8cf8', borderRadius: '4px 4px 0 0' }}></div>
                       </div>
-                      <div style={{ position: 'absolute', bottom: '-20px', width: '100%', textAlign: 'center', fontSize: '7pt', fontWeight: 700, color: '#64748b' }}>
-                        {m.mes.substring(0,3)}
-                      </div>
-                    </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '12px', padding: '5px 12px 0 12px' }}>
+                  {tendenciaPDF.map(m => (
+                    <div key={`lbl-${m.mes}`} style={{ flex: 1, textAlign: 'center', fontSize: '7pt', fontWeight: 700, color: '#64748b' }}>{m.mes.substring(0,3)}</div>
                   ))}
-               </div>
+                </div>
+              </div>
             </div>
           </div>
 

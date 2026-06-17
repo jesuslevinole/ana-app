@@ -5,20 +5,32 @@ import { Dashboard } from './pages/Dashboard';
 import { Registros } from './pages/Registros';
 import { FormularioRegistro } from './pages/FormularioRegistro';
 import { Comparacion } from './pages/Comparacion';
-import { Talleres } from './pages/Talleres'; // <-- IMPORTA EL NUEVO MÓDULO
+import { Talleres } from './pages/Talleres';
+import { InspeccionesRegistro } from './pages/InspeccionesRegistro';
+import { InspeccionesDashboard } from './pages/InspeccionesDashboard';
+import { Marketing } from './pages/Marketing';
+import { Usuarios } from './pages/Usuarios';
 import "./index.css";
 
 const EnrutadorVistas = () => {
   const contexto = useContext(AppContext);
   if (!contexto) return null;
 
+  // Casteo a string para admitir las vistas nuevas sin tocar el tipo VistaApp
+  // (aunque se recomienda extenderlo, ver nota).
+  const vista = contexto.vista as string;
+
   return (
     <Layout>
-      {contexto.vista === 'dashboard' && <Dashboard />}
-      {contexto.vista === 'tabla' && <Registros />}
-      {contexto.vista === 'formulario' && <FormularioRegistro />}
-      {contexto.vista === 'comparacion' && <Comparacion />}
-      {contexto.vista === 'talleres' && <Talleres />} {/* <-- RENDERIZA AQUÍ */}
+      {vista === 'dashboard' && <Dashboard />}
+      {vista === 'tabla' && <Registros />}
+      {vista === 'formulario' && <FormularioRegistro />}
+      {vista === 'comparacion' && <Comparacion />}
+      {vista === 'talleres' && <Talleres />}
+      {vista === 'inspeccionesRegistro' && <InspeccionesRegistro />}
+      {vista === 'inspeccionesDashboard' && <InspeccionesDashboard />}
+      {vista === 'marketing' && <Marketing />}
+      {vista === 'usuarios' && <Usuarios />}
     </Layout>
   );
 };
