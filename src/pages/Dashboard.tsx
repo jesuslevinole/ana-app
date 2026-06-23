@@ -511,9 +511,9 @@ export const Dashboard = () => {
     const reales = analisisOperaciones.operaciones.filter(o => !o.isFaltante);
     const numSemanas = reales.length;
 
-    // SEMANAL = Meta / # de semanas ; DIARIO = Semanal / 6 días laborables
-    const semanal = numSemanas > 0 ? kpis.metaTotal / numSemanas : 0;
-    const diario = semanal / 6;
+    // SEMANAL = Meta / 4 (semanas del mes) ; DIARIO = Semanal / 7 días
+    const semanal = kpis.metaTotal / 4;
+    const diario = semanal / 7;
 
     // Rango de fechas: desde la primera operación hasta la última
     const primera = reales[0];
@@ -525,7 +525,7 @@ export const Dashboard = () => {
     const filas = reales.map((op, i) => ({
       id: op.id,
       idx: i + 1,
-      periodo: `${miFormatearFecha(op.desde)} TO ${miFormatearFecha(op.hasta)}`,
+      periodo: `${miFormatearFecha(op.desde)} AL ${miFormatearFecha(op.hasta)}`,
       vendido: op.vendido,
       color: op.color,
       pctMeta: kpis.metaTotal > 0 ? (op.vendido / kpis.metaTotal) * 100 : 0,
@@ -1173,14 +1173,14 @@ export const Dashboard = () => {
                 {tallerActivo ? tallerActivo.nombre : 'Consolidado'} <span style={{ color: '#22c55e' }}>{filtroMes.toUpperCase()}</span>
               </div>
               <div style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 600, marginTop: '6px', letterSpacing: '0.5px' }}>
-                {datosReporteImagen.rangoDesde} &nbsp;TO&nbsp; {datosReporteImagen.rangoHasta} &nbsp;·&nbsp; AÑO FISCAL {filtroAno}
+                {datosReporteImagen.rangoDesde} &nbsp;AL&nbsp; {datosReporteImagen.rangoHasta} &nbsp;·&nbsp; AÑO FISCAL {filtroAno}
               </div>
             </div>
 
             <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '22px' }}>
-              <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>META</div>
-              <div style={{ fontSize: '20px', color: '#ffffff', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{miFormatearMoneda(kpis.metaTotal)}</div>
-              <div style={{ fontSize: '11px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>100%</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>META</div>
+              <div style={{ fontSize: '28px', color: '#ffffff', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{miFormatearMoneda(kpis.metaTotal)}</div>
+              <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>100%</div>
             </div>
           </div>
 
@@ -1191,9 +1191,9 @@ export const Dashboard = () => {
               { label: 'SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
               { label: 'CUMPLIMIENTO', valor: `${kpis.porcentajeGlobal}%`, color: kpis.isExcedente ? '#16a34a' : '#1d8cf8' },
             ].map((chip, i) => (
-              <div key={chip.label} style={{ flex: 1, padding: '14px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
-                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
-                <div style={{ fontSize: '16px', color: chip.color, fontWeight: 900, marginTop: '3px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+              <div key={chip.label} style={{ flex: 1, padding: '16px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
+                <div style={{ fontSize: '23px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
               </div>
             ))}
           </div>
@@ -1206,7 +1206,7 @@ export const Dashboard = () => {
               <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '10px 16px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
                 <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>REF</div>
                 <div style={{ flex: 1 }}>PERIODO</div>
-                <div style={{ width: '150px', textAlign: 'right' }}>AMOUNT</div>
+                <div style={{ width: '150px', textAlign: 'right' }}>MONTO</div>
                 <div style={{ width: '80px', textAlign: 'right' }}>% META</div>
               </div>
 
