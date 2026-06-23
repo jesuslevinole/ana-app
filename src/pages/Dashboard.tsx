@@ -1,7 +1,7 @@
-import { useState, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
-import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter } from 'lucide-react';
+import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download } from 'lucide-react';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
@@ -49,6 +49,10 @@ export const Dashboard = () => {
   const [tipoGraficoMensual, setTipoGraficoMensual] = useState<TipoGrafico>('barras');
   const [is3DMensual, setIs3DMensual] = useState<boolean>(true);
   const [hoveredMes, setHoveredMes] = useState<string | null>(null);
+
+  // --- NUEVO: Estado y referencia para exportar el reporte como IMAGEN PNG ---
+  const reporteImagenRef = useRef<HTMLDivElement>(null);
+  const [generandoImagen, setGenerandoImagen] = useState<boolean>(false);
 
   // --- CAMBIO 3: Semanas editables y persistentes (por Año + Taller + Mes) ---
   const [semanasEditadas, setSemanasEditadas] = useState<Record<string, number>>(() => {
@@ -483,6 +487,111 @@ export const Dashboard = () => {
   const tendenciaPDF = reporteMensual.datosPorMes.filter(m => m.ventas > 0);
   const maxTendenciaPDF = Math.max(...tendenciaPDF.map(m => m.ventas), 1);
 
+  // =========================================================================
+  // NUEVO: DATOS Y UTILIDADES PARA EL REPORTE DE IMAGEN (estilo planilla, más PRO)
+  // =========================================================================
+
+  // Helpers para dibujar sectores de PIE en SVG (sin librerías externas)
+  const polarToCartesian = (cx: number, cy: number, r: number, anguloGrados: number) => {
+    const a = ((anguloGrados - 90) * Math.PI) / 180;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+  };
+  const arcoPie = (cx: number, cy: number, r: number, anguloInicio: number, anguloFin: number) => {
+    const ini = polarToCartesian(cx, cy, r, anguloFin);
+    const fin = polarToCartesian(cx, cy, r, anguloInicio);
+    const largeArc = anguloFin - anguloInicio <= 180 ? 0 : 1;
+    return `M ${cx} ${cy} L ${ini.x} ${ini.y} A ${r} ${r} 0 ${largeArc} 0 ${fin.x} ${fin.y} Z`;
+  };
+
+  // Cálculo de toda la información mostrada en la imagen del reporte
+  const datosReporteImagen = useMemo(() => {
+    if (!analisisOperaciones) return null;
+
+    // Solo operaciones reales (excluimos la barra "faltante" del gráfico)
+    const reales = analisisOperaciones.operaciones.filter(o => !o.isFaltante);
+    const numSemanas = reales.length;
+
+    // SEMANAL = Meta / # de semanas ; DIARIO = Semanal / 6 días laborables
+    const semanal = numSemanas > 0 ? kpis.metaTotal / numSemanas : 0;
+    const diario = semanal / 6;
+
+    // Rango de fechas: desde la primera operación hasta la última
+    const primera = reales[0];
+    const ultima = reales[reales.length - 1];
+    const rangoDesde = primera ? miFormatearFecha(primera.desde) : '-';
+    const rangoHasta = ultima ? miFormatearFecha(ultima.hasta) : '-';
+
+    // Filas de la tabla (periodo + monto + % sobre la meta)
+    const filas = reales.map((op, i) => ({
+      id: op.id,
+      idx: i + 1,
+      periodo: `${miFormatearFecha(op.desde)} TO ${miFormatearFecha(op.hasta)}`,
+      vendido: op.vendido,
+      color: op.color,
+      pctMeta: kpis.metaTotal > 0 ? (op.vendido / kpis.metaTotal) * 100 : 0,
+    }));
+
+    // Segmentos del PIE (participación de cada semana sobre el total vendido)
+    const totalReal = reales.reduce((acc, o) => acc + o.vendido, 0);
+    let acumulado = 0;
+    const segmentosPie = reales.map((op, i) => {
+      const frac = totalReal > 0 ? op.vendido / totalReal : 0;
+      const inicio = acumulado * 360;
+      acumulado += frac;
+      const fin = acumulado * 360;
+      return {
+        id: op.id,
+        idx: i + 1,
+        color: op.color,
+        vendido: op.vendido,
+        pct: frac * 100,
+        inicio,
+        fin,
+        path: arcoPie(110, 110, 95, inicio, fin),
+      };
+    });
+
+    return { reales, numSemanas, semanal, diario, rangoDesde, rangoHasta, filas, segmentosPie, totalReal };
+  }, [analisisOperaciones, kpis]);
+
+  // Carga dinámica de html2canvas desde CDN (no requiere instalarlo en package.json)
+  const cargarHtml2Canvas = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const w = window as any;
+      if (w.html2canvas) return resolve(w.html2canvas);
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      script.async = true;
+      script.onload = () => resolve((window as any).html2canvas);
+      script.onerror = () => reject(new Error('No se pudo cargar html2canvas'));
+      document.body.appendChild(script);
+    });
+  };
+
+  // Genera y descarga el reporte como imagen PNG de alta resolución
+  const generarImagen = async () => {
+    if (!reporteImagenRef.current) return;
+    setGenerandoImagen(true);
+    try {
+      const html2canvas = await cargarHtml2Canvas();
+      const canvas = await html2canvas(reporteImagenRef.current, {
+        scale: 3,                 // 3x = nitidez de alta resolución
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+      });
+      const link = document.createElement('a');
+      const nombreTaller = tallerActivo ? tallerActivo.nombre.replace(/\s+/g, '_') : 'Reporte';
+      link.download = `Reporte_${nombreTaller}_${filtroMes}_${filtroAno}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      alert('No se pudo generar la imagen. Verifique su conexión a internet e intente de nuevo.');
+    } finally {
+      setGenerandoImagen(false);
+    }
+  };
+
   return (
     <>
       {/* MAGIA CSS: ESTILOS QUE SEPARAN LA WEB DE LA IMPRESIÓN */}
@@ -583,9 +692,14 @@ export const Dashboard = () => {
               <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Visualización Dinámica e Inteligencia de Datos</p>
             </div>
           </div>
-          <button onClick={() => window.print()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600 }}>
-            <Printer size={18} /> Exportar PDF
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button onClick={generarImagen} disabled={!filtrosCompletos || generandoImagen} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (!filtrosCompletos || generandoImagen) ? 'not-allowed' : 'pointer', opacity: (!filtrosCompletos || generandoImagen) ? 0.55 : 1, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.35)' }} title={!filtrosCompletos ? 'Seleccione Año, Mes y Taller para habilitar' : 'Descargar reporte como imagen PNG'}>
+              <Download size={18} /> {generandoImagen ? 'Generando...' : 'Generar Imagen'}
+            </button>
+            <button onClick={() => window.print()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600 }}>
+              <Printer size={18} /> Exportar PDF
+            </button>
+          </div>
         </div>
 
         <div className="filter-bar">
@@ -996,6 +1110,167 @@ export const Dashboard = () => {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* =========================================================================
+          3. LIENZO OCULTO -> SE CAPTURA COMO IMAGEN PNG (REPORTE PROFESIONAL)
+          Posicionado fuera de pantalla. Solo se renderiza con filtros completos.
+      ========================================================================= */}
+      {filtrosCompletos && datosReporteImagen && (
+        <div
+          ref={reporteImagenRef}
+          style={{
+            position: 'fixed', left: '-10000px', top: 0, zIndex: -50, pointerEvents: 'none',
+            width: '840px', backgroundColor: '#ffffff',
+            fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
+            borderRadius: '16px', overflow: 'hidden',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
+          }}
+        >
+          {/* ENCABEZADO */}
+          <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #14532d 140%)', padding: '26px 32px', display: 'flex', alignItems: 'center', gap: '22px', position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)' }} />
+            {tallerActivo && tallerActivo.logo ? (
+              <div style={{ width: '120px', height: '64px', borderRadius: '10px', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '6px', boxShadow: '0 4px 10px rgba(0,0,0,0.25)' }}>
+                <img src={tallerActivo.logo} alt={tallerActivo.nombre} crossOrigin="anonymous" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              </div>
+            ) : (
+              <div style={{ width: '64px', height: '64px', borderRadius: '14px', background: 'rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid rgba(34,197,94,0.4)' }}>
+                <PieIcon size={34} color="#22c55e" />
+              </div>
+            )}
+
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.15 }}>
+                {tallerActivo ? tallerActivo.nombre : 'Consolidado'} <span style={{ color: '#22c55e' }}>{filtroMes.toUpperCase()}</span>
+              </div>
+              <div style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 600, marginTop: '6px', letterSpacing: '0.5px' }}>
+                {datosReporteImagen.rangoDesde} &nbsp;TO&nbsp; {datosReporteImagen.rangoHasta} &nbsp;·&nbsp; AÑO FISCAL {filtroAno}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '22px' }}>
+              <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>META</div>
+              <div style={{ fontSize: '20px', color: '#ffffff', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{miFormatearMoneda(kpis.metaTotal)}</div>
+              <div style={{ fontSize: '11px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>100%</div>
+            </div>
+          </div>
+
+          {/* TIRA DE INDICADORES: DIARIO / SEMANAL / CUMPLIMIENTO */}
+          <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+            {[
+              { label: 'DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: '#475569' },
+              { label: 'SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
+              { label: 'CUMPLIMIENTO', valor: `${kpis.porcentajeGlobal}%`, color: kpis.isExcedente ? '#16a34a' : '#1d8cf8' },
+            ].map((chip, i) => (
+              <div key={chip.label} style={{ flex: 1, padding: '14px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
+                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
+                <div style={{ fontSize: '16px', color: chip.color, fontWeight: 900, marginTop: '3px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CUERPO */}
+          <div style={{ padding: '24px 32px 28px 32px' }}>
+
+            {/* TABLA DE PERIODOS */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '10px 16px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+                <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>REF</div>
+                <div style={{ flex: 1 }}>PERIODO</div>
+                <div style={{ width: '150px', textAlign: 'right' }}>AMOUNT</div>
+                <div style={{ width: '80px', textAlign: 'right' }}>% META</div>
+              </div>
+
+              {datosReporteImagen.filas.map((f, i) => (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', fontSize: '13px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '6px', backgroundColor: f.color, color: '#fff', fontSize: '11px', fontWeight: 800 }}>{f.idx}</span>
+                  </div>
+                  <div style={{ flex: 1, color: '#334155', fontWeight: 600 }}>{f.periodo}</div>
+                  <div style={{ width: '150px', textAlign: 'right', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(f.vendido)}</div>
+                  <div style={{ width: '80px', textAlign: 'right', color: f.color, fontWeight: 800 }}>{f.pctMeta.toFixed(0)}%</div>
+                </div>
+              ))}
+
+              {/* FILA EXCEDENTE / FALTANTE */}
+              {analisisOperaciones?.excedenteObj ? (
+                <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', fontSize: '13px', backgroundColor: 'rgba(22,163,74,0.08)', borderTop: '1px solid #dcfce7' }}>
+                  <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '6px', backgroundColor: '#16a34a', color: '#fff' }}><TrendingUp size={12} /></span>
+                  </div>
+                  <div style={{ flex: 1, color: '#15803d', fontWeight: 800 }}>EXCEDENTE</div>
+                  <div style={{ width: '150px', textAlign: 'right', color: '#15803d', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}</div>
+                  <div style={{ width: '80px', textAlign: 'right', color: '#15803d', fontWeight: 800 }}>+{analisisOperaciones.excedenteObj.porcentaje.toFixed(0)}%</div>
+                </div>
+              ) : kpis.faltanteTotal > 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', fontSize: '13px', backgroundColor: 'rgba(239,68,68,0.06)', borderTop: '1px solid #fee2e2' }}>
+                  <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '6px', backgroundColor: '#ef4444', color: '#fff' }}><AlertTriangle size={12} /></span>
+                  </div>
+                  <div style={{ flex: 1, color: '#dc2626', fontWeight: 800 }}>FALTANTE POR CUMPLIR</div>
+                  <div style={{ width: '150px', textAlign: 'right', color: '#dc2626', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
+                  <div style={{ width: '80px', textAlign: 'right', color: '#dc2626', fontWeight: 800 }}>{kpis.porcentajeFaltanteExcedente}%</div>
+                </div>
+              ) : null}
+
+              {/* TOTAL VENTAS */}
+              <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', fontSize: '14px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a' }}>
+                <div style={{ width: '48px', flexShrink: 0 }} />
+                <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL VENTAS</div>
+                <div style={{ width: '150px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '16px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.logradoTotal)}</div>
+                <div style={{ width: '80px', textAlign: 'right', color: '#22c55e', fontWeight: 900 }}>{kpis.porcentajeGlobal.toFixed(0)}%</div>
+              </div>
+            </div>
+
+            {/* SECCIÓN DE GRÁFICO: DISTRIBUCIÓN POR SEMANA */}
+            <div style={{ marginTop: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ backgroundColor: '#f1f5f9', padding: '10px 16px', fontSize: '11px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+                DISTRIBUCIÓN DE METAS MENSUALES POR SEMANA
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '22px 24px' }}>
+                {/* PIE SVG */}
+                <div style={{ flexShrink: 0, position: 'relative', width: '220px', height: '220px' }}>
+                  <svg viewBox="0 0 220 220" width="220" height="220" style={{ display: 'block' }}>
+                    {datosReporteImagen.segmentosPie.length === 1 ? (
+                      <circle cx="110" cy="110" r="95" fill={datosReporteImagen.segmentosPie[0].color} stroke="#ffffff" strokeWidth="2" />
+                    ) : (
+                      datosReporteImagen.segmentosPie.map(seg => (
+                        <path key={`pie-${seg.id}`} d={seg.path} fill={seg.color} stroke="#ffffff" strokeWidth="2" />
+                      ))
+                    )}
+                    {/* centro tipo donut sutil para look profesional */}
+                    <circle cx="110" cy="110" r="46" fill="#ffffff" />
+                    <text x="110" y="104" textAnchor="middle" fontSize="11" fontWeight="700" fill="#94a3b8">TOTAL</text>
+                    <text x="110" y="122" textAnchor="middle" fontSize="13" fontWeight="900" fill="#0f172a">{kpis.porcentajeGlobal.toFixed(0)}%</text>
+                  </svg>
+                </div>
+
+                {/* LEYENDA */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {datosReporteImagen.segmentosPie.map(seg => (
+                    <div key={`leg-img-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ width: '14px', height: '14px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
+                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 700 }}>Semana {seg.idx}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(seg.vendido)}</span>
+                        <span style={{ fontSize: '12px', color: seg.color, fontWeight: 800, minWidth: '42px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PIE DE PÁGINA */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 32px', backgroundColor: '#0f172a', fontSize: '10px', color: '#64748b', fontWeight: 600 }}>
+            <span style={{ letterSpacing: '0.5px' }}>REPORTE DE GESTIÓN EJECUTIVA</span>
+            <span>Generado el {fechaReporte}</span>
+          </div>
         </div>
       )}
     </>
