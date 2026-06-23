@@ -602,7 +602,7 @@ export const Dashboard = () => {
         
         @media print {
           /* PDF EN HORIZONTAL LANDSCAPE */
-          @page { size: A4 landscape; margin: 10mm; }
+          @page { size: A4 landscape; margin: 0 8mm 8mm 8mm; }
           
           /* RESETEAR CONTENEDORES WEB PARA LA IMPRESIÓN */
           html, body, #root, .app-layout, .main-content {
@@ -627,7 +627,7 @@ export const Dashboard = () => {
             display: flex !important; flex-direction: column !important;
             justify-content: center !important; align-items: center !important; text-align: center !important;
             background-color: #1e293b !important; color: #ffffff !important;
-            padding: 16px !important; margin-bottom: 16px !important; border-radius: 12px !important;
+            padding: 16px !important; margin: 0 0 16px 0 !important; border-radius: 0 0 10px 10px !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
           .print-only-report .report-header h1 { color: #ffffff !important; font-size: 20pt !important; margin: 0 !important; letter-spacing: 0.5px !important; }
@@ -645,11 +645,12 @@ export const Dashboard = () => {
             display: flex !important; gap: 15px !important; margin-bottom: 16px !important; page-break-inside: avoid !important;
           }
           .print-only-report .kpi-item {
-            flex: 1 !important; border: 1px solid #e2e8f0 !important; padding: 10px !important; text-align: center !important;
-            background: #f8fafc !important; border-radius: 8px !important;
+            flex: 1 !important; border: 1px solid #e2e8f0 !important; padding: 16px 12px !important; text-align: center !important;
+            background: #f8fafc !important; border-radius: 10px !important;
+            box-shadow: 0 2px 5px rgba(15,23,42,0.10) !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
-          .print-only-report .kpi-val { font-size: 14pt !important; font-weight: 900 !important; margin-top: 5px !important; }
+          .print-only-report .kpi-val { font-size: 18pt !important; font-weight: 900 !important; margin-top: 7px !important; }
           
           .print-only-report .card-print {
             border: 1px solid #e2e8f0 !important; border-radius: 10px !important; margin-bottom: 0 !important;
@@ -716,6 +717,7 @@ export const Dashboard = () => {
           </div>
         ) : (
           <>
+            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
             <div className="kpi-grid">
               <div className="kpi-card meta">
                 <div className="kpi-title">Meta Total <Target size={16} /></div>
@@ -965,17 +967,17 @@ export const Dashboard = () => {
             <p className="report-fecha" style={{ fontWeight: 600, fontSize: '11pt', marginTop: '4px' }}>{fechaReporte}</p>
           </div>
 
-          <h3 className="section-executive-title">Key Performance Indicators - Indicadores Clave de Desempeño</h3>
+          <h3 className="section-executive-title">Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
           <div className="kpi-print-row">
-            <div className="kpi-item"><div style={{fontSize:'8pt', color:'#64748b'}}>META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
-            <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'8pt', color:'#1d8cf8'}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
+            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
+            <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'9.5pt', color:'#1d8cf8', fontWeight: 700}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
             
             <div className="kpi-item" style={kpis.isExcedente ? {borderLeft:'4px solid #10b981'} : {}}>
-              <div style={{fontSize:'8pt', color: kpis.isExcedente ? '#10b981' : '#f56036', fontWeight: 800}}>{kpis.isExcedente ? 'EXCEDENTE' : 'DÉFICIT / FALTANTE'}</div>
+              <div style={{fontSize:'9.5pt', color: kpis.isExcedente ? '#10b981' : '#f56036', fontWeight: 800}}>{kpis.isExcedente ? 'EXCEDENTE' : 'DÉFICIT / FALTANTE'}</div>
               <div className="kpi-val" style={{color: kpis.isExcedente ? '#10b981' : '#f56036'}}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
             </div>
             
-            <div className="kpi-item"><div style={{fontSize:'8pt', color:'#10b981'}}>% CUMPLIMIENTO</div><div className="kpi-val" style={{color:'#10b981'}}>{kpis.porcentajeGlobal}%</div></div>
+            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#10b981', fontWeight: 700}}>% CUMPLIMIENTO</div><div className="kpi-val" style={{color:'#10b981'}}>{kpis.porcentajeGlobal}%</div></div>
           </div>
 
           {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF (ambas columnas del MISMO tamaño) */}
@@ -1052,7 +1054,7 @@ export const Dashboard = () => {
                         const tx = x2 + (derecha ? 3 : -3);
                         vinetas.push(
                           <g key={`vin-${op.id}`}>
-                            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={op.color} strokeWidth={1.4} />
+                            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={op.color} strokeWidth={1.6} strokeDasharray="0.1,3" strokeLinecap="round" />
                             <circle cx={x1} cy={y1} r={2.4} fill={op.color} />
                             <text x={tx} y={y2 + 3} textAnchor={derecha ? 'start' : 'end'} fontSize="9" fontWeight="800" fill={op.color}>{op.porcentajeStr}%</text>
                           </g>
