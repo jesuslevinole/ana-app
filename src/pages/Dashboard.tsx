@@ -1180,18 +1180,18 @@ export const Dashboard = () => {
             </div>
 
             <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '22px' }}>
-              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>META</div>
-              <div style={{ fontSize: '28px', color: '#ffffff', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{miFormatearMoneda(kpis.metaTotal)}</div>
-              <div style={{ fontSize: '13px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>100%</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>CUMPLIMIENTO</div>
+              <div style={{ fontSize: '28px', color: '#ffffff', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{kpis.porcentajeGlobal}%</div>
+              <div style={{ fontSize: '13px', color: kpis.isExcedente ? '#22c55e' : '#fbbf24', fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? 'EXCEDENTE' : 'FALTANTE'} {kpis.porcentajeFaltanteExcedente}%</div>
             </div>
           </div>
 
           {/* TIRA DE INDICADORES: DIARIO / SEMANAL / CUMPLIMIENTO */}
           <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
             {[
+              { label: 'META', valor: miFormatearMoneda(kpis.metaTotal), color: '#0f172a' },
               { label: 'DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: '#475569' },
               { label: 'SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
-              { label: 'CUMPLIMIENTO', valor: `${kpis.porcentajeGlobal}%`, color: kpis.isExcedente ? '#16a34a' : '#1d8cf8' },
             ].map((chip, i) => (
               <div key={chip.label} style={{ flex: 1, padding: '16px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
                 <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
