@@ -9,7 +9,6 @@ import { Talleres } from './pages/Talleres';
 import { InspeccionesRegistro } from './pages/InspeccionesRegistro';
 import { InspeccionesDashboard } from './pages/InspeccionesDashboard';
 import { Marketing } from './pages/Marketing';
-import { Usuarios } from './pages/Usuarios';
 import "./index.css";
 
 const EnrutadorVistas = () => {
@@ -30,7 +29,6 @@ const EnrutadorVistas = () => {
       {vista === 'inspeccionesRegistro' && <InspeccionesRegistro />}
       {vista === 'inspeccionesDashboard' && <InspeccionesDashboard />}
       {vista === 'marketing' && <Marketing />}
-      {vista === 'usuarios' && <Usuarios />}
     </Layout>
   );
 };
