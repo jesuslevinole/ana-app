@@ -965,7 +965,7 @@ export const Dashboard = () => {
             <p className="report-fecha" style={{ fontWeight: 600, fontSize: '11pt', marginTop: '4px' }}>{fechaReporte}</p>
           </div>
 
-          <h3 className="section-executive-title">Resumen de Indicadores Clave (KPIs)</h3>
+          <h3 className="section-executive-title">Key Performance Indicators - Indicadores Clave de Desempeño</h3>
           <div className="kpi-print-row">
             <div className="kpi-item"><div style={{fontSize:'8pt', color:'#64748b'}}>META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
             <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'8pt', color:'#1d8cf8'}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
@@ -978,8 +978,8 @@ export const Dashboard = () => {
             <div className="kpi-item"><div style={{fontSize:'8pt', color:'#10b981'}}>% CUMPLIMIENTO</div><div className="kpi-val" style={{color:'#10b981'}}>{kpis.porcentajeGlobal}%</div></div>
           </div>
 
-          {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '15px', marginBottom: '15px', alignItems: 'start' }}>
+          {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF (ambas columnas del MISMO tamaño) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px', alignItems: 'stretch' }}>
             <div className="card-print">
               <h3 className="section-executive-title">Detalle Operativo Semanal</h3>
               <table>
@@ -1009,16 +1009,20 @@ export const Dashboard = () => {
             <div className="card-print">
               <h3 className="section-executive-title">Distribución de Logros</h3>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                <svg viewBox="0 0 200 200" style={{ width: '150px', height: '150px', display: 'block' }}>
+                {/* Donut con VIÑETAS (línea + punto + %) que apuntan a cada color. Todo contenido dentro del viewBox para no salirse del recuadro. */}
+                <svg viewBox="0 0 260 200" style={{ width: '100%', maxWidth: '230px', height: 'auto', display: 'block' }}>
                   {(() => {
-                    const cx = 100, cy = 100, R = 70, SW = 30;
+                    const cx = 130, cy = 100, R = 58, SW = 22;
                     const C = 2 * Math.PI * R;
                     const ops = analisisOperaciones?.operaciones || [];
+                    const arcos: any[] = [];
+                    const vinetas: any[] = [];
                     let offset = 0;
-                    return ops.map(op => {
+                    let gradAcum = 0;
+                    ops.forEach(op => {
                       const pct = typeof op.porcentajeOpRaw === 'number' ? op.porcentajeOpRaw : parseFloat(op.porcentajeStr);
                       const dash = (pct / 100) * C;
-                      const el = (
+                      arcos.push(
                         <circle
                           key={`seg-${op.id}`}
                           cx={cx} cy={cy} r={R}
@@ -1031,8 +1035,31 @@ export const Dashboard = () => {
                         />
                       );
                       offset += dash;
-                      return el;
+
+                      // Viñeta apuntando al sector: punto en el borde + línea corta + % del mismo color
+                      const grados = pct * 3.6;
+                      const midDeg = gradAcum + grados / 2;
+                      gradAcum += grados;
+                      if (pct >= 3) {
+                        const rad = ((midDeg - 90) * Math.PI) / 180;
+                        const rEdge = R + SW / 2;
+                        const rLabel = R + SW / 2 + 13;
+                        const x1 = cx + Math.cos(rad) * rEdge;
+                        const y1 = cy + Math.sin(rad) * rEdge;
+                        const x2 = cx + Math.cos(rad) * rLabel;
+                        const y2 = cy + Math.sin(rad) * rLabel;
+                        const derecha = Math.cos(rad) >= 0;
+                        const tx = x2 + (derecha ? 3 : -3);
+                        vinetas.push(
+                          <g key={`vin-${op.id}`}>
+                            <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={op.color} strokeWidth={1.4} />
+                            <circle cx={x1} cy={y1} r={2.4} fill={op.color} />
+                            <text x={tx} y={y2 + 3} textAnchor={derecha ? 'start' : 'end'} fontSize="9" fontWeight="800" fill={op.color}>{op.porcentajeStr}%</text>
+                          </g>
+                        );
+                      }
                     });
+                    return [...arcos, ...vinetas];
                   })()}
                 </svg>
                 <div style={{ width: '100%' }}>
