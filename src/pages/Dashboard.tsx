@@ -511,9 +511,18 @@ export const Dashboard = () => {
     const reales = analisisOperaciones.operaciones.filter(o => !o.isFaltante);
     const numSemanas = reales.length;
 
-    // SEMANAL = Meta / 4 (semanas del mes) ; DIARIO = Semanal / 7 días
-    const semanal = kpis.metaTotal / 4;
-    const diario = semanal / 7;
+    // --- CAMBIO: SEMANAL y DIARIO ahora se toman EXACTAMENTE de lo guardado en el formulario.
+    // Cada registro guarda su meta semanal y diaria; aquí las sumamos (normalmente hay 1 registro
+    // por Año+Mes+Taller). Si un registro antiguo no las tiene, se calculan como respaldo
+    // (Semanal = Meta/4 ; Diario = Semanal/6) para no romper datos previos.
+    const semanal = registrosFiltrados.reduce(
+      (acc, r) => acc + (typeof r.semanal === 'number' ? r.semanal : (r.meta > 0 ? r.meta / 4 : 0)),
+      0
+    );
+    const diario = registrosFiltrados.reduce(
+      (acc, r) => acc + (typeof r.diario === 'number' ? r.diario : (r.meta > 0 ? (r.meta / 4) / 6 : 0)),
+      0
+    );
 
     // Rango de fechas: desde la primera operación hasta la última
     const primera = reales[0];
@@ -552,7 +561,7 @@ export const Dashboard = () => {
     });
 
     return { reales, numSemanas, semanal, diario, rangoDesde, rangoHasta, filas, segmentosPie, totalReal };
-  }, [analisisOperaciones, kpis]);
+  }, [analisisOperaciones, kpis, registrosFiltrados]);
 
   // Carga dinámica de html2canvas desde CDN (no requiere instalarlo en package.json)
   const cargarHtml2Canvas = (): Promise<any> => {

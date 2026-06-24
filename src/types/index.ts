@@ -16,6 +16,8 @@ export interface Registro {
   faltante: number;
   porcentajeCumplido: number;
   detalles: Detalle[];
+  semanal?: number;
+diario?: number;
 }
 
 // NUEVO: Interfaz para el módulo de Talleres

@@ -2,7 +2,7 @@ import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import type { Detalle, Registro } from '../types';
-import { Plus, Trash2, Save, X, Pencil } from 'lucide-react';
+import { Plus, Trash2, Save, X, Pencil, RotateCcw } from 'lucide-react';
 
 // --- FUNCIONES LOCALES PARA FORZAR LOS FORMATOS ESTRICTOS ---
 const miFormatearFecha = (fechaStr: string) => {
@@ -24,18 +24,35 @@ const miFormatearMoneda = (valor: number) => {
   }).format(valor).replace('$', '$ ');
 };
 
+// Redondeo a 2 decimales para evitar floats largos (ej: 41.6666666)
+const calc2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+
 export const FormularioRegistro = () => {
   const contexto = useContext(AppContext);
   const currentYear = new Date().getFullYear();
   
   const isEditing = !!contexto?.registroEditando;
-  const initialState = contexto?.registroEditando || { ano: currentYear, mes: 'Enero', taller: '', meta: 0, detalles: [] };
+  const initialState = contexto?.registroEditando || { ano: currentYear, mes: 'Enero', taller: '', meta: 0, detalles: [], semanal: 0, diario: 0 };
 
   const [ano, setAno] = useState(initialState.ano);
   const [mes, setMes] = useState(initialState.mes);
   const [taller, setTaller] = useState(initialState.taller);
   const [meta, setMeta] = useState(initialState.meta);
   const [detalles, setDetalles] = useState<Detalle[]>(initialState.detalles as Detalle[]);
+
+  // --- NUEVO: METAS SEMANAL Y DIARIA ---
+  // Fórmula: Semanal = Meta / 4   |   Diario = Semanal / 6
+  // Son calculados automáticamente, pero el usuario puede editarlos a mano.
+  const metaIni = initialState.meta || 0;
+  const semanalIni = (initialState.semanal && initialState.semanal > 0) ? initialState.semanal : calc2(metaIni / 4);
+  const diarioIni = (initialState.diario && initialState.diario > 0) ? initialState.diario : calc2(semanalIni / 6);
+
+  const [semanal, setSemanal] = useState<number>(semanalIni);
+  const [diario, setDiario] = useState<number>(diarioIni);
+
+  // Banderas: una vez que el usuario edita el campo a mano, dejamos de recalcularlo
+  const [semanalManual, setSemanalManual] = useState<boolean>(false);
+  const [diarioManual, setDiarioManual] = useState<boolean>(false);
   
   // Estados para el detalle
   const [desde, setDesde] = useState('');
@@ -58,6 +75,43 @@ export const FormularioRegistro = () => {
   const isExcedente = logrado > meta;
   const faltanteReal = isExcedente ? logrado - meta : Math.max(meta - logrado, 0);
   const porcentajeCumplido = meta > 0 ? Number(((logrado / meta) * 100).toFixed(2)) : 0;
+
+  // --- MANEJADORES PARA META / SEMANAL / DIARIO ---
+  // Al cambiar la Meta, recalculamos Semanal y Diario SOLO si no han sido editados a mano.
+  const handleMetaChange = (valor: number) => {
+    setMeta(valor);
+    if (!semanalManual) {
+      const s = valor > 0 ? calc2(valor / 4) : 0;
+      setSemanal(s);
+      if (!diarioManual) {
+        setDiario(s > 0 ? calc2(s / 6) : 0);
+      }
+    }
+  };
+
+  // Al editar Semanal a mano: se marca como manual y arrastra el Diario (si éste no es manual)
+  const handleSemanalChange = (valor: number) => {
+    setSemanal(valor);
+    setSemanalManual(true);
+    if (!diarioManual) {
+      setDiario(valor > 0 ? calc2(valor / 6) : 0);
+    }
+  };
+
+  // Al editar Diario a mano: queda fijo (manual)
+  const handleDiarioChange = (valor: number) => {
+    setDiario(valor);
+    setDiarioManual(true);
+  };
+
+  // Restaurar la fórmula automática (Meta/4 y Semanal/6)
+  const restaurarCalculoMetas = () => {
+    const s = meta > 0 ? calc2(meta / 4) : 0;
+    setSemanal(s);
+    setDiario(s > 0 ? calc2(s / 6) : 0);
+    setSemanalManual(false);
+    setDiarioManual(false);
+  };
 
   // LÓGICA: Sirve para Agregar o Actualizar
   const guardarDetalle = () => {
@@ -107,7 +161,9 @@ export const FormularioRegistro = () => {
     if (!taller || meta <= 0) return alert('Complete Taller y Meta.');
     const registroFinal: Registro = { 
       id: isEditing ? contexto!.registroEditando!.id : crypto.randomUUID(), 
-      ano, mes, taller, meta, logrado, faltante: Math.max(meta - logrado, 0), porcentajeCumplido, detalles 
+      ano, mes, taller, meta, logrado, faltante: Math.max(meta - logrado, 0), porcentajeCumplido, detalles,
+      // NUEVO: se guardan las metas semanal y diaria (lo que esté en pantalla, calculado o editado)
+      semanal, diario
     };
     contexto?.agregarRegistro(registroFinal);
   };
@@ -149,7 +205,49 @@ export const FormularioRegistro = () => {
           
           <div className="form-group">
             <label className="form-label">Metas</label>
-            <input type="number" className="form-control" value={meta || ''} onChange={e => setMeta(Number(e.target.value))} />
+            <input type="number" className="form-control" value={meta || ''} onChange={e => handleMetaChange(Number(e.target.value))} />
+          </div>
+        </div>
+
+        {/* --- NUEVO: META SEMANAL Y DIARIA (CALCULADAS PERO EDITABLES) --- */}
+        <div style={{ marginTop: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <span className="form-label" style={{ margin: 0, color: 'var(--text-muted)' }}>
+              Distribución de la Meta
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={restaurarCalculoMetas}
+              title="Restaurar cálculo automático (Meta ÷ 4 y Semanal ÷ 6)"
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+            >
+              <RotateCcw size={14} /> Recalcular
+            </button>
+          </div>
+          <div className="grid-layout cols-2">
+            <div className="form-group">
+              <label className="form-label">
+                Meta Semanal <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Meta ÷ 4)</small>
+              </label>
+              <input
+                type="number"
+                className="form-control"
+                value={semanal || ''}
+                onChange={e => handleSemanalChange(Number(e.target.value))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">
+                Meta Diaria <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Semanal ÷ 6)</small>
+              </label>
+              <input
+                type="number"
+                className="form-control"
+                value={diario || ''}
+                onChange={e => handleDiarioChange(Number(e.target.value))}
+              />
+            </div>
           </div>
         </div>
         
