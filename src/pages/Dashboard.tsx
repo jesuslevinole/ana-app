@@ -487,6 +487,22 @@ export const Dashboard = () => {
   const tendenciaPDF = reporteMensual.datosPorMes.filter(m => m.ventas > 0);
   const maxTendenciaPDF = Math.max(...tendenciaPDF.map(m => m.ventas), 1);
 
+  // --- DIARIO / SEMANAL para el PDF (mismos valores guardados que usa la imagen) ---
+  // Semanal = lo guardado o Meta/4 ; Diario = lo guardado o Semanal/6 (respaldo para registros antiguos)
+  const semanalIndicador = registrosFiltrados.reduce(
+    (acc, r) => acc + (typeof r.semanal === 'number' ? r.semanal : (r.meta > 0 ? r.meta / 4 : 0)),
+    0
+  );
+  const diarioIndicador = registrosFiltrados.reduce(
+    (acc, r) => acc + (typeof r.diario === 'number' ? r.diario : (r.meta > 0 ? (r.meta / 4) / 6 : 0)),
+    0
+  );
+
+  // Indicador de crecimiento / disminución con símbolo y signo (ej: "📈 +12%" / "📉 -8%")
+  const signoTendencia = kpis.isExcedente
+    ? `📈 +${kpis.porcentajeFaltanteExcedente}%`
+    : `📉 -${kpis.porcentajeFaltanteExcedente}%`;
+
   // =========================================================================
   // NUEVO: DATOS Y UTILIDADES PARA EL REPORTE DE IMAGEN (estilo planilla, más PRO)
   // =========================================================================
@@ -562,6 +578,73 @@ export const Dashboard = () => {
 
     return { reales, numSemanas, semanal, diario, rangoDesde, rangoHasta, filas, segmentosPie, totalReal };
   }, [analisisOperaciones, kpis, registrosFiltrados]);
+
+  // =========================================================================
+  // ANILLO DE CUMPLIMIENTO (compartido por la imagen y el PDF):
+  //   - cada semana se pinta con su color
+  //   - el FALTANTE (lo que no se alcanzó de la meta) se pinta en ROJO
+  //   - el SOBRANTE (lo vendido por encima de la meta) se pinta en VERDE
+  // El círculo completo representa max(meta, vendido). Cuando hay sobrante,
+  // las semanas llenan hasta la meta y el excedente se corta en verde.
+  // =========================================================================
+  const COLOR_FALTANTE = '#ef4444'; // rojo
+  const COLOR_SOBRANTE = '#22c55e'; // verde
+
+  const segmentosMeta = useMemo(() => {
+    if (!analisisOperaciones) return null;
+
+    const meta = kpis.metaTotal;
+    const reales = analisisOperaciones.operaciones.filter(o => !o.isFaltante);
+    const vendido = reales.reduce((a, o) => a + o.vendido, 0);
+    const base = Math.max(meta, vendido) || 1;
+
+    const segmentos: any[] = [];
+    let acc = 0;
+    reales.forEach((op, i) => {
+      const start = acc;
+      const end = acc + op.vendido;
+      acc = end;
+      if (vendido <= meta) {
+        // No se superó la meta: cada semana se pinta completa con su color
+        segmentos.push({ id: op.id, idx: i + 1, tipo: 'semana', color: op.color, valor: op.vendido, from: start, to: end });
+      } else if (start >= meta) {
+        // Semana totalmente por encima de la meta -> sobrante (verde)
+        segmentos.push({ id: `sob-${op.id}`, idx: i + 1, tipo: 'sobrante', color: COLOR_SOBRANTE, valor: op.vendido, from: start, to: end });
+      } else if (end <= meta) {
+        // Semana totalmente dentro de la meta -> color de semana
+        segmentos.push({ id: op.id, idx: i + 1, tipo: 'semana', color: op.color, valor: op.vendido, from: start, to: end });
+      } else {
+        // La semana cruza la meta: una parte semana, el resto sobrante (verde)
+        segmentos.push({ id: op.id, idx: i + 1, tipo: 'semana', color: op.color, valor: meta - start, from: start, to: meta });
+        segmentos.push({ id: `sob-${op.id}`, idx: i + 1, tipo: 'sobrante', color: COLOR_SOBRANTE, valor: end - meta, from: meta, to: end });
+      }
+    });
+
+    const faltante = Math.max(meta - vendido, 0);
+    const sobrante = Math.max(vendido - meta, 0);
+
+    // Si no se alcanzó la meta, el hueco restante es el faltante (rojo)
+    if (faltante > 0) {
+      segmentos.push({ id: 'faltante', idx: 0, tipo: 'faltante', color: COLOR_FALTANTE, valor: faltante, from: vendido, to: meta });
+    }
+
+    const segs = segmentos.map(s => {
+      const pct = (s.valor / base) * 100;
+      const inicio = (s.from / base) * 360;
+      const fin = (s.to / base) * 360;
+      return { ...s, pct, porcentajeStr: pct.toFixed(2), inicio, fin, path: arcoPie(110, 110, 95, inicio, fin) };
+    });
+
+    // Leyenda agregada: semanas + UNA entrada de faltante/sobrante
+    const leyenda: any[] = reales.map((op, i) => ({
+      id: op.id, idx: i + 1, tipo: 'semana', color: op.color, valor: op.vendido,
+      pct: base > 0 ? (op.vendido / base) * 100 : 0,
+    }));
+    if (faltante > 0) leyenda.push({ id: 'faltante', idx: 0, tipo: 'faltante', color: COLOR_FALTANTE, valor: faltante, pct: (faltante / base) * 100 });
+    if (sobrante > 0) leyenda.push({ id: 'sobrante', idx: 0, tipo: 'sobrante', color: COLOR_SOBRANTE, valor: sobrante, pct: (sobrante / base) * 100 });
+
+    return { segs, leyenda, meta, vendido, base, faltante, sobrante };
+  }, [analisisOperaciones, kpis]);
 
   // Carga dinámica de html2canvas desde CDN (no requiere instalarlo en package.json)
   const cargarHtml2Canvas = (): Promise<any> => {
@@ -990,9 +1073,16 @@ export const Dashboard = () => {
             <div className="kpi-item" style={kpis.isExcedente ? {borderLeft:'4px solid #10b981'} : {}}>
               <div style={{fontSize:'9.5pt', color: kpis.isExcedente ? '#10b981' : '#f56036', fontWeight: 800}}>{kpis.isExcedente ? '📈 EXCEDENTE' : '📉 DÉFICIT / FALTANTE'}</div>
               <div className="kpi-val" style={{color: kpis.isExcedente ? '#10b981' : '#f56036'}}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
+              <div style={{fontSize:'9pt', fontWeight: 800, marginTop: '3px', color: kpis.isExcedente ? '#10b981' : '#f56036'}}>{signoTendencia}</div>
             </div>
             
             <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>✅ % CUMPLIMIENTO</div><div className="kpi-val" style={{color: colorCumplimiento(kpis.porcentajeGlobal)}}>{kpis.porcentajeGlobal}%</div></div>
+          </div>
+
+          {/* TIRA DE INDICADORES PDF: 📅 DIARIO / 📊 SEMANAL (mismos valores guardados que la imagen) */}
+          <div className="kpi-print-row">
+            <div className="kpi-item" style={{borderLeft:'4px solid #475569'}}><div style={{fontSize:'9.5pt', color:'#475569', fontWeight: 700}}>📅 DIARIO</div><div className="kpi-val" style={{color:'#475569'}}>{miFormatearMoneda(diarioIndicador)}</div></div>
+            <div className="kpi-item" style={{borderLeft:'4px solid #475569'}}><div style={{fontSize:'9.5pt', color:'#475569', fontWeight: 700}}>📊 SEMANAL</div><div className="kpi-val" style={{color:'#475569'}}>{miFormatearMoneda(semanalIndicador)}</div></div>
           </div>
 
           {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF (ambas columnas del MISMO tamaño) */}
@@ -1031,13 +1121,13 @@ export const Dashboard = () => {
                   {(() => {
                     const cx = 130, cy = 100, R = 58, SW = 22;
                     const C = 2 * Math.PI * R;
-                    const ops = analisisOperaciones?.operaciones || [];
+                    const ops = segmentosMeta?.segs || [];
                     const arcos: any[] = [];
                     const vinetas: any[] = [];
                     let offset = 0;
                     let gradAcum = 0;
                     ops.forEach(op => {
-                      const pct = typeof op.porcentajeOpRaw === 'number' ? op.porcentajeOpRaw : parseFloat(op.porcentajeStr);
+                      const pct = op.pct;
                       const dash = (pct / 100) * C;
                       arcos.push(
                         <circle
@@ -1080,15 +1170,15 @@ export const Dashboard = () => {
                   })()}
                 </svg>
                 <div style={{ width: '100%' }}>
-                  {(analisisOperaciones?.operaciones || []).map(op => (
+                  {(segmentosMeta?.leyenda || []).map(op => (
                     <div key={`leg-${op.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0', fontSize: '7.5pt', borderBottom: '1px solid #f1f5f9' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
                         <span className="swatch" style={{ width: '9px', height: '9px', borderRadius: '2px', backgroundColor: op.color, display: 'inline-block', flexShrink: 0 }}></span>
-                        <span style={{ color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{op.isFaltante ? 'Faltante' : `Semana ${op.semanaIndex}`}</span>
+                        <span style={{ color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{op.tipo === 'faltante' ? 'Faltante' : op.tipo === 'sobrante' ? 'Sobrante' : `Semana ${op.idx}`}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: '#1e293b', fontWeight: 700 }}>{miFormatearMoneda(op.vendido)}</span>
-                        <span style={{ color: op.color, fontWeight: 800, minWidth: '40px', textAlign: 'right' }}>{op.porcentajeStr}%</span>
+                        <span style={{ color: '#1e293b', fontWeight: 700 }}>{miFormatearMoneda(op.valor)}</span>
+                        <span style={{ color: op.color, fontWeight: 800, minWidth: '40px', textAlign: 'right' }}>{op.pct.toFixed(2)}%</span>
                       </div>
                     </div>
                   ))}
@@ -1271,16 +1361,16 @@ export const Dashboard = () => {
             {/* SECCIÓN DE GRÁFICO: DISTRIBUCIÓN POR SEMANA */}
             <div style={{ marginTop: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <div style={{ backgroundColor: '#f1f5f9', padding: '10px 16px', fontSize: '11px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                DISTRIBUCIÓN DE METAS MENSUALES POR SEMANA
+                CUMPLIMIENTO DE LA META POR SEMANA
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '22px 24px' }}>
                 {/* PIE SVG */}
                 <div style={{ flexShrink: 0, position: 'relative', width: '220px', height: '220px' }}>
                   <svg viewBox="0 0 220 220" width="220" height="220" style={{ display: 'block' }}>
-                    {datosReporteImagen.segmentosPie.length === 1 ? (
-                      <circle cx="110" cy="110" r="95" fill={datosReporteImagen.segmentosPie[0].color} stroke="#ffffff" strokeWidth="2" />
+                    {(segmentosMeta?.segs || []).length === 1 ? (
+                      <circle cx="110" cy="110" r="95" fill={segmentosMeta!.segs[0].color} stroke="#ffffff" strokeWidth="2" />
                     ) : (
-                      datosReporteImagen.segmentosPie.map(seg => (
+                      (segmentosMeta?.segs || []).map(seg => (
                         <path key={`pie-${seg.id}`} d={seg.path} fill={seg.color} stroke="#ffffff" strokeWidth="2" />
                       ))
                     )}
@@ -1293,14 +1383,14 @@ export const Dashboard = () => {
 
                 {/* LEYENDA */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {datosReporteImagen.segmentosPie.map(seg => (
+                  {(segmentosMeta?.leyenda || []).map(seg => (
                     <div key={`leg-img-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <span style={{ width: '14px', height: '14px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 700 }}>Semana {seg.idx}</span>
+                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 700 }}>{seg.tipo === 'faltante' ? 'Faltante' : seg.tipo === 'sobrante' ? 'Sobrante' : `Semana ${seg.idx}`}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(seg.vendido)}</span>
+                        <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(seg.valor)}</span>
                         <span style={{ fontSize: '12px', color: seg.color, fontWeight: 800, minWidth: '42px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
                       </div>
                     </div>
