@@ -592,6 +592,12 @@ export const Dashboard = () => {
     }
   };
 
+  // Color tipo semáforo según el % de cumplimiento (Verde >=90, Amarillo 70-89, Rojo <70)
+  const colorCumplimiento = (pct: number, fondoOscuro = false) =>
+    pct >= 90 ? (fondoOscuro ? '#22c55e' : '#16a34a')
+    : pct >= 70 ? (fondoOscuro ? '#fbbf24' : '#d97706')
+    : (fondoOscuro ? '#f87171' : '#dc2626');
+
   return (
     <>
       {/* MAGIA CSS: ESTILOS QUE SEPARAN LA WEB DE LA IMPRESIÓN */}
@@ -969,15 +975,15 @@ export const Dashboard = () => {
 
           <h3 className="section-executive-title">Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
           <div className="kpi-print-row">
-            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
+            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>🎯 META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
             <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'9.5pt', color:'#1d8cf8', fontWeight: 700}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
             
             <div className="kpi-item" style={kpis.isExcedente ? {borderLeft:'4px solid #10b981'} : {}}>
-              <div style={{fontSize:'9.5pt', color: kpis.isExcedente ? '#10b981' : '#f56036', fontWeight: 800}}>{kpis.isExcedente ? 'EXCEDENTE' : 'DÉFICIT / FALTANTE'}</div>
+              <div style={{fontSize:'9.5pt', color: kpis.isExcedente ? '#10b981' : '#f56036', fontWeight: 800}}>{kpis.isExcedente ? '📈 EXCEDENTE' : '📉 DÉFICIT / FALTANTE'}</div>
               <div className="kpi-val" style={{color: kpis.isExcedente ? '#10b981' : '#f56036'}}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
             </div>
             
-            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#10b981', fontWeight: 700}}>% CUMPLIMIENTO</div><div className="kpi-val" style={{color:'#10b981'}}>{kpis.porcentajeGlobal}%</div></div>
+            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>✅ % CUMPLIMIENTO</div><div className="kpi-val" style={{color: colorCumplimiento(kpis.porcentajeGlobal)}}>{kpis.porcentajeGlobal}%</div></div>
           </div>
 
           {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF (ambas columnas del MISMO tamaño) */}
@@ -1180,18 +1186,18 @@ export const Dashboard = () => {
             </div>
 
             <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '22px' }}>
-              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>CUMPLIMIENTO</div>
-              <div style={{ fontSize: '28px', color: '#ffffff', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{kpis.porcentajeGlobal}%</div>
-              <div style={{ fontSize: '13px', color: kpis.isExcedente ? '#22c55e' : '#fbbf24', fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? 'EXCEDENTE' : 'FALTANTE'} {kpis.porcentajeFaltanteExcedente}%</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>✅ CUMPLIMIENTO</div>
+              <div style={{ fontSize: '28px', color: colorCumplimiento(kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{kpis.porcentajeGlobal}%</div>
+              <div style={{ fontSize: '13px', color: kpis.isExcedente ? '#22c55e' : '#f87171', fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? '📈' : '📉'} {kpis.isExcedente ? '+' : '-'}{kpis.porcentajeFaltanteExcedente}%</div>
             </div>
           </div>
 
           {/* TIRA DE INDICADORES: DIARIO / SEMANAL / CUMPLIMIENTO */}
           <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
             {[
-              { label: 'META', valor: miFormatearMoneda(kpis.metaTotal), color: '#0f172a' },
-              { label: 'DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: '#475569' },
-              { label: 'SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
+              { label: '🎯 META', valor: miFormatearMoneda(kpis.metaTotal), color: '#0f172a' },
+              { label: '📅 DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: '#475569' },
+              { label: '📊 SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
             ].map((chip, i) => (
               <div key={chip.label} style={{ flex: 1, padding: '16px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
                 <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
@@ -1272,7 +1278,7 @@ export const Dashboard = () => {
                     {/* centro tipo donut sutil para look profesional */}
                     <circle cx="110" cy="110" r="46" fill="#ffffff" />
                     <text x="110" y="104" textAnchor="middle" fontSize="11" fontWeight="700" fill="#94a3b8">TOTAL</text>
-                    <text x="110" y="122" textAnchor="middle" fontSize="13" fontWeight="900" fill="#0f172a">{kpis.porcentajeGlobal.toFixed(0)}%</text>
+                    <text x="110" y="122" textAnchor="middle" fontSize="13" fontWeight="900" fill={colorCumplimiento(kpis.porcentajeGlobal)}>{kpis.porcentajeGlobal.toFixed(0)}%</text>
                   </svg>
                 </div>
 
