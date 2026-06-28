@@ -1697,14 +1697,15 @@ export const Dashboard = () => {
                 </div>
               </div>
 
-              {/* DERECHA: ANILLO DE CUMPLIMIENTO */}
-              <div style={{ flex: 0.85, border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              {/* DERECHA: ANILLO DE CUMPLIMIENTO (dona arriba, leyenda a todo el ancho abajo) */}
+              <div style={{ flex: 0.92, border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <div style={{ backgroundColor: '#f1f5f9', padding: '10px 16px', fontSize: '12px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
                   CUMPLIMIENTO DE LA META POR SEMANA
                 </div>
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 18px', minHeight: 0 }}>
-                  <div style={{ flexShrink: 0, width: '200px', height: '200px' }}>
-                    <svg viewBox="0 0 220 220" width="200" height="200" style={{ display: 'block' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '16px 20px', minHeight: 0 }}>
+                  {/* DONA */}
+                  <div style={{ flexShrink: 0, width: '180px', height: '180px' }}>
+                    <svg viewBox="0 0 220 220" width="180" height="180" style={{ display: 'block' }}>
                       {(d.segmentosMeta.segs || []).length === 1 ? (
                         <circle cx="110" cy="110" r="95" fill={d.segmentosMeta.segs[0].color} stroke="#ffffff" strokeWidth="2" />
                       ) : (
@@ -1717,16 +1718,17 @@ export const Dashboard = () => {
                       <text x="110" y="122" textAnchor="middle" fontSize="13" fontWeight="900" fill={colorCumplimiento(d.kpis.porcentajeGlobal)}>{d.kpis.porcentajeGlobal.toFixed(0)}%</text>
                     </svg>
                   </div>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+                  {/* LEYENDA A TODO EL ANCHO */}
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '7px' }}>
                     {(d.segmentosMeta.leyenda || []).map((seg: any) => (
-                      <div key={`leg-${t.nombre}-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                          <span style={{ width: '13px', height: '13px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '12px', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{seg.tipo === 'faltante' ? 'Faltante' : seg.tipo === 'sobrante' ? 'Sobrante' : `Semana ${seg.idx}`}</span>
+                      <div key={`leg-${t.nombre}-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                          <span style={{ width: '14px', height: '14px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '13px', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{seg.tipo === 'faltante' ? 'Faltante' : seg.tipo === 'sobrante' ? 'Sobrante' : `Semana ${seg.idx}`}</span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 700 }}>{miFormatearMoneda(seg.valor)}</span>
-                          <span style={{ fontSize: '12px', color: seg.color, fontWeight: 800, minWidth: '44px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>{miFormatearMoneda(seg.valor)}</span>
+                          <span style={{ fontSize: '13px', color: seg.color, fontWeight: 800, minWidth: '52px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
                         </div>
                       </div>
                     ))}
