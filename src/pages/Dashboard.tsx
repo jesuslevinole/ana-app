@@ -1647,7 +1647,7 @@ export const Dashboard = () => {
 
               {/* IZQUIERDA: TABLA DE PERIODOS */}
               <div style={{ flex: 1.15, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '11px 18px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
                     <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>REF</div>
                     <div style={{ flex: 1 }}>PERIODO</div>
@@ -1687,8 +1687,8 @@ export const Dashboard = () => {
                     </div>
                   ) : null}
 
-                  {/* TOTAL VENTAS */}
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '15px 18px', fontSize: '15px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a' }}>
+                  {/* TOTAL VENTAS (anclado al fondo de la tarjeta) */}
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '15px 18px', fontSize: '15px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a', marginTop: 'auto' }}>
                     <div style={{ width: '48px', flexShrink: 0 }} />
                     <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL VENTAS</div>
                     <div style={{ width: '160px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '17px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.kpis.logradoTotal)}</div>
