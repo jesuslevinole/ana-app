@@ -2,7 +2,19 @@ import { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones, idInspeccion, type Inspeccion } from '../hooks/useInspecciones';
-import { Plus, Save, Trash2, Pencil, X, Search, ClipboardList, Info } from 'lucide-react';
+import { Plus, Save, Trash2, Pencil, X, Search, ClipboardList, Info, DollarSign } from 'lucide-react';
+
+// Formato de moneda en USD (mismo estilo usado en el resto de la app)
+const miFormatearMoneda = (valor: number) =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(valor) ? valor : 0).replace('$', '$ ');
+
+// Catálogo: clave de almacenamiento del costo predefinido de la inspección
+const STORAGE_COSTO_DEFAULT = 'inspecciones_costo_default_v1';
 
 export const InspeccionesRegistro = () => {
   const contexto = useContext(AppContext);
@@ -29,6 +41,22 @@ export const InspeccionesRegistro = () => {
   const [ano, setAno] = useState<string>(String(anoActual));
   const [mes, setMes] = useState<string>(MESES[0] ?? 'Enero');
   const [cantidad, setCantidad] = useState<string>('');
+  const [costo, setCosto] = useState<string>(''); // NUEVO: costo por inspección
+
+  // --- CATÁLOGO: costo predefinido de la inspección (persistente) ---
+  const [costoCatalogo, setCostoCatalogo] = useState<string>(() => {
+    try { return localStorage.getItem(STORAGE_COSTO_DEFAULT) ?? ''; } catch { return ''; }
+  });
+  const [catalogoGuardado, setCatalogoGuardado] = useState<boolean>(false);
+
+  const guardarCostoCatalogo = () => {
+    const v = parseFloat(costoCatalogo);
+    const limpio = isNaN(v) || v < 0 ? '' : String(v);
+    setCostoCatalogo(limpio);
+    try { localStorage.setItem(STORAGE_COSTO_DEFAULT, limpio); } catch { /* almacenamiento no disponible */ }
+    setCatalogoGuardado(true);
+    setTimeout(() => setCatalogoGuardado(false), 1800);
+  };
 
   const anosDisponibles = useMemo(() => {
     const set = new Set<string>(inspecciones.map(i => String(i.ano)));
@@ -56,7 +84,14 @@ export const InspeccionesRegistro = () => {
     );
   }, [inspecciones, filtroAno, filtroMes, filtroTaller, busqueda]);
 
+  // Total de inspección de un registro (usa el guardado o lo calcula como respaldo)
+  const totalRegistro = (r: Inspeccion) =>
+    typeof (r as any).total === 'number'
+      ? (r as any).total
+      : r.cantidad * (typeof (r as any).costo === 'number' ? (r as any).costo : 0);
+
   const totalLista = useMemo(() => lista.reduce((acc, r) => acc + r.cantidad, 0), [lista]);
+  const totalMontoLista = useMemo(() => lista.reduce((acc, r) => acc + totalRegistro(r), 0), [lista]);
 
   // --- Acciones del modal ---
   const abrirNuevo = () => {
@@ -65,6 +100,7 @@ export const InspeccionesRegistro = () => {
     setAno(filtroAno !== 'Todos' ? filtroAno : String(anoActual));
     setMes(filtroMes !== 'Todos' ? filtroMes : (MESES[0] ?? 'Enero'));
     setCantidad('');
+    setCosto(costoCatalogo || ''); // precarga el costo predefinido del catálogo
     setModalAbierto(true);
   };
 
@@ -74,6 +110,7 @@ export const InspeccionesRegistro = () => {
     setAno(String(i.ano));
     setMes(i.mes);
     setCantidad(String(i.cantidad));
+    setCosto((i as any).costo != null ? String((i as any).costo) : '');
     setModalAbierto(true);
   };
 
@@ -86,18 +123,29 @@ export const InspeccionesRegistro = () => {
   const registroExistente = inspecciones.find(i => i.id === idActual);
   const sobrescribe = !!registroExistente && editandoId !== idActual;
 
+  // --- Cálculo del TOTAL en vivo dentro del modal: cantidad × costo ---
+  const cantNum = parseInt(cantidad, 10);
+  const costoNum = parseFloat(costo);
+  const totalInspeccion = (isNaN(cantNum) ? 0 : cantNum) * (isNaN(costoNum) ? 0 : costoNum);
+
   const guardar = () => {
     if (!taller) { alert('Selecciona un taller.'); return; }
     const cant = parseInt(cantidad, 10);
     if (isNaN(cant) || cant < 0) { alert('Ingresa un número de inspecciones válido.'); return; }
-    const insp: Inspeccion = {
+    const cost = parseFloat(costo);
+    const costFinal = isNaN(cost) || cost < 0 ? 0 : cost;
+    // Se construye sin anotar el tipo y se castea al guardar para no chocar con el
+    // chequeo de propiedades del literal mientras el tipo Inspeccion no declare costo/total.
+    const insp = {
       id: idActual,
       taller,
       ano: parseInt(ano, 10),
       mes,
       cantidad: cant,
+      costo: costFinal,
+      total: cant * costFinal,
     };
-    guardarInspeccion(insp);
+    guardarInspeccion(insp as Inspeccion);
     cerrarModal();
   };
 
@@ -154,6 +202,40 @@ export const InspeccionesRegistro = () => {
         </div>
       </div>
 
+      {/* CATÁLOGO: COSTO PREDEFINIDO DE LA INSPECCIÓN */}
+      <div className="card" style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'flex-end', gap: '1.25rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '240px' }}>
+          <DollarSign size={28} color="var(--primary)" />
+          <div>
+            <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Catálogo de Costos</h3>
+            <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              El costo definido aquí se cargará automáticamente al crear una nueva inspección.
+            </p>
+          </div>
+        </div>
+        <div className="form-group" style={{ minWidth: '200px', margin: 0 }}>
+          <label className="form-label">Costo predefinido de inspección</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            className="form-control"
+            style={{ boxSizing: 'border-box' }}
+            value={costoCatalogo}
+            onChange={(e) => setCostoCatalogo(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
+          <button onClick={guardarCostoCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+            <Save size={16} /> Guardar costo
+          </button>
+          {catalogoGuardado && (
+            <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
+          )}
+        </div>
+      </div>
+
       {/* TABLA */}
       <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
         <table className="table" style={{ width: '100%' }}>
@@ -163,11 +245,13 @@ export const InspeccionesRegistro = () => {
               <th>Periodo</th>
               <th>Taller</th>
               <th style={{ textAlign: 'center' }}>Inspecciones</th>
+              <th style={{ textAlign: 'right' }}>Costo</th>
+              <th style={{ textAlign: 'right' }}>Total</th>
             </tr>
           </thead>
           <tbody>
             {lista.length === 0 ? (
-              <tr><td colSpan={4} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay inspecciones que coincidan con los filtros.</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay inspecciones que coincidan con los filtros.</td></tr>
             ) : (
               lista.map(r => (
                 <tr key={r.id}>
@@ -184,6 +268,8 @@ export const InspeccionesRegistro = () => {
                   <td><strong style={{ color: 'var(--text-main)' }}>{r.mes}</strong> <span style={{ color: 'var(--text-muted)' }}>{r.ano}</span></td>
                   <td>{r.taller}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>{r.cantidad}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{miFormatearMoneda(typeof (r as any).costo === 'number' ? (r as any).costo : 0)}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)' }}>{miFormatearMoneda(totalRegistro(r))}</td>
                 </tr>
               ))
             )}
@@ -193,6 +279,8 @@ export const InspeccionesRegistro = () => {
               <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
                 <td colSpan={3} style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total ({lista.length} registros)</strong></td>
                 <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{totalLista}</td>
+                <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
+                <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{miFormatearMoneda(totalMontoLista)}</td>
               </tr>
             </tfoot>
           )}
@@ -252,9 +340,28 @@ export const InspeccionesRegistro = () => {
                         {MESES.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
-                    <div className="form-group" style={{ minWidth: 0, gridColumn: '1 / -1' }}>
+                    <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">Inspecciones</label>
                       <input type="number" min={0} className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="form-group" style={{ minWidth: 0 }}>
+                      <label className="form-label">
+                        Costo de la inspección <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(c/u)</small>
+                      </label>
+                      <input type="number" min={0} step="0.01" className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={costo} onChange={(e) => setCosto(e.target.value)} placeholder="0.00" />
+                    </div>
+                    <div className="form-group" style={{ minWidth: 0, gridColumn: '1 / -1' }}>
+                      <label className="form-label">
+                        Total de la inspección <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Inspecciones × Costo)</small>
+                      </label>
+                      <input
+                        type="text"
+                        readOnly
+                        tabIndex={-1}
+                        className="form-control"
+                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)', color: 'var(--primary)', fontWeight: 800, cursor: 'default' }}
+                        value={miFormatearMoneda(totalInspeccion)}
+                      />
                     </div>
                   </div>
 

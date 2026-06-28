@@ -1,13 +1,30 @@
-import { useState, useContext, useMemo } from 'react';
+import { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
-import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter } from 'lucide-react';
+import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter, DollarSign, Download, Printer, FileText, ClipboardCheck } from 'lucide-react';
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
 const COLORES = ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849'];
+
+// Formato de moneda en USD
+const miFormatearMoneda = (valor: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .format(Number.isFinite(valor) ? valor : 0).replace('$', '$\u00A0');
+
+// Helpers para dibujar sectores de PIE en SVG (sin librerías externas)
+const polarToCartesian = (cx: number, cy: number, r: number, anguloGrados: number) => {
+  const a = ((anguloGrados - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+};
+const arcoPie = (cx: number, cy: number, r: number, anguloInicio: number, anguloFin: number) => {
+  const ini = polarToCartesian(cx, cy, r, anguloFin);
+  const fin = polarToCartesian(cx, cy, r, anguloInicio);
+  const largeArc = anguloFin - anguloInicio <= 180 ? 0 : 1;
+  return `M ${cx} ${cy} L ${ini.x} ${ini.y} A ${r} ${r} 0 ${largeArc} 0 ${fin.x} ${fin.y} Z`;
+};
 
 export const InspeccionesDashboard = () => {
   const contexto = useContext(AppContext);
@@ -29,7 +46,20 @@ export const InspeccionesDashboard = () => {
   const [is3D, setIs3D] = useState<boolean>(true);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  // --- Exportación: imagen PNG y PDF ejecutivo (una hoja por taller) ---
+  const reporteImagenRef = useRef<HTMLDivElement>(null);
+  const [generandoImagen, setGenerandoImagen] = useState<boolean>(false);
+  const [generandoPDF, setGenerandoPDF] = useState<boolean>(false);
+  const [slidesPDF, setSlidesPDF] = useState<any[]>([]);
+  const slideRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
   const tallerSeleccionado = taller || (talleresOrdenados[0]?.nombre ?? '');
+  const tallerObj = useMemo(() => talleres.find(t => t.nombre === tallerSeleccionado) || null, [talleres, tallerSeleccionado]);
+
+  const fechaReporte = useMemo(() => {
+    const d = new Date();
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+  }, []);
 
   const anosDisponibles = useMemo(() => {
     const set = new Set<string>(inspecciones.filter(i => i.taller === tallerSeleccionado).map(i => String(i.ano)));
@@ -37,14 +67,17 @@ export const InspeccionesDashboard = () => {
     return Array.from(set).sort();
   }, [inspecciones, tallerSeleccionado, anoActual]);
 
-  // Datos del taller/año, en orden calendario, solo meses con registro
+  // Datos del taller/año, en orden calendario, solo meses con registro (incluye costo/total)
   const datos = useMemo(() => {
     return MESES
       .map(mes => {
         const reg = inspecciones.find(i => i.taller === tallerSeleccionado && String(i.ano) === ano && i.mes === mes);
-        return reg ? { mes, cantidad: reg.cantidad } : null;
+        if (!reg) return null;
+        const costo = typeof (reg as any).costo === 'number' ? (reg as any).costo : 0;
+        const total = typeof (reg as any).total === 'number' ? (reg as any).total : reg.cantidad * costo;
+        return { mes, cantidad: reg.cantidad, costo, total };
       })
-      .filter((d): d is { mes: string; cantidad: number } => d !== null);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number } => d !== null);
   }, [inspecciones, tallerSeleccionado, ano]);
 
   // Sectores para torta/anillo/barras/leyenda (distribución sobre el total)
@@ -58,7 +91,7 @@ export const InspeccionesDashboard = () => {
       const midAngle = inicio + grados / 2;
       acumuladoGrados += grados;
       const color = COLORES[index % COLORES.length];
-      return { id: d.mes, label: d.mes, cantidad: d.cantidad, pct, porcentajeStr: pct.toFixed(1), midAngle, color, gradientPart: `${color} ${inicio}deg ${acumuladoGrados}deg` };
+      return { id: d.mes, label: d.mes, cantidad: d.cantidad, total: d.total, pct, porcentajeStr: pct.toFixed(1), midAngle, color, gradientPart: `${color} ${inicio}deg ${acumuladoGrados}deg` };
     });
     return { arr, total, gradient: `conic-gradient(${arr.map(a => a.gradientPart).join(', ')})`, maxCantidad: Math.max(...datos.map(d => d.cantidad), 1) };
   }, [datos]);
@@ -76,6 +109,7 @@ export const InspeccionesDashboard = () => {
 
   const kpis = useMemo(() => {
     const total = datos.reduce((acc, d) => acc + d.cantidad, 0);
+    const totalMonto = datos.reduce((acc, d) => acc + d.total, 0);
     const promedio = datos.length > 0 ? total / datos.length : 0;
     const mejor = datos.reduce((best, d) => (d.cantidad > best.cantidad ? d : best), { mes: '-', cantidad: 0 });
     let variacionUltimo: number | null = null;
@@ -84,8 +118,124 @@ export const InspeccionesDashboard = () => {
       const b = datos[datos.length - 1].cantidad;
       variacionUltimo = a > 0 ? ((b - a) / a) * 100 : null;
     }
-    return { total, promedio, mejor, variacionUltimo };
+    return { total, totalMonto, promedio, mejor, variacionUltimo };
   }, [datos]);
+
+  // =========================================================================
+  // Construye TODO lo que necesita un reporte (imagen / diapositiva) por taller+año
+  // =========================================================================
+  const construirReporte = (tallerNombre: string, anoStr: string) => {
+    const meses = MESES
+      .map(mes => {
+        const reg = inspecciones.find(i => i.taller === tallerNombre && String(i.ano) === anoStr && i.mes === mes);
+        if (!reg) return null;
+        const costo = typeof (reg as any).costo === 'number' ? (reg as any).costo : 0;
+        const total = typeof (reg as any).total === 'number' ? (reg as any).total : reg.cantidad * costo;
+        return { mes, cantidad: reg.cantidad, costo, total };
+      })
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number } => d !== null);
+
+    const totalCantidad = meses.reduce((a, m) => a + m.cantidad, 0);
+    const totalMonto = meses.reduce((a, m) => a + m.total, 0);
+    const promedio = meses.length > 0 ? totalCantidad / meses.length : 0;
+    const mejor = meses.reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
+
+    // Donut: distribución de inspecciones por mes
+    const base = totalCantidad || 1;
+    let acc = 0;
+    const segs = meses.map((m, i) => {
+      const frac = m.cantidad / base;
+      const inicio = acc * 360;
+      acc += frac;
+      const fin = acc * 360;
+      const color = COLORES[i % COLORES.length];
+      return { id: m.mes, mes: m.mes, color, cantidad: m.cantidad, costo: m.costo, total: m.total, pct: frac * 100, path: arcoPie(110, 110, 95, inicio, fin) };
+    });
+
+    return { meses, totalCantidad, totalMonto, promedio, mejor, segs };
+  };
+
+  // Carga dinámica de html2canvas / jsPDF desde CDN
+  const cargarHtml2Canvas = (): Promise<any> => new Promise((resolve, reject) => {
+    const w = window as any;
+    if (w.html2canvas) return resolve(w.html2canvas);
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    s.async = true; s.onload = () => resolve((window as any).html2canvas); s.onerror = () => reject(new Error('No se pudo cargar html2canvas'));
+    document.body.appendChild(s);
+  });
+  const cargarJsPDF = (): Promise<any> => new Promise((resolve, reject) => {
+    const w = window as any;
+    if (w.jspdf) return resolve(w.jspdf);
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.async = true; s.onload = () => resolve((window as any).jspdf); s.onerror = () => reject(new Error('No se pudo cargar jsPDF'));
+    document.body.appendChild(s);
+  });
+
+  // Descarga el reporte del taller seleccionado como imagen PNG
+  const generarImagen = async () => {
+    if (!reporteImagenRef.current) return;
+    setGenerandoImagen(true);
+    try {
+      const html2canvas = await cargarHtml2Canvas();
+      const canvas = await html2canvas(reporteImagenRef.current, { scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      const link = document.createElement('a');
+      const nombre = tallerSeleccionado ? tallerSeleccionado.replace(/\s+/g, '_') : 'Inspecciones';
+      link.download = `Inspecciones_${nombre}_${ano}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch {
+      alert('No se pudo generar la imagen. Verifique su conexión a internet e intente de nuevo.');
+    } finally {
+      setGenerandoImagen(false);
+    }
+  };
+
+  // Arma las diapositivas (una por taller) del año seleccionado
+  const generarPDFEjecutivo = () => {
+    const lista = talleresOrdenados
+      .map(t => ({ taller: t, datos: construirReporte(t.nombre, ano) }))
+      .filter(x => x.datos.meses.length > 0);
+    if (lista.length === 0) {
+      alert('No hay talleres con inspecciones registradas en el año seleccionado.');
+      return;
+    }
+    setSlidesPDF(lista);
+    setGenerandoPDF(true);
+  };
+
+  useEffect(() => {
+    if (!generandoPDF || slidesPDF.length === 0) return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const [html2canvas, jspdf] = await Promise.all([cargarHtml2Canvas(), cargarJsPDF()]);
+        const JsPDF = jspdf.jsPDF || jspdf;
+        await new Promise(res => setTimeout(res, 450));
+        const pdf = new JsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        let agregadas = 0;
+        for (let i = 0; i < slidesPDF.length; i++) {
+          const el = slideRefs.current[slidesPDF[i].taller.nombre];
+          if (!el) continue;
+          const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+          const img = canvas.toDataURL('image/png');
+          if (agregadas > 0) pdf.addPage('a4', 'landscape');
+          pdf.addImage(img, 'PNG', 0, 0, pageW, pageH);
+          agregadas++;
+        }
+        if (!cancelado) pdf.save(`Inspecciones_Ejecutivo_${ano}.pdf`);
+      } catch {
+        alert('No se pudo generar el PDF. Verifique su conexión a internet e intente de nuevo.');
+      } finally {
+        if (!cancelado) { setGenerandoPDF(false); setSlidesPDF([]); }
+      }
+    })();
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generandoPDF, slidesPDF]);
 
   // ---- GRÁFICA DE LÍNEAS (SVG contenido, respeta modo enteros/porcentual) ----
   const renderLinea = () => {
@@ -163,7 +313,6 @@ export const InspeccionesDashboard = () => {
             );
           })}
         </div>
-        {/* Etiquetas de mes (fuera de la transformación 3D para que no se deformen) */}
         <div style={{ display: 'flex', justifyContent: 'space-around', padding: '0.6rem 1rem 0 1rem', marginBottom: '1rem' }}>
           {sectores.map(op => (
             <div key={`lbl-${op.id}`} style={{ width: anchoCol, textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, color: hovered === op.id ? op.color : 'var(--text-muted)', transition: 'color 0.2s' }}>{op.label}</div>
@@ -251,167 +400,374 @@ export const InspeccionesDashboard = () => {
   const fmtPct = (v: number | null) => (v === null ? '-' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`);
   const fmtDelta = (v: number | null) => (v === null ? '-' : `${v >= 0 ? '+' : ''}${v}`);
 
+  // Reporte del taller seleccionado (para la imagen PNG y el PDF de impresión)
+  const reporteSel = useMemo(() => construirReporte(tallerSeleccionado, ano), [inspecciones, tallerSeleccionado, ano]);
+
+  // Pequeño componente reutilizable: contenido del reporte (imagen / diapositiva)
+  const ContenidoReporte = ({ rep, tNombre, tLogo, landscape }: { rep: any; tNombre: string; tLogo?: string; landscape?: boolean }) => (
+    <>
+      {/* ENCABEZADO */}
+      <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #1e3a8a 140%)', padding: landscape ? '26px 40px' : '26px 32px', display: 'flex', alignItems: 'center', gap: '24px', position: 'relative', height: landscape ? '150px' : 'auto', boxSizing: 'border-box' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: landscape ? '8px' : '6px', background: 'linear-gradient(180deg, #1d8cf8 0%, #2563eb 100%)' }} />
+        {tLogo ? (
+          <div style={{ width: landscape ? '150px' : '120px', height: landscape ? '84px' : '64px', borderRadius: '12px', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+            <img src={tLogo} alt={tNombre} crossOrigin="anonymous" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          </div>
+        ) : (
+          <div style={{ width: landscape ? '84px' : '64px', height: landscape ? '84px' : '64px', borderRadius: '16px', background: 'rgba(29,140,248,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid rgba(29,140,248,0.4)' }}>
+            <ClipboardCheck size={landscape ? 42 : 34} color="#1d8cf8" />
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: landscape ? '30px' : '22px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>
+            {tNombre} <span style={{ color: '#1d8cf8' }}>{ano}</span>
+          </div>
+          <div style={{ fontSize: landscape ? '14px' : '12px', color: '#cbd5e1', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
+            REPORTE DE INSPECCIONES &nbsp;·&nbsp; AÑO FISCAL {ano}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '24px' }}>
+          <div style={{ fontSize: landscape ? '13px' : '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>🔍 INSPECCIONES</div>
+          <div style={{ fontSize: landscape ? '38px' : '28px', color: '#38bdf8', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.1 }}>{rep.totalCantidad}</div>
+          <div style={{ fontSize: landscape ? '15px' : '13px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>{miFormatearMoneda(rep.totalMonto)}</div>
+        </div>
+      </div>
+
+      {/* TIRA DE INDICADORES */}
+      <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', height: landscape ? '92px' : 'auto' }}>
+        {[
+          { label: '🔢 TOTAL INSPECCIONES', valor: String(rep.totalCantidad), color: '#0f172a' },
+          { label: '📊 PROMEDIO MENSUAL', valor: rep.promedio.toFixed(1), color: '#475569' },
+          { label: '🏆 MEJOR MES', valor: `${rep.mejor.cantidad} (${rep.mejor.mes !== '-' ? rep.mejor.mes.substring(0, 3) : '-'})`, color: '#475569' },
+          { label: '💲 TOTAL MONETARIO', valor: miFormatearMoneda(rep.totalMonto), color: '#15803d' },
+        ].map((chip, i) => (
+          <div key={chip.label} style={{ flex: 1, padding: landscape ? '16px 18px' : '16px 18px', textAlign: 'center', borderRight: i < 3 ? '1px solid #e2e8f0' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: landscape ? '11px' : '11px', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
+            <div style={{ fontSize: landscape ? '20px' : '20px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* CUERPO: TABLA + ANILLO */}
+      <div style={{ flex: landscape ? 1 : undefined, display: 'flex', gap: '24px', padding: landscape ? '22px 40px' : '24px 32px 28px 32px', minHeight: 0, flexDirection: landscape ? 'row' : 'column' }}>
+        {/* TABLA MENSUAL */}
+        <div style={{ flex: landscape ? 1.1 : undefined, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', flex: landscape ? 1 : undefined, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '11px 16px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+              <div style={{ flex: 1 }}>MES</div>
+              <div style={{ width: '110px', textAlign: 'center' }}>INSPECCIONES</div>
+              <div style={{ width: '120px', textAlign: 'right' }}>COSTO</div>
+              <div style={{ width: '140px', textAlign: 'right' }}>TOTAL</div>
+            </div>
+            {rep.meses.map((m: any, i: number) => (
+              <div key={m.mes} style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', fontSize: '13px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                <div style={{ flex: 1, color: '#334155', fontWeight: 700 }}>
+                  <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '3px', backgroundColor: COLORES[i % COLORES.length], marginRight: '8px' }} />
+                  {m.mes}
+                </div>
+                <div style={{ width: '110px', textAlign: 'center', color: '#0f172a', fontWeight: 800 }}>{m.cantidad}</div>
+                <div style={{ width: '120px', textAlign: 'right', color: '#64748b' }}>{miFormatearMoneda(m.costo)}</div>
+                <div style={{ width: '140px', textAlign: 'right', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(m.total)}</div>
+              </div>
+            ))}
+            {/* TOTAL */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', fontSize: '14px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #1d8cf8', marginTop: landscape ? 'auto' : undefined }}>
+              <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL</div>
+              <div style={{ width: '110px', textAlign: 'center', color: '#38bdf8', fontWeight: 900, fontSize: '16px' }}>{rep.totalCantidad}</div>
+              <div style={{ width: '120px', textAlign: 'right', color: '#94a3b8' }}>—</div>
+              <div style={{ width: '140px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '15px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(rep.totalMonto)}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ANILLO DISTRIBUCIÓN POR MES */}
+        <div style={{ flex: landscape ? 0.9 : undefined, marginTop: landscape ? 0 : '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ backgroundColor: '#f1f5f9', padding: '10px 16px', fontSize: '11px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+            DISTRIBUCIÓN DE INSPECCIONES POR MES
+          </div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: landscape ? 'column' : 'row', alignItems: 'center', gap: landscape ? '12px' : '20px', padding: '16px 20px', minHeight: 0 }}>
+            <div style={{ flexShrink: 0, width: landscape ? '180px' : '200px', height: landscape ? '180px' : '200px' }}>
+              <svg viewBox="0 0 220 220" width={landscape ? 180 : 200} height={landscape ? 180 : 200} style={{ display: 'block' }}>
+                {(rep.segs || []).length === 1 ? (
+                  <circle cx="110" cy="110" r="95" fill={rep.segs[0].color} stroke="#ffffff" strokeWidth="2" />
+                ) : (
+                  (rep.segs || []).map((seg: any) => (
+                    <path key={`pie-${tNombre}-${seg.id}`} d={seg.path} fill={seg.color} stroke="#ffffff" strokeWidth="2" />
+                  ))
+                )}
+                <circle cx="110" cy="110" r="46" fill="#ffffff" />
+                <text x="110" y="104" textAnchor="middle" fontSize="11" fontWeight="700" fill="#94a3b8">TOTAL</text>
+                <text x="110" y="122" textAnchor="middle" fontSize="14" fontWeight="900" fill="#1d8cf8">{rep.totalCantidad}</text>
+              </svg>
+            </div>
+            <div style={{ flex: 1, width: landscape ? '100%' : undefined, display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+              {(rep.segs || []).map((seg: any) => (
+                <div key={`leg-${tNombre}-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '7px 12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                    <span style={{ width: '13px', height: '13px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: '12px', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{seg.mes}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 800 }}>{seg.cantidad}</span>
+                    <span style={{ fontSize: '12px', color: '#15803d', fontWeight: 700 }}>{miFormatearMoneda(seg.total)}</span>
+                    <span style={{ fontSize: '12px', color: seg.color, fontWeight: 800, minWidth: '44px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PIE DE PÁGINA */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: landscape ? '11px 40px' : '12px 32px', backgroundColor: '#0f172a', fontSize: landscape ? '11px' : '10px', color: '#64748b', fontWeight: 600, height: landscape ? '42px' : 'auto', boxSizing: 'border-box' }}>
+        <span style={{ letterSpacing: '0.5px' }}>REPORTE DE INSPECCIONES &nbsp;·&nbsp; {ano}</span>
+        <span>Generado el {fechaReporte}</span>
+      </div>
+    </>
+  );
+
+  const hayDatos = datos.length > 0;
+
   return (
     <div className="animate-in fade-in">
-      <div className="page-header">
-        <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <LineChart size={32} color="var(--primary)" />
-          <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Dashboard de Inspecciones</h2>
-            <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Evolución en enteros y porcentual</p>
-          </div>
-        </div>
-      </div>
+      <style>{`
+        @media screen { .insp-print-only { display: none !important; } }
+        @media print {
+          @page { size: A4 landscape; margin: 0 8mm 8mm 8mm; }
+          html, body, #root, .app-layout, .main-content { height: auto !important; min-height: auto !important; overflow: visible !important; position: static !important; background: #ffffff !important; color: #000 !important; }
+          .web-only-insp, .sidebar, .top-nav { display: none !important; }
+          .insp-print-only { display: block !important; width: 100% !important; }
+          .insp-print-only * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          * { scrollbar-width: none !important; }
+          ::-webkit-scrollbar { display: none !important; }
+        }
+      `}</style>
 
-      {/* FILTROS */}
-      <div className="filter-bar">
-        <div className="filter-group">
-          <label>Taller</label>
-          <select value={tallerSeleccionado} onChange={(e) => setTaller(e.target.value)}>
-            {talleresOrdenados.length === 0 && <option value="">Sin talleres</option>}
-            {talleresOrdenados.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
-          </select>
-        </div>
-        <div className="filter-group">
-          <label>Año</label>
-          <select value={ano} onChange={(e) => setAno(e.target.value)}>
-            {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {datos.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '1.5rem' }}>
-          <Filter size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
-          <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Sin inspecciones registradas</h3>
-          <p style={{ color: 'var(--text-muted)' }}>Captura inspecciones en "Registro" para ver la evolución de {tallerSeleccionado || 'este taller'} en {ano}.</p>
-        </div>
-      ) : (
-        <>
-          {/* KPIs */}
-          <div className="kpi-grid">
-            <div className="kpi-card">
-              <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
-              <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-title">Promedio mensual <LineChart size={16} /></div>
-              <div className="kpi-value">{kpis.promedio.toFixed(1)}</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-title">Mejor mes <Award size={16} color="var(--success)" /></div>
-              <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor.cantidad}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.mejor.mes}</div>
-            </div>
-            <div className="kpi-card" style={{ position: 'relative' }}>
-              <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                Variación último mes
-                {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
-                  ? <TrendingUp size={16} color="var(--success)" />
-                  : <TrendingDown size={16} color="var(--danger)" />)}
-              </div>
-              <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
-                {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo.toFixed(1)}%`}
-              </div>
+      <div className="web-only-insp">
+        <div className="page-header">
+          <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <LineChart size={32} color="var(--primary)" />
+            <div>
+              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Dashboard de Inspecciones</h2>
+              <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Evolución, distribución y resumen monetario</p>
             </div>
           </div>
 
-          {/* GRÁFICA CON CONTROLES (como en el Dashboard) */}
-          <div className="card" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
-              <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Evolución de inspecciones</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button onClick={generarPDFEjecutivo} disabled={generandoPDF} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: generandoPDF ? 'not-allowed' : 'pointer', opacity: generandoPDF ? 0.6 : 1, background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }} title="PDF ejecutivo: una hoja por taller del año seleccionado">
+              <FileText size={18} /> {generandoPDF ? 'Generando PDF...' : 'PDF Ejecutivo (Todos los Talleres)'}
+            </button>
+            <button onClick={generarImagen} disabled={!hayDatos || generandoImagen} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (!hayDatos || generandoImagen) ? 'not-allowed' : 'pointer', opacity: (!hayDatos || generandoImagen) ? 0.55 : 1, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.35)' }} title={!hayDatos ? 'Sin datos para exportar' : 'Descargar reporte como imagen PNG'}>
+              <Download size={18} /> {generandoImagen ? 'Generando...' : 'Generar Imagen'}
+            </button>
+            <button onClick={() => window.print()} disabled={!hayDatos} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, opacity: hayDatos ? 1 : 0.55, cursor: hayDatos ? 'pointer' : 'not-allowed' }}>
+              <Printer size={18} /> Exportar PDF
+            </button>
+          </div>
+        </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                {/* Toggle Enteros / Variación % solo aplica a la gráfica de líneas */}
-                {tipoGrafico === 'lineas' && (
-                  <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <button onClick={() => setModo('enteros')} style={{ padding: '0.4rem 1rem', border: 'none', background: modo === 'enteros' ? 'var(--primary)' : 'transparent', color: modo === 'enteros' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Enteros</button>
-                    <button onClick={() => setModo('porcentual')} style={{ padding: '0.4rem 1rem', border: 'none', background: modo === 'porcentual' ? 'var(--primary)' : 'transparent', color: modo === 'porcentual' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Variación %</button>
-                  </div>
-                )}
+        {/* FILTROS */}
+        <div className="filter-bar">
+          <div className="filter-group">
+            <label>Taller</label>
+            <select value={tallerSeleccionado} onChange={(e) => setTaller(e.target.value)}>
+              {talleresOrdenados.length === 0 && <option value="">Sin talleres</option>}
+              {talleresOrdenados.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
+            </select>
+          </div>
+          <div className="filter-group">
+            <label>Año</label>
+            <select value={ano} onChange={(e) => setAno(e.target.value)}>
+              {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        </div>
 
-                {/* Selector de tipo de gráfico */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TIPO:</label>
-                  <select value={tipoGrafico} onChange={(e) => setTipoGrafico(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}>
-                    <option value="lineas">Líneas (Line)</option>
-                    <option value="barras">Barras (Bar)</option>
-                    <option value="anillo">Anillo (Donut)</option>
-                    <option value="torta">Torta (Pie)</option>
-                  </select>
+        {datos.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '1.5rem' }}>
+            <Filter size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
+            <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Sin inspecciones registradas</h3>
+            <p style={{ color: 'var(--text-muted)' }}>Captura inspecciones en "Registro" para ver la evolución de {tallerSeleccionado || 'este taller'} en {ano}.</p>
+          </div>
+        ) : (
+          <>
+            {/* KPIs (incluye el apartado monetario) */}
+            <div className="kpi-grid">
+              <div className="kpi-card">
+                <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
+                <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
+                <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Promedio mensual <LineChart size={16} /></div>
+                <div className="kpi-value">{kpis.promedio.toFixed(1)}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Mejor mes <Award size={16} color="var(--success)" /></div>
+                <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor.cantidad}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.mejor.mes}</div>
+              </div>
+              <div className="kpi-card" style={{ position: 'relative' }}>
+                <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  Variación último mes
+                  {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
+                    ? <TrendingUp size={16} color="var(--success)" />
+                    : <TrendingDown size={16} color="var(--danger)" />)}
                 </div>
-
-                {/* Toggle 3D / 2D */}
-                <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <button onClick={() => setIs3D(true)} style={{ padding: '0.4rem 1rem', border: 'none', background: is3D ? 'var(--primary)' : 'transparent', color: is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>3D</button>
-                  <button onClick={() => setIs3D(false)} style={{ padding: '0.4rem 1rem', border: 'none', background: !is3D ? 'var(--primary)' : 'transparent', color: !is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>2D</button>
+                <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
+                  {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo.toFixed(1)}%`}
                 </div>
               </div>
             </div>
 
-            <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-              {renderGrafico()}
-            </div>
+            {/* GRÁFICA CON CONTROLES */}
+            <div className="card" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Evolución de inspecciones</h3>
 
-            {/* LEYENDA: garantiza ver el mes en cualquier tipo de gráfico */}
-            <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-              {datosGrafico.arr.map(op => {
-                const isHovered = hovered === op.id;
-                const isDimmed = hovered !== null && !isHovered;
-                return (
-                  <li key={`leg-${op.id}`} onMouseEnter={() => setHovered(op.id)} onMouseLeave={() => setHovered(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent', cursor: 'pointer', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s', padding: '0.4rem 0.6rem', borderRadius: '6px' }}>
-                    <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{op.label}</span>
-                      <span style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{op.cantidad}</strong>
-                        <strong style={{ color: op.color, fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>{op.porcentajeStr}%</strong>
-                      </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  {tipoGrafico === 'lineas' && (
+                    <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <button onClick={() => setModo('enteros')} style={{ padding: '0.4rem 1rem', border: 'none', background: modo === 'enteros' ? 'var(--primary)' : 'transparent', color: modo === 'enteros' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Enteros</button>
+                      <button onClick={() => setModo('porcentual')} style={{ padding: '0.4rem 1rem', border: 'none', background: modo === 'porcentual' ? 'var(--primary)' : 'transparent', color: modo === 'porcentual' ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>Variación %</button>
                     </div>
-                  </li>
-                );
-              })}
-            </ul>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>TIPO:</label>
+                    <select value={tipoGrafico} onChange={(e) => setTipoGrafico(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.4rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', cursor: 'pointer' }}>
+                      <option value="lineas">Líneas (Line)</option>
+                      <option value="barras">Barras (Bar)</option>
+                      <option value="anillo">Anillo (Donut)</option>
+                      <option value="torta">Torta (Pie)</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <button onClick={() => setIs3D(true)} style={{ padding: '0.4rem 1rem', border: 'none', background: is3D ? 'var(--primary)' : 'transparent', color: is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>3D</button>
+                    <button onClick={() => setIs3D(false)} style={{ padding: '0.4rem 1rem', border: 'none', background: !is3D ? 'var(--primary)' : 'transparent', color: !is3D ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>2D</button>
+                  </div>
+                </div>
+              </div>
 
-            <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>{notaGrafico()}</p>
-          </div>
+              <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+                {renderGrafico()}
+              </div>
 
-          {/* TABLA DE EVOLUCIÓN */}
-          <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
-            <h3 className="detail-section-title">Detalle de evolución</h3>
-            <table className="table" style={{ width: '100%', marginTop: '1rem' }}>
-              <thead>
-                <tr>
-                  <th>Mes</th>
-                  <th style={{ textAlign: 'center' }}>Inspecciones</th>
-                  <th style={{ textAlign: 'center' }}>Variación (Δ)</th>
-                  <th style={{ textAlign: 'center' }}>Variación %</th>
-                  <th style={{ textAlign: 'center' }}>% del total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map(f => (
-                  <tr key={f.mes}>
-                    <td><strong>{f.mes}</strong></td>
-                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>{f.cantidad}</td>
-                    <td style={{ textAlign: 'center', color: f.deltaEntero === null ? 'var(--text-muted)' : (f.deltaEntero >= 0 ? 'var(--success)' : 'var(--danger)'), fontWeight: 600 }}>{fmtDelta(f.deltaEntero)}</td>
-                    <td style={{ textAlign: 'center', color: f.deltaPct === null ? 'var(--text-muted)' : (f.deltaPct >= 0 ? 'var(--success)' : 'var(--danger)'), fontWeight: 600 }}>{fmtPct(f.deltaPct)}</td>
-                    <td style={{ textAlign: 'center', color: 'var(--primary)', fontWeight: 700 }}>{f.pctTotal.toFixed(1)}%</td>
+              <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+                {datosGrafico.arr.map(op => {
+                  const isHovered = hovered === op.id;
+                  const isDimmed = hovered !== null && !isHovered;
+                  return (
+                    <li key={`leg-${op.id}`} onMouseEnter={() => setHovered(op.id)} onMouseLeave={() => setHovered(null)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.85rem', color: 'var(--text-muted)', backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent', cursor: 'pointer', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s', padding: '0.4rem 0.6rem', borderRadius: '6px' }}>
+                      <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{op.label}</span>
+                        <span style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                          <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{op.cantidad}</strong>
+                          <strong style={{ color: 'var(--success)', fontWeight: 700 }}>{miFormatearMoneda(op.total)}</strong>
+                          <strong style={{ color: op.color, fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>{op.porcentajeStr}%</strong>
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>{notaGrafico()}</p>
+            </div>
+
+            {/* TABLA DE EVOLUCIÓN (con apartado monetario) */}
+            <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
+              <h3 className="detail-section-title">Detalle de evolución</h3>
+              <table className="table" style={{ width: '100%', marginTop: '1rem' }}>
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th style={{ textAlign: 'center' }}>Inspecciones</th>
+                    <th style={{ textAlign: 'right' }}>Costo</th>
+                    <th style={{ textAlign: 'right' }}>Total</th>
+                    <th style={{ textAlign: 'center' }}>Variación (Δ)</th>
+                    <th style={{ textAlign: 'center' }}>Variación %</th>
+                    <th style={{ textAlign: 'center' }}>% del total</th>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                  <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
-                  <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{kpis.total}</td>
-                  <td colSpan={2}></td>
-                  <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>100%</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </>
+                </thead>
+                <tbody>
+                  {filas.map(f => (
+                    <tr key={f.mes}>
+                      <td><strong>{f.mes}</strong></td>
+                      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>{f.cantidad}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{miFormatearMoneda(f.costo)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>{miFormatearMoneda(f.total)}</td>
+                      <td style={{ textAlign: 'center', color: f.deltaEntero === null ? 'var(--text-muted)' : (f.deltaEntero >= 0 ? 'var(--success)' : 'var(--danger)'), fontWeight: 600 }}>{fmtDelta(f.deltaEntero)}</td>
+                      <td style={{ textAlign: 'center', color: f.deltaPct === null ? 'var(--text-muted)' : (f.deltaPct >= 0 ? 'var(--success)' : 'var(--danger)'), fontWeight: 600 }}>{fmtPct(f.deltaPct)}</td>
+                      <td style={{ textAlign: 'center', color: 'var(--primary)', fontWeight: 700 }}>{f.pctTotal.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
+                    <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{kpis.total}</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--success)' }}>{miFormatearMoneda(kpis.totalMonto)}</td>
+                    <td colSpan={2}></td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>100%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* =========================================================================
+          PDF DE IMPRESIÓN (window.print) — solo visible al imprimir
+      ========================================================================= */}
+      {hayDatos && (
+        <div className="insp-print-only" style={{ fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+          <ContenidoReporte rep={reporteSel} tNombre={tallerSeleccionado} tLogo={tallerObj?.logo} />
+        </div>
       )}
+
+      {/* =========================================================================
+          LIENZO OCULTO -> IMAGEN PNG del taller seleccionado
+      ========================================================================= */}
+      {hayDatos && (
+        <div
+          ref={reporteImagenRef}
+          style={{
+            position: 'fixed', left: '-10000px', top: 0, zIndex: -50, pointerEvents: 'none',
+            width: '880px', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
+            borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
+          }}
+        >
+          <ContenidoReporte rep={reporteSel} tNombre={tallerSeleccionado} tLogo={tallerObj?.logo} />
+        </div>
+      )}
+
+      {/* =========================================================================
+          DIAPOSITIVAS PDF EJECUTIVO (UNA HOJA HORIZONTAL POR TALLER)
+      ========================================================================= */}
+      {generandoPDF && slidesPDF.map((s: any) => {
+        const t = s.taller;
+        return (
+          <div
+            key={`slide-${t.nombre}`}
+            ref={el => { slideRefs.current[t.nombre] = el; }}
+            style={{
+              position: 'fixed', left: '-12000px', top: 0, zIndex: -50, pointerEvents: 'none',
+              width: '1123px', height: '794px', backgroundColor: '#ffffff',
+              fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}
+          >
+            <ContenidoReporte rep={s.datos} tNombre={t.nombre} tLogo={t.logo} landscape />
+          </div>
+        );
+      })}
     </div>
   );
 };

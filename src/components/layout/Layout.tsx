@@ -1,8 +1,8 @@
 import { useState, useContext, useEffect, Fragment, type ReactNode } from 'react';
 import { AppContext } from '../../context/AppContext';
 import {
-  Calendar, PieChart, FileText, Users, Menu, ChevronLeft, ChevronRight,
-  GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, User, Clock,
+  Calendar, PieChart, FileText, Menu, ChevronLeft, ChevronRight,
+  GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
   ClipboardList, LineChart
 } from 'lucide-react';
 
@@ -54,14 +54,6 @@ const GRUPOS: GrupoNav[] = [
     items: [
       // TODO: reemplazar por los items reales cuando definas el contenido
       { vista: 'marketing', label: 'Próximamente', icon: Clock, disabled: true },
-    ],
-  },
-  {
-    id: 'usuarios',
-    label: 'Usuarios',
-    icon: Users,
-    items: [
-      { vista: 'usuarios', label: 'Usuarios', icon: User },
     ],
   },
 ];
