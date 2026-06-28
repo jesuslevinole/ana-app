@@ -1,4 +1,4 @@
-import { useState, useMemo, useContext } from 'react';
+import { useState, useMemo, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import type { Detalle, Registro } from '../types';
@@ -113,6 +113,21 @@ export const FormularioRegistro = () => {
     setDiarioManual(false);
   };
 
+  // --- MODAL: cerrar, tecla Escape y bloqueo de scroll del fondo ---
+  const cerrar = () => contexto?.setVista('tabla');
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') cerrar(); };
+    document.addEventListener('keydown', onKey);
+    const scrollPrevio = document.body.style.overflow;
+    document.body.style.overflow = 'hidden'; // evita el doble scroll mientras el modal está abierto
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = scrollPrevio;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // LÓGICA: Sirve para Agregar o Actualizar
   const guardarDetalle = () => {
     if (!desde || !hasta || vendido <= 0 || meta <= 0 || new Date(hasta) <= new Date(desde)) {
@@ -169,14 +184,68 @@ export const FormularioRegistro = () => {
   };
 
   return (
-    <div className="animate-in fade-in">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">{isEditing ? 'Editar Registro' : 'Nuevo Registro'}</h2>
-          <p className="page-subtitle">Complete la información solicitada</p>
+    <div className="reg-modal-overlay" role="dialog" aria-modal="true" aria-label={isEditing ? 'Editar Registro' : 'Nuevo Registro'}>
+      <style>{`
+        .reg-modal-overlay {
+          position: fixed; inset: 0; z-index: 1000;
+          display: flex; align-items: center; justify-content: center;
+          padding: 1.5rem;
+          background: rgba(8, 12, 22, 0.72);
+          -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+          animation: regFadeIn 0.18s ease-out;
+        }
+        .reg-modal-dialog {
+          width: 100%; max-width: 920px; max-height: 92vh;
+          display: flex; flex-direction: column; overflow: hidden;
+          background: var(--bg-panel, #1b2233);
+          border: 1px solid var(--border, #2b3245);
+          border-radius: 16px;
+          box-shadow: 0 30px 70px rgba(0,0,0,0.55);
+          animation: regPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .reg-modal-header {
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+          padding: 1.25rem 1.75rem;
+          border-bottom: 1px solid var(--border, #2b3245);
+          flex-shrink: 0;
+        }
+        .reg-modal-body { padding: 1.5rem 1.75rem; overflow-y: auto; flex: 1; }
+        .reg-modal-footer {
+          display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem;
+          padding: 1rem 1.75rem;
+          border-top: 1px solid var(--border, #2b3245);
+          background: var(--bg-body, rgba(0,0,0,0.18));
+          flex-shrink: 0;
+        }
+        .reg-modal-close {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 38px; height: 38px; border-radius: 10px;
+          border: 1px solid var(--border, #2b3245);
+          background: transparent; color: var(--text-muted, #94a3b8);
+          cursor: pointer; transition: all 0.15s ease; flex-shrink: 0;
+        }
+        .reg-modal-close:hover { background: var(--danger, #ef4444); color: #fff; border-color: transparent; }
+        /* Dentro del modal las tarjetas se vuelven secciones planas (sin doble panel) */
+        .reg-modal-body .card { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 0 1.5rem 0 !important; }
+        .reg-modal-body .card:last-of-type { margin-bottom: 0 !important; }
+        @keyframes regFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes regPopIn { from { opacity: 0; transform: translateY(12px) scale(0.985); } to { opacity: 1; transform: none; } }
+        @media (max-width: 640px) {
+          .reg-modal-overlay { padding: 0; }
+          .reg-modal-dialog { max-width: 100%; max-height: 100vh; height: 100vh; border-radius: 0; }
+        }
+      `}</style>
+
+      <div className="reg-modal-dialog">
+        <div className="reg-modal-header">
+          <div>
+            <h2 className="page-title" style={{ margin: 0 }}>{isEditing ? 'Editar Registro' : 'Nuevo Registro'}</h2>
+            <p className="page-subtitle" style={{ margin: '0.25rem 0 0 0' }}>Complete la información solicitada</p>
+          </div>
+          <button className="reg-modal-close" onClick={cerrar} aria-label="Cerrar" title="Cerrar (Esc)"><X size={20} /></button>
         </div>
-        <button className="btn btn-outline" onClick={() => contexto?.setVista('tabla')}><X size={16} /> Cancelar</button>
-      </div>
+
+        <div className="reg-modal-body">
 
       <div className="card">
         <h3 className="detail-section-title">Información Principal</h3>
@@ -357,9 +426,13 @@ export const FormularioRegistro = () => {
           </div>
         )}
       </div>
-      <div style={{ textAlign: 'right' }}>
-        <button className="btn btn-primary" onClick={guardarRegistro}><Save size={16}/> {isEditing ? 'Actualizar Registro' : 'Guardar Registro'}</button>
-      </div>
+        </div>{/* fin .reg-modal-body */}
+
+        <div className="reg-modal-footer">
+          <button className="btn btn-outline" onClick={cerrar}><X size={16} /> Cancelar</button>
+          <button className="btn btn-primary" onClick={guardarRegistro}><Save size={16} /> {isEditing ? 'Actualizar Registro' : 'Guardar Registro'}</button>
+        </div>
+      </div>{/* fin .reg-modal-dialog */}
     </div>
   );
 };
