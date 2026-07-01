@@ -2,7 +2,7 @@ import { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
-import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter, DollarSign, Download, Printer, FileText, ClipboardCheck } from 'lucide-react';
+import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter, DollarSign, Download, Printer, FileText, ClipboardCheck, Target } from 'lucide-react';
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -75,9 +75,10 @@ export const InspeccionesDashboard = () => {
         if (!reg) return null;
         const costo = typeof (reg as any).costo === 'number' ? (reg as any).costo : 0;
         const total = typeof (reg as any).total === 'number' ? (reg as any).total : reg.cantidad * costo;
-        return { mes, cantidad: reg.cantidad, costo, total };
+        const meta = typeof (reg as any).meta === 'number' ? (reg as any).meta : 0;
+        return { mes, cantidad: reg.cantidad, costo, total, meta };
       })
-      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number } => d !== null);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number } => d !== null);
   }, [inspecciones, tallerSeleccionado, ano]);
 
   // Sectores para torta/anillo/barras/leyenda (distribución sobre el total)
@@ -103,13 +104,16 @@ export const InspeccionesDashboard = () => {
       const deltaEntero = prev !== null ? d.cantidad - prev : null;
       const deltaPct = prev !== null && prev > 0 ? ((d.cantidad - prev) / prev) * 100 : null;
       const pctTotal = total > 0 ? (d.cantidad / total) * 100 : 0;
-      return { ...d, deltaEntero, deltaPct, pctTotal };
+      const cumplimiento = d.meta > 0 ? (d.cantidad / d.meta) * 100 : null;
+      return { ...d, deltaEntero, deltaPct, pctTotal, cumplimiento };
     });
   }, [datos]);
 
   const kpis = useMemo(() => {
     const total = datos.reduce((acc, d) => acc + d.cantidad, 0);
     const totalMonto = datos.reduce((acc, d) => acc + d.total, 0);
+    const totalMeta = datos.reduce((acc, d) => acc + d.meta, 0);
+    const cumplimientoGlobal = totalMeta > 0 ? (total / totalMeta) * 100 : null;
     const promedio = datos.length > 0 ? total / datos.length : 0;
     const mejor = datos.reduce((best, d) => (d.cantidad > best.cantidad ? d : best), { mes: '-', cantidad: 0 });
     let variacionUltimo: number | null = null;
@@ -118,7 +122,7 @@ export const InspeccionesDashboard = () => {
       const b = datos[datos.length - 1].cantidad;
       variacionUltimo = b - a; // diferencia en número de inspecciones (no porcentaje)
     }
-    return { total, totalMonto, promedio, mejor, variacionUltimo };
+    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor, variacionUltimo };
   }, [datos]);
 
   // =========================================================================
@@ -131,12 +135,15 @@ export const InspeccionesDashboard = () => {
         if (!reg) return null;
         const costo = typeof (reg as any).costo === 'number' ? (reg as any).costo : 0;
         const total = typeof (reg as any).total === 'number' ? (reg as any).total : reg.cantidad * costo;
-        return { mes, cantidad: reg.cantidad, costo, total };
+        const meta = typeof (reg as any).meta === 'number' ? (reg as any).meta : 0;
+        return { mes, cantidad: reg.cantidad, costo, total, meta };
       })
-      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number } => d !== null);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number } => d !== null);
 
     const totalCantidad = meses.reduce((a, m) => a + m.cantidad, 0);
     const totalMonto = meses.reduce((a, m) => a + m.total, 0);
+    const totalMeta = meses.reduce((a, m) => a + m.meta, 0);
+    const cumplimiento = totalMeta > 0 ? (totalCantidad / totalMeta) * 100 : null;
     const promedio = meses.length > 0 ? totalCantidad / meses.length : 0;
     const mejor = meses.reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
 
@@ -152,7 +159,7 @@ export const InspeccionesDashboard = () => {
       return { id: m.mes, mes: m.mes, color, cantidad: m.cantidad, costo: m.costo, total: m.total, pct: frac * 100, path: arcoPie(110, 110, 95, inicio, fin) };
     });
 
-    return { meses, totalCantidad, totalMonto, promedio, mejor, segs };
+    return { meses, totalCantidad, totalMonto, totalMeta, cumplimiento, promedio, mejor, segs };
   };
 
   // Carga dinámica de html2canvas / jsPDF desde CDN
@@ -424,6 +431,8 @@ export const InspeccionesDashboard = () => {
 
   const fmtPct = (v: number | null) => (v === null ? '-' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`);
   const fmtDelta = (v: number | null) => (v === null ? '-' : `${v >= 0 ? '+' : ''}${v}`);
+  const fmtNum = (n: any) => (typeof n === 'number' && n > 0 ? String(Math.round(n * 100) / 100) : '—');
+  const colorCumpl = (v: number | null) => (v === null ? 'var(--text-muted)' : v >= 100 ? 'var(--success)' : v >= 70 ? 'var(--primary)' : 'var(--danger)');
 
   // Reporte del taller seleccionado (para la imagen PNG y el PDF de impresión)
   const reporteSel = useMemo(() => construirReporte(tallerSeleccionado, ano), [inspecciones, tallerSeleccionado, ano]);
@@ -459,16 +468,18 @@ export const InspeccionesDashboard = () => {
       </div>
 
       {/* TIRA DE INDICADORES */}
-      <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', height: landscape ? '92px' : 'auto' }}>
+      <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0', height: landscape ? '92px' : 'auto', flexWrap: 'wrap' }}>
         {[
           { label: '🔢 TOTAL INSPECCIONES', valor: String(rep.totalCantidad), color: '#0f172a' },
+          { label: '🎯 META', valor: rep.totalMeta > 0 ? String(Math.round(rep.totalMeta * 100) / 100) : '—', color: '#1e3a8a' },
+          { label: '✅ CUMPLIMIENTO', valor: rep.cumplimiento === null ? '—' : `${rep.cumplimiento.toFixed(0)}%`, color: '#15803d' },
           { label: '📊 PROMEDIO MENSUAL', valor: rep.promedio.toFixed(1), color: '#475569' },
           { label: '🏆 MEJOR MES', valor: `${rep.mejor.cantidad} (${rep.mejor.mes !== '-' ? rep.mejor.mes.substring(0, 3) : '-'})`, color: '#475569' },
           { label: '💲 TOTAL MONETARIO', valor: miFormatearMoneda(rep.totalMonto), color: '#15803d' },
-        ].map((chip, i) => (
-          <div key={chip.label} style={{ flex: 1, padding: landscape ? '16px 18px' : '16px 18px', textAlign: 'center', borderRight: i < 3 ? '1px solid #e2e8f0' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: landscape ? '11px' : '11px', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
-            <div style={{ fontSize: landscape ? '20px' : '20px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+        ].map((chip, i, arr) => (
+          <div key={chip.label} style={{ flex: 1, minWidth: landscape ? undefined : '150px', padding: '14px 14px', textAlign: 'center', borderRight: i < arr.length - 1 ? '1px solid #e2e8f0' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
+            <div style={{ fontSize: '18px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
           </div>
         ))}
       </div>
@@ -480,9 +491,10 @@ export const InspeccionesDashboard = () => {
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', flex: landscape ? 1 : undefined, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '11px 16px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
               <div style={{ flex: 1 }}>MES</div>
-              <div style={{ width: '110px', textAlign: 'center' }}>INSPECCIONES</div>
-              <div style={{ width: '120px', textAlign: 'right' }}>COSTO</div>
-              <div style={{ width: '140px', textAlign: 'right' }}>TOTAL</div>
+              <div style={{ width: '95px', textAlign: 'center' }}>INSPECC.</div>
+              <div style={{ width: '75px', textAlign: 'center' }}>META</div>
+              <div style={{ width: '110px', textAlign: 'right' }}>COSTO</div>
+              <div style={{ width: '130px', textAlign: 'right' }}>TOTAL</div>
             </div>
             {rep.meses.map((m: any, i: number) => (
               <div key={m.mes} style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', fontSize: '13px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
@@ -490,17 +502,19 @@ export const InspeccionesDashboard = () => {
                   <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '3px', backgroundColor: COLORES[i % COLORES.length], marginRight: '8px' }} />
                   {m.mes}
                 </div>
-                <div style={{ width: '110px', textAlign: 'center', color: '#0f172a', fontWeight: 800 }}>{m.cantidad}</div>
-                <div style={{ width: '120px', textAlign: 'right', color: '#64748b' }}>{miFormatearMoneda(m.costo)}</div>
-                <div style={{ width: '140px', textAlign: 'right', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(m.total)}</div>
+                <div style={{ width: '95px', textAlign: 'center', color: '#0f172a', fontWeight: 800 }}>{m.cantidad}</div>
+                <div style={{ width: '75px', textAlign: 'center', color: '#475569', fontWeight: 700 }}>{m.meta > 0 ? Math.round(m.meta * 100) / 100 : '—'}</div>
+                <div style={{ width: '110px', textAlign: 'right', color: '#64748b' }}>{miFormatearMoneda(m.costo)}</div>
+                <div style={{ width: '130px', textAlign: 'right', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(m.total)}</div>
               </div>
             ))}
             {/* TOTAL */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', fontSize: '14px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #1d8cf8', marginTop: landscape ? 'auto' : undefined }}>
               <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL</div>
-              <div style={{ width: '110px', textAlign: 'center', color: '#38bdf8', fontWeight: 900, fontSize: '16px' }}>{rep.totalCantidad}</div>
-              <div style={{ width: '120px', textAlign: 'right', color: '#94a3b8' }}>—</div>
-              <div style={{ width: '140px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '15px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(rep.totalMonto)}</div>
+              <div style={{ width: '95px', textAlign: 'center', color: '#38bdf8', fontWeight: 900, fontSize: '16px' }}>{rep.totalCantidad}</div>
+              <div style={{ width: '75px', textAlign: 'center', color: '#cbd5e1', fontWeight: 900 }}>{rep.totalMeta > 0 ? Math.round(rep.totalMeta * 100) / 100 : '—'}</div>
+              <div style={{ width: '110px', textAlign: 'right', color: '#94a3b8' }}>—</div>
+              <div style={{ width: '130px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '15px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(rep.totalMonto)}</div>
             </div>
           </div>
         </div>
@@ -644,6 +658,16 @@ export const InspeccionesDashboard = () => {
                 <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
               </div>
               <div className="kpi-card">
+                <div className="kpi-title">Meta {ano} <Target size={16} color="var(--primary)" /></div>
+                <div className="kpi-value">{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">% Cumplimiento <Target size={16} color="var(--success)" /></div>
+                <div className="kpi-value" style={{ color: colorCumpl(kpis.cumplimientoGlobal) }}>
+                  {kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}
+                </div>
+              </div>
+              <div className="kpi-card">
                 <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
                 <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
               </div>
@@ -711,6 +735,8 @@ export const InspeccionesDashboard = () => {
                   <tr>
                     <th>Mes</th>
                     <th style={{ textAlign: 'center' }}>Inspecciones</th>
+                    <th style={{ textAlign: 'right' }}>Meta</th>
+                    <th style={{ textAlign: 'center' }}>% Cumpl.</th>
                     <th style={{ textAlign: 'right' }}>Costo</th>
                     <th style={{ textAlign: 'right' }}>Total</th>
                     <th style={{ textAlign: 'center' }}>Variación (Δ)</th>
@@ -723,6 +749,8 @@ export const InspeccionesDashboard = () => {
                     <tr key={f.mes}>
                       <td><strong>{f.mes}</strong></td>
                       <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-main)' }}>{f.cantidad}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-main)', fontWeight: 600 }}>{fmtNum(f.meta)}</td>
+                      <td style={{ textAlign: 'center', fontWeight: 700, color: colorCumpl(f.cumplimiento) }}>{f.cumplimiento === null ? '—' : `${f.cumplimiento.toFixed(0)}%`}</td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{miFormatearMoneda(f.costo)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>{miFormatearMoneda(f.total)}</td>
                       <td style={{ textAlign: 'center', color: f.deltaEntero === null ? 'var(--text-muted)' : (f.deltaEntero >= 0 ? 'var(--success)' : 'var(--danger)'), fontWeight: 600 }}>{fmtDelta(f.deltaEntero)}</td>
@@ -735,6 +763,8 @@ export const InspeccionesDashboard = () => {
                   <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
                     <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
                     <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{kpis.total}</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: colorCumpl(kpis.cumplimientoGlobal) }}>{kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}</td>
                     <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
                     <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--success)' }}>{miFormatearMoneda(kpis.totalMonto)}</td>
                     <td colSpan={2}></td>
