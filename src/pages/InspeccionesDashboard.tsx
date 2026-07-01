@@ -237,51 +237,76 @@ export const InspeccionesDashboard = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generandoPDF, slidesPDF]);
 
-  // ---- GRÁFICA DE LÍNEAS (SVG contenido, respeta modo enteros/porcentual) ----
+  // ---- GRÁFICA DE LÍNEAS (formato reporte: eje 1..12, círculo por mes con SU color y la cantidad dentro) ----
   const renderLinea = () => {
     const esPct = modo === 'porcentual';
-    const serie = datos.map((d, i) => {
-      if (!esPct) return { label: d.mes, valor: d.cantidad };
-      const prev = i > 0 ? datos[i - 1].cantidad : 0;
-      const varp = i > 0 && prev > 0 ? ((d.cantidad - prev) / prev) * 100 : 0;
-      return { label: d.mes, valor: Number(varp.toFixed(1)) };
+    // Cada punto se ubica en su mes real (0..11) y usa el color correspondiente al mes
+    const puntos = datos.map((d, i) => {
+      const monthIdx = Math.max(0, MESES.indexOf(d.mes)); // 0..11
+      let valor: number;
+      if (!esPct) {
+        valor = d.cantidad;
+      } else {
+        const prev = i > 0 ? datos[i - 1].cantidad : 0;
+        valor = i > 0 && prev > 0 ? Number((((d.cantidad - prev) / prev) * 100).toFixed(1)) : 0;
+      }
+      return { monthIdx, valor, cantidad: d.cantidad, mes: d.mes, color: COLORES[i % COLORES.length] };
     });
 
-    const W = 760, H = 320, pl = 54, pr = 26, pt = 42, pb = 42;
+    const W = 760, H = 340, pl = 42, pr = 24, pt = 48, pb = 40;
     const iw = W - pl - pr, ih = H - pt - pb;
-    const vals = serie.map(s => s.valor);
+    const vals = puntos.map(p => p.valor);
     let min = Math.min(...vals, 0);
     let max = Math.max(...vals, 0);
     if (min === max) max = min + (esPct ? 10 : 5);
-
-    const X = (i: number) => pl + (serie.length === 1 ? iw / 2 : (i / (serie.length - 1)) * iw);
-    const Y = (v: number) => pt + ih - ((v - min) / (max - min)) * ih;
-    const poly = serie.map((s, i) => `${X(i).toFixed(1)},${Y(s.valor).toFixed(1)}`).join(' ');
-    const ticks = 4;
+    max = max + (max - min) * 0.15; // aire arriba para que los círculos no toquen el borde
+    const ticks = 5;
     const hayCero = min < 0 && max > 0;
+
+    const colW = iw / 12;
+    const X = (monthIdx: number) => pl + colW * monthIdx + colW / 2;
+    const Y = (v: number) => pt + ih - ((v - min) / (max - min)) * ih;
+    const poly = puntos.map(p => `${X(p.monthIdx).toFixed(1)},${Y(p.valor).toFixed(1)}`).join(' ');
 
     return (
       <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '480px', display: 'block' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '520px', display: 'block' }}>
+          {/* Título tipo reporte */}
+          <text x={W / 2} y={26} textAnchor="middle" fontSize="16" fontWeight="800" fill="var(--primary)">{tallerSeleccionado} · {ano}</text>
+
+          {/* Rejilla horizontal + escala Y */}
           {Array.from({ length: ticks + 1 }).map((_, k) => {
             const v = min + (max - min) * (k / ticks);
             const yy = Y(v);
             return (
               <g key={`grid-${k}`}>
                 <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="var(--border)" strokeWidth="1" opacity="0.4" />
-                <text x={pl - 8} y={yy + 4} textAnchor="end" fontSize="11" fill="var(--text-muted)">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
+                <text x={pl - 8} y={yy + 4} textAnchor="end" fontSize="10" fill="var(--text-muted)">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
               </g>
             );
           })}
           {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="var(--text-muted)" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
-          <polyline points={poly} fill="none" stroke="#ff4c4c" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          {serie.map((s, i) => {
-            const cx = X(i), cy = Y(s.valor);
+
+          {/* Etiquetas del eje X: meses 1..12 */}
+          {Array.from({ length: 12 }).map((_, m) => (
+            <text key={`xl-${m}`} x={X(m)} y={H - pb + 24} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--text-muted)">{m + 1}</text>
+          ))}
+
+          {/* Línea que conecta los puntos con datos */}
+          {puntos.length > 1 && (
+            <polyline points={poly} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          )}
+
+          {/* Círculos: color del mes + cantidad de inspecciones dentro */}
+          {puntos.map((p, i) => {
+            const cx = X(p.monthIdx), cy = Y(p.valor);
+            const texto = esPct ? `${p.valor}%` : String(p.cantidad);
+            const r = texto.length >= 4 ? 16 : texto.length === 3 ? 15 : 13;
+            const fs = texto.length >= 4 ? 8.5 : texto.length === 3 ? 9.5 : 11;
             return (
               <g key={`pt-${i}`}>
-                <circle cx={cx} cy={cy} r="6" fill="#ff4c4c" stroke="var(--bg-panel)" strokeWidth="2" />
-                <text x={cx} y={cy - 13} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-main)">{esPct ? `${s.valor.toFixed(1)}%` : s.valor}</text>
-                <text x={cx} y={H - pb + 20} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-main)">{s.label.substring(0, 3)}</text>
+                <circle cx={cx} cy={cy} r={r} fill={p.color} stroke="#ffffff" strokeWidth="2.5" />
+                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="#ffffff">{texto}</text>
               </g>
             );
           })}
