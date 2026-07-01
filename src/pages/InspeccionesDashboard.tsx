@@ -116,7 +116,7 @@ export const InspeccionesDashboard = () => {
     if (datos.length >= 2) {
       const a = datos[datos.length - 2].cantidad;
       const b = datos[datos.length - 1].cantidad;
-      variacionUltimo = a > 0 ? ((b - a) / a) * 100 : null;
+      variacionUltimo = b - a; // diferencia en número de inspecciones (no porcentaje)
     }
     return { total, totalMonto, promedio, mejor, variacionUltimo };
   }, [datos]);
@@ -253,7 +253,7 @@ export const InspeccionesDashboard = () => {
       return { monthIdx, valor, cantidad: d.cantidad, mes: d.mes, color: COLORES[i % COLORES.length] };
     });
 
-    const W = 760, H = 340, pl = 42, pr = 24, pt = 48, pb = 40;
+    const W = 900, H = 440, pl = 46, pr = 28, pt = 54, pb = 44;
     const iw = W - pl - pr, ih = H - pt - pb;
     const vals = puntos.map(p => p.valor);
     let min = Math.min(...vals, 0);
@@ -270,7 +270,7 @@ export const InspeccionesDashboard = () => {
 
     return (
       <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '520px', display: 'block' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '620px', display: 'block' }}>
           {/* Título tipo reporte */}
           <text x={W / 2} y={26} textAnchor="middle" fontSize="16" fontWeight="800" fill="var(--primary)">{tallerSeleccionado} · {ano}</text>
 
@@ -620,14 +620,6 @@ export const InspeccionesDashboard = () => {
             {/* KPIs (incluye el apartado monetario) */}
             <div className="kpi-grid">
               <div className="kpi-card">
-                <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
-                <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
-                <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
-              </div>
-              <div className="kpi-card">
                 <div className="kpi-title">Promedio mensual <LineChart size={16} /></div>
                 <div className="kpi-value">{kpis.promedio.toFixed(1)}</div>
               </div>
@@ -644,8 +636,16 @@ export const InspeccionesDashboard = () => {
                     : <TrendingDown size={16} color="var(--danger)" />)}
                 </div>
                 <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
-                  {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo.toFixed(1)}%`}
+                  {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo}`}
                 </div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
+                <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
+              </div>
+              <div className="kpi-card">
+                <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
+                <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
               </div>
             </div>
 
@@ -677,11 +677,11 @@ export const InspeccionesDashboard = () => {
                 </div>
               </div>
 
-              <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+              <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
                 {renderGrafico()}
               </div>
 
-              <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '1000px', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                 {datosGrafico.arr.map(op => {
                   const isHovered = hovered === op.id;
                   const isDimmed = hovered !== null && !isHovered;
@@ -692,7 +692,6 @@ export const InspeccionesDashboard = () => {
                         <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{op.label}</span>
                         <span style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                           <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{op.cantidad}</strong>
-                          <strong style={{ color: 'var(--success)', fontWeight: 700 }}>{miFormatearMoneda(op.total)}</strong>
                           <strong style={{ color: op.color, fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>{op.porcentajeStr}%</strong>
                         </span>
                       </div>
