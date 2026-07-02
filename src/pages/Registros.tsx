@@ -101,6 +101,17 @@ export const Registros = () => {
     return resultado;
   }, [contexto.registros, busqueda, filtroAno, filtroMes, filtroTaller]);
 
+  // --- TOTALES (sobre los registros ya filtrados) ---
+  const totales = useMemo(() => {
+    const totalMeta = registrosFiltrados.reduce((acc, r) => acc + (r.meta || 0), 0);
+    const totalLogrado = registrosFiltrados.reduce((acc, r) => acc + (r.logrado || 0), 0);
+    // Suma literal de los porcentajes de cada fila (puede pasar de 100%)
+    const sumaPorcentajes = registrosFiltrados.reduce((acc, r) => acc + (r.porcentajeCumplido || 0), 0);
+    // Cumplimiento global ponderado: total logrado / total meta
+    const cumplimientoGlobal = totalMeta > 0 ? (totalLogrado / totalMeta) * 100 : 0;
+    return { totalMeta, totalLogrado, sumaPorcentajes, cumplimientoGlobal, count: registrosFiltrados.length };
+  }, [registrosFiltrados]);
+
   const handleEditar = (registro: Registro) => { 
     contexto.setRegistroEditando(registro); 
     contexto.setVista('formulario'); 
@@ -308,6 +319,30 @@ export const Registros = () => {
               <th style={{textAlign:'right'}}>Logrado</th>
               <th>Cumplido</th>
             </tr>
+            {/* FILA DE TOTALES: entre el encabezado y las filas, respeta los filtros activos */}
+            {registrosFiltrados.length > 0 && (
+              <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
+                <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-muted)', fontSize: '0.75rem' }}>Σ</td>
+                <td colSpan={2} style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                  Totales <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>({totales.count} registros)</span>
+                </td>
+                <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontWeight: 700 }}>{miFormatearMoneda(totales.totalMeta)}</td>
+                <td style={{ textAlign: 'right', color: 'var(--primary)', fontWeight: 800 }}>{miFormatearMoneda(totales.totalLogrado)}</td>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span style={{
+                      padding: '4px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800,
+                      backgroundColor: 'rgba(29, 140, 248, 0.15)', color: 'var(--primary)'
+                    }}>
+                      {totales.sumaPorcentajes.toFixed(2)}%
+                    </span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      (global {totales.cumplimientoGlobal.toFixed(2)}%)
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            )}
           </thead>
           <tbody>
             {registrosFiltrados.length === 0 ? (
