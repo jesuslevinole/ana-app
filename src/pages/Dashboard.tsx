@@ -59,6 +59,27 @@ export const Dashboard = () => {
   const [slidesPDF, setSlidesPDF] = useState<any[]>([]);
   const slideRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // --- NUEVO: AJUSTE DEL PDF ANTES DE DESCARGAR (siempre horizontal, sin salirse de la hoja) ---
+  const [mostrarAjustePDF, setMostrarAjustePDF] = useState<boolean>(false);
+  const [accionPDF, setAccionPDF] = useState<'print' | 'ejecutivo' | null>(null);
+  const [escalaPDF, setEscalaPDF] = useState<number>(100); // % del tamaño del contenido dentro de la hoja
+
+  const abrirAjustePDF = (accion: 'print' | 'ejecutivo') => {
+    setAccionPDF(accion);
+    setMostrarAjustePDF(true);
+  };
+
+  const confirmarPDF = () => {
+    setMostrarAjustePDF(false);
+    if (accionPDF === 'ejecutivo') {
+      generarPDFEjecutivo();
+    } else if (accionPDF === 'print') {
+      // pequeño delay para que el modal se cierre antes del diálogo de impresión
+      setTimeout(() => window.print(), 180);
+    }
+    setAccionPDF(null);
+  };
+
   // --- CAMBIO 3: Semanas editables y persistentes (por Año + Taller + Mes) ---
   const [semanasEditadas, setSemanasEditadas] = useState<Record<string, number>>(() => {
     try {
@@ -802,7 +823,12 @@ export const Dashboard = () => {
           const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false });
           const img = canvas.toDataURL('image/jpeg', 0.95);
           if (agregadas > 0) pdf.addPage('a4', 'landscape');
-          pdf.addImage(img, 'JPEG', 0, 0, pageW, pageH);
+          // Ajuste de aspecto: la imagen SIEMPRE cabe completa en la hoja horizontal (centrada),
+          // aplicando además la escala elegida por el usuario antes de descargar.
+          const fit = Math.min(pageW / canvas.width, pageH / canvas.height) * (escalaPDF / 100);
+          const imgW = canvas.width * fit;
+          const imgH = canvas.height * fit;
+          pdf.addImage(img, 'JPEG', (pageW - imgW) / 2, (pageH - imgH) / 2, imgW, imgH);
           agregadas++;
         }
 
@@ -957,14 +983,14 @@ export const Dashboard = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             {/* NUEVO: PDF EJECUTIVO — visible solo con Año + Mes seleccionados y SIN taller (Todos). Una hoja por taller. */}
             {filtroAno !== 'Todos' && filtroMes !== 'Todos' && filtroTaller === 'Todos' && (
-              <button onClick={generarPDFEjecutivo} disabled={generandoPDF} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: generandoPDF ? 'not-allowed' : 'pointer', opacity: generandoPDF ? 0.6 : 1, background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }} title="Generar PDF ejecutivo (una hoja por taller) del mes y año seleccionados">
+              <button onClick={() => abrirAjustePDF('ejecutivo')} disabled={generandoPDF} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: generandoPDF ? 'not-allowed' : 'pointer', opacity: generandoPDF ? 0.6 : 1, background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }} title="Generar PDF ejecutivo (una hoja por taller) del mes y año seleccionados">
                 <FileText size={18} /> {generandoPDF ? 'Generando PDF...' : 'PDF Ejecutivo (Todos los Talleres)'}
               </button>
             )}
             <button onClick={generarImagen} disabled={!filtrosCompletos || generandoImagen} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (!filtrosCompletos || generandoImagen) ? 'not-allowed' : 'pointer', opacity: (!filtrosCompletos || generandoImagen) ? 0.55 : 1, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.35)' }} title={!filtrosCompletos ? 'Seleccione Año, Mes y Taller para habilitar' : 'Descargar reporte como imagen PNG'}>
               <Download size={18} /> {generandoImagen ? 'Generando...' : 'Generar Imagen'}
             </button>
-            <button onClick={() => window.print()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600 }}>
+            <button onClick={() => abrirAjustePDF('print')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600 }}>
               <Printer size={18} /> Exportar PDF
             </button>
           </div>
@@ -1223,7 +1249,7 @@ export const Dashboard = () => {
           2. VISTA PDF EXCLUSIVA (TOTALMENTE OCULTA EN LA WEB)
       ========================================================================= */}
       {filtrosCompletos && (
-        <div className="print-only-report">
+        <div className="print-only-report" style={{ zoom: escalaPDF / 100 } as React.CSSProperties}>
           
           {/* CAMBIO 2: encabezado centrado */}
           <div className="report-header">
@@ -1597,7 +1623,7 @@ export const Dashboard = () => {
             ref={el => { slideRefs.current[t.nombre] = el; }}
             style={{
               position: 'fixed', left: '-12000px', top: 0, zIndex: -50, pointerEvents: 'none',
-              width: '1123px', height: '794px', backgroundColor: '#ffffff',
+              width: '1123px', minHeight: '794px', backgroundColor: '#ffffff',
               fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
             }}
@@ -1751,6 +1777,44 @@ export const Dashboard = () => {
           </div>
         );
       })}
+
+      {/* =========================================================================
+          MODAL: AJUSTAR PDF ANTES DE DESCARGAR (siempre horizontal)
+      ========================================================================= */}
+      {mostrarAjustePDF && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(8,12,22,0.72)', backdropFilter: 'blur(4px)', zIndex: 1200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div className="card animate-in fade-in zoom-in" style={{ width: '100%', maxWidth: '440px', padding: '1.5rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.1rem' }}>Ajustar PDF antes de descargar</h3>
+            <p style={{ margin: '0.6rem 0 1.25rem 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              El PDF se genera <strong style={{ color: 'var(--text-main)' }}>siempre en horizontal (A4)</strong> y el contenido se ajusta automáticamente para no salirse de la hoja. Si lo deseas, reduce la escala para dejar más margen.
+            </p>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Escala del contenido</span>
+                <strong style={{ color: 'var(--primary)' }}>{escalaPDF}%</strong>
+              </label>
+              <input
+                type="range"
+                min={60}
+                max={100}
+                step={5}
+                value={escalaPDF}
+                onChange={(e) => setEscalaPDF(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--primary)' as any, cursor: 'pointer' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                <span>60% (más margen)</span><span>100% (hoja completa)</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button className="btn btn-outline" onClick={() => { setMostrarAjustePDF(false); setAccionPDF(null); }}>Cancelar</button>
+              <button className="btn btn-primary" onClick={confirmarPDF} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileText size={16} /> Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
