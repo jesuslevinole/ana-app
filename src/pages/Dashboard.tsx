@@ -799,10 +799,10 @@ export const Dashboard = () => {
         for (let i = 0; i < slidesPDF.length; i++) {
           const el = slideRefs.current[slidesPDF[i].taller.nombre];
           if (!el) continue;
-          const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-          const img = canvas.toDataURL('image/png');
+          const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false });
+          const img = canvas.toDataURL('image/jpeg', 0.95);
           if (agregadas > 0) pdf.addPage('a4', 'landscape');
-          pdf.addImage(img, 'PNG', 0, 0, pageW, pageH);
+          pdf.addImage(img, 'JPEG', 0, 0, pageW, pageH);
           agregadas++;
         }
 
@@ -1444,19 +1444,22 @@ export const Dashboard = () => {
               </div>
             )}
 
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
               <div style={{ fontSize: '22px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.15 }}>
-                {tallerActivo ? tallerActivo.nombre : 'Consolidado'} <span style={{ color: '#22c55e' }}>{filtroMes.toUpperCase()}</span>
+                {tallerActivo ? tallerActivo.nombre : 'Consolidado'}
               </div>
-              <div style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 600, marginTop: '6px', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '30px', fontWeight: 900, color: '#22c55e', letterSpacing: '1.5px', textTransform: 'uppercase', lineHeight: 1.1, marginTop: '4px' }}>
+                {filtroMes.toUpperCase()}
+              </div>
+              <div style={{ fontSize: '12.5px', color: '#cbd5e1', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
                 {datosReporteImagen.rangoDesde} &nbsp;AL&nbsp; {datosReporteImagen.rangoHasta} &nbsp;·&nbsp; AÑO FISCAL {filtroAno}
               </div>
             </div>
 
             <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '22px' }}>
               <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>✅ CUMPLIMIENTO</div>
-              <div style={{ fontSize: '28px', color: colorCumplimiento(kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{kpis.porcentajeGlobal}%</div>
-              <div style={{ fontSize: '13px', color: kpis.isExcedente ? '#22c55e' : '#f87171', fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? '📈' : '📉'} {kpis.isExcedente ? '+' : '-'}{kpis.porcentajeFaltanteExcedente}%</div>
+              <div style={{ fontSize: '36px', color: colorCumplimiento(kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px' }}>{kpis.porcentajeGlobal}%</div>
+              <div style={{ fontSize: '15px', color: kpis.isExcedente ? '#22c55e' : '#f87171', fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? '📈' : '📉'} {kpis.isExcedente ? '+' : '-'}{kpis.porcentajeFaltanteExcedente}%</div>
             </div>
           </div>
 
@@ -1467,9 +1470,9 @@ export const Dashboard = () => {
               { label: '📅 DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: '#475569' },
               { label: '📊 SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
             ].map((chip, i) => (
-              <div key={chip.label} style={{ flex: 1, padding: '16px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
-                <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
-                <div style={{ fontSize: '23px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+              <div key={chip.label} style={{ flex: 1, padding: '18px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
+                <div style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
+                <div style={{ fontSize: '27px', color: chip.color, fontWeight: 900, marginTop: '5px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
               </div>
             ))}
           </div>
@@ -1487,7 +1490,7 @@ export const Dashboard = () => {
               </div>
 
               {datosReporteImagen.filas.map((f, i) => (
-                <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 16px', fontSize: '13px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', fontSize: '14px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
                   <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '22px', height: '22px', borderRadius: '6px', backgroundColor: f.color, color: '#fff', fontSize: '11px', fontWeight: 800 }}>{f.idx}</span>
                   </div>
@@ -1519,11 +1522,11 @@ export const Dashboard = () => {
               ) : null}
 
               {/* TOTAL VENTAS */}
-              <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', fontSize: '14px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a' }}>
+              <div style={{ display: 'flex', alignItems: 'center', padding: '15px 16px', fontSize: '15px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a' }}>
                 <div style={{ width: '48px', flexShrink: 0 }} />
                 <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL VENTAS</div>
-                <div style={{ width: '150px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '16px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.logradoTotal)}</div>
-                <div style={{ width: '80px', textAlign: 'right', color: '#22c55e', fontWeight: 900 }}>{kpis.porcentajeGlobal.toFixed(0)}%</div>
+                <div style={{ width: '150px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '19px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.logradoTotal)}</div>
+                <div style={{ width: '80px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '15px' }}>{kpis.porcentajeGlobal.toFixed(0)}%</div>
               </div>
             </div>
 
@@ -1612,19 +1615,22 @@ export const Dashboard = () => {
                 </div>
               )}
 
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
                 <div style={{ fontSize: '30px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>
-                  {t.nombre} <span style={{ color: '#22c55e' }}>{filtroMes.toUpperCase()}</span>
+                  {t.nombre}
                 </div>
-                <div style={{ fontSize: '14px', color: '#cbd5e1', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
+                <div style={{ fontSize: '38px', fontWeight: 900, color: '#22c55e', letterSpacing: '2px', textTransform: 'uppercase', lineHeight: 1.05, marginTop: '4px' }}>
+                  {filtroMes.toUpperCase()}
+                </div>
+                <div style={{ fontSize: '15px', color: '#cbd5e1', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
                   {d.rangoDesde} &nbsp;AL&nbsp; {d.rangoHasta} &nbsp;·&nbsp; AÑO FISCAL {filtroAno}
                 </div>
               </div>
 
               <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '26px' }}>
                 <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>✅ CUMPLIMIENTO</div>
-                <div style={{ fontSize: '38px', color: colorCumplimiento(d.kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.1 }}>{d.kpis.porcentajeGlobal}%</div>
-                <div style={{ fontSize: '15px', color: d.kpis.isExcedente ? '#22c55e' : '#f87171', fontWeight: 800, marginTop: '2px' }}>{signo}</div>
+                <div style={{ fontSize: '46px', color: colorCumplimiento(d.kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.05 }}>{d.kpis.porcentajeGlobal}%</div>
+                <div style={{ fontSize: '17px', color: d.kpis.isExcedente ? '#22c55e' : '#f87171', fontWeight: 800, marginTop: '2px' }}>{signo}</div>
               </div>
             </div>
 
@@ -1636,8 +1642,8 @@ export const Dashboard = () => {
                 { label: '📊 SEMANAL', valor: miFormatearMoneda(d.semanal), color: '#475569' },
               ].map((chip, i) => (
                 <div key={chip.label} style={{ flex: 1, padding: '16px 24px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
-                  <div style={{ fontSize: '26px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+                  <div style={{ fontSize: '13.5px', color: '#64748b', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
+                  <div style={{ fontSize: '30px', color: chip.color, fontWeight: 900, marginTop: '5px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
                 </div>
               ))}
             </div>

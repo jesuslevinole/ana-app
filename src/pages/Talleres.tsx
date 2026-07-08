@@ -1,7 +1,15 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
-import { Store, Plus, Trash2, Image as ImageIcon, Pencil, MapPin, GripVertical, Save, X } from 'lucide-react';
+import { Store, Plus, Trash2, Image as ImageIcon, Pencil, MapPin, GripVertical, Save, X, Palette } from 'lucide-react';
 import type { Taller } from '../types';
+
+// Paleta de colores sugeridos para identificar visualmente cada taller
+const COLOR_DEFAULT = '#1d8cf8';
+const PALETA_TALLER = [
+  '#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce',
+  '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849',
+  '#e14eca', '#fd5d93', '#00bcd4', '#4caf50', '#ff9800', '#9c27b0',
+];
 
 export const Talleres = () => {
   const contexto = useContext(AppContext);
@@ -13,6 +21,7 @@ export const Talleres = () => {
   const [nombre, setNombre] = useState('');
   const [direccion, setDireccion] = useState('');
   const [logoBase64, setLogoBase64] = useState<string>('');
+  const [color, setColor] = useState<string>(COLOR_DEFAULT);
 
   // Estados para Drag and Drop
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -38,6 +47,7 @@ export const Talleres = () => {
     setNombre('');
     setDireccion('');
     setLogoBase64('');
+    setColor(COLOR_DEFAULT);
     setIsModalOpen(true);
   };
 
@@ -46,6 +56,7 @@ export const Talleres = () => {
     setNombre(taller.nombre);
     setDireccion(taller.direccion || '');
     setLogoBase64(taller.logo);
+    setColor((taller as any).color || COLOR_DEFAULT);
     setIsModalOpen(true);
   };
 
@@ -55,6 +66,7 @@ export const Talleres = () => {
     setNombre('');
     setDireccion('');
     setLogoBase64('');
+    setColor(COLOR_DEFAULT);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -62,15 +74,16 @@ export const Talleres = () => {
     if (!nombre.trim()) return alert('Debe ingresar el nombre del taller');
     if (!logoBase64) return alert('Debe cargar un logo');
 
-    const tallerData: Taller = {
+    const tallerData = {
       id: editandoId || crypto.randomUUID(),
       nombre,
       direccion,
       logo: logoBase64,
+      color: color || COLOR_DEFAULT,
       orden: editandoId 
         ? contexto.talleres.find(t => t.id === editandoId)?.orden || 0 
         : contexto.talleres.length
-    };
+    } as Taller;
 
     contexto.agregarTaller(tallerData);
     cancelarEdicion();
@@ -173,16 +186,16 @@ export const Talleres = () => {
                       onMouseOut={(e) => { if(draggedIndex !== index) e.currentTarget.style.backgroundColor = 'transparent' }}
                     >
                       
-                      {/* DRAG HANDLE */}
-                      <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
+                      {/* DRAG HANDLE (con acento de color del taller) */}
+                      <td style={{ padding: '1rem 1.5rem', textAlign: 'center', borderLeft: `5px solid ${(taller as any).color || COLOR_DEFAULT}` }}>
                         <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--text-muted)', cursor: 'grab' }} title="Arrastrar para reordenar">
                           <GripVertical size={20} />
                         </div>
                       </td>
 
-                      {/* LOGO */}
+                      {/* LOGO (borde con el color del taller) */}
                       <td style={{ padding: '1rem 1.5rem' }}>
-                        <div style={{ width: '60px', height: '60px', backgroundColor: 'var(--bg-panel)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                        <div style={{ width: '60px', height: '60px', backgroundColor: 'var(--bg-panel)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: `2px solid ${(taller as any).color || COLOR_DEFAULT}` }}>
                           {taller.logo ? (
                             <img src={taller.logo} alt={taller.nombre} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} draggable="false" />
                           ) : (
@@ -191,9 +204,20 @@ export const Talleres = () => {
                         </div>
                       </td>
 
-                      {/* NOMBRE */}
+                      {/* NOMBRE (con punto de color del taller) */}
                       <td style={{ padding: '1rem 1.5rem', fontWeight: 600, color: 'var(--text-main)', fontSize: '1.05rem' }}>
-                        {taller.nombre}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <span
+                            title={`Color: ${(taller as any).color || COLOR_DEFAULT}`}
+                            style={{
+                              width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0,
+                              backgroundColor: (taller as any).color || COLOR_DEFAULT,
+                              boxShadow: `0 0 0 3px ${((taller as any).color || COLOR_DEFAULT)}22`,
+                              border: '1px solid rgba(255,255,255,0.35)'
+                            }}
+                          />
+                          {taller.nombre}
+                        </div>
                       </td>
 
                       {/* DIRECCIÓN */}
@@ -252,9 +276,9 @@ export const Talleres = () => {
       {/* MODAL DE FORMULARIO MEJORADO */}
       {isModalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-          <div className="card animate-in fade-in zoom-in" style={{ width: '90%', maxWidth: '500px', padding: 0, overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+          <div className="card animate-in fade-in zoom-in" style={{ width: '90%', maxWidth: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
             
-            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-panel)' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-panel)', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <Store size={22} color="var(--primary)" />
                 <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>
@@ -266,7 +290,7 @@ export const Talleres = () => {
               </button>
             </div>
 
-            <div style={{ padding: '2rem 1.5rem' }}>
+            <div style={{ padding: '2rem 1.5rem', overflowY: 'auto', flex: 1, minHeight: 0 }}>
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                 <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.6rem' }}>
                   <Store size={16} color="var(--text-muted)" /> Nombre del Taller <span style={{ color: 'var(--danger)' }}>*</span>
@@ -293,6 +317,74 @@ export const Talleres = () => {
                   onChange={(e) => setDireccion(e.target.value)} 
                   style={{ width: '100%', padding: '0.8rem', borderRadius: '8px' }}
                 />
+              </div>
+
+              {/* --- NUEVO: COLOR DEL TALLER --- */}
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.6rem' }}>
+                  <Palette size={16} color="var(--text-muted)" /> Color del Taller
+                </label>
+
+                {/* Vista previa: cómo se verá el color identificando al taller */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.75rem 1rem', borderRadius: '10px',
+                  backgroundColor: 'var(--bg-body)', border: `1px solid var(--border)`,
+                  borderLeft: `6px solid ${color || COLOR_DEFAULT}`, marginBottom: '0.85rem'
+                }}>
+                  <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: color || COLOR_DEFAULT, flexShrink: 0, border: '1px solid rgba(255,255,255,0.35)' }} />
+                  <span style={{ fontWeight: 700, color: 'var(--text-main)', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {nombre.trim() || 'Vista previa del taller'}
+                  </span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {(color || COLOR_DEFAULT).toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Paleta de accesos rápidos */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.85rem' }}>
+                  {PALETA_TALLER.map(c => {
+                    const seleccionado = (color || '').toLowerCase() === c.toLowerCase();
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        title={c}
+                        style={{
+                          width: '30px', height: '30px', borderRadius: '50%', cursor: 'pointer',
+                          backgroundColor: c, flexShrink: 0, transition: 'transform 0.15s',
+                          border: seleccionado ? '3px solid var(--text-main)' : '2px solid rgba(255,255,255,0.25)',
+                          boxShadow: seleccionado ? `0 0 0 3px ${c}55` : 'none',
+                          transform: seleccionado ? 'scale(1.12)' : 'scale(1)'
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Selector libre (cualquier color) + hex manual */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="color"
+                    value={color || COLOR_DEFAULT}
+                    onChange={(e) => setColor(e.target.value)}
+                    title="Elegir un color personalizado"
+                    style={{ width: '48px', height: '38px', padding: 0, border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'transparent', cursor: 'pointer' }}
+                  />
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={color || ''}
+                    onChange={(e) => {
+                      let v = e.target.value.trim();
+                      if (v && !v.startsWith('#')) v = '#' + v;
+                      setColor(v);
+                    }}
+                    placeholder="#1d8cf8"
+                    style={{ flex: 1, padding: '0.6rem 0.8rem', borderRadius: '8px', fontFamily: 'monospace' }}
+                  />
+                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '1rem' }}>
@@ -332,7 +424,7 @@ export const Talleres = () => {
               </div>
             </div>
 
-            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem', backgroundColor: 'var(--bg-panel)' }}>
+            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '1rem', backgroundColor: 'var(--bg-panel)', flexShrink: 0 }}>
               <button type="button" className="btn btn-secondary" onClick={cancelarEdicion} style={{ padding: '0.6rem 1.5rem' }}>
                 Cancelar
               </button>

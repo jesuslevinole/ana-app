@@ -9,6 +9,10 @@ export interface Inspeccion {
   ano: number;
   mes: string;       // nombre del mes (debe coincidir con MESES)
   cantidad: number;  // número de inspecciones del mes
+  costo?: number;    // costo por inspección
+  total?: number;    // cantidad × costo
+  meta?: number;     // meta programada de inspecciones del mes
+  semanas?: number;  // semanas del mes (4 o 5)
 }
 
 export const idInspeccion = (taller: string, ano: number | string, mes: string) =>

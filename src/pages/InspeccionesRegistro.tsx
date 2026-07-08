@@ -15,6 +15,8 @@ const miFormatearMoneda = (valor: number) =>
 
 // Catálogo: clave de almacenamiento del costo predefinido de la inspección
 const STORAGE_COSTO_DEFAULT = 'inspecciones_costo_default_v1';
+// Catálogo: clave de almacenamiento de la meta programada predefinida
+const STORAGE_META_DEFAULT = 'inspecciones_meta_default_v1';
 
 export const InspeccionesRegistro = () => {
   const contexto = useContext(AppContext);
@@ -42,6 +44,7 @@ export const InspeccionesRegistro = () => {
   const [mes, setMes] = useState<string>(MESES[0] ?? 'Enero');
   const [cantidad, setCantidad] = useState<string>('');
   const [costo, setCosto] = useState<string>(''); // NUEVO: costo por inspección
+  const [semanas, setSemanas] = useState<string>('4'); // NUEVO: semanas del mes (4 o 5)
 
   // --- CATÁLOGO: costo predefinido de la inspección (persistente) ---
   const [costoCatalogo, setCostoCatalogo] = useState<string>(() => {
@@ -56,6 +59,21 @@ export const InspeccionesRegistro = () => {
     try { localStorage.setItem(STORAGE_COSTO_DEFAULT, limpio); } catch { /* almacenamiento no disponible */ }
     setCatalogoGuardado(true);
     setTimeout(() => setCatalogoGuardado(false), 1800);
+  };
+
+  // --- CATÁLOGO: meta programada predefinida (misma para todos, se agrega una sola vez) ---
+  const [metaCatalogo, setMetaCatalogo] = useState<string>(() => {
+    try { return localStorage.getItem(STORAGE_META_DEFAULT) ?? ''; } catch { return ''; }
+  });
+  const [catalogoMetaGuardado, setCatalogoMetaGuardado] = useState<boolean>(false);
+
+  const guardarMetaCatalogo = () => {
+    const v = parseInt(metaCatalogo, 10);
+    const limpio = isNaN(v) || v < 0 ? '' : String(v);
+    setMetaCatalogo(limpio);
+    try { localStorage.setItem(STORAGE_META_DEFAULT, limpio); } catch { /* almacenamiento no disponible */ }
+    setCatalogoMetaGuardado(true);
+    setTimeout(() => setCatalogoMetaGuardado(false), 1800);
   };
 
   const anosDisponibles = useMemo(() => {
@@ -101,6 +119,7 @@ export const InspeccionesRegistro = () => {
     setMes(filtroMes !== 'Todos' ? filtroMes : (MESES[0] ?? 'Enero'));
     setCantidad('');
     setCosto(costoCatalogo || ''); // precarga el costo predefinido del catálogo
+    setSemanas('4');
     setModalAbierto(true);
   };
 
@@ -111,6 +130,7 @@ export const InspeccionesRegistro = () => {
     setMes(i.mes);
     setCantidad(String(i.cantidad));
     setCosto((i as any).costo != null ? String((i as any).costo) : '');
+    setSemanas((i as any).semanas != null && (i as any).semanas > 0 ? String((i as any).semanas) : '4');
     setModalAbierto(true);
   };
 
@@ -134,6 +154,11 @@ export const InspeccionesRegistro = () => {
     if (isNaN(cant) || cant < 0) { alert('Ingresa un número de inspecciones válido.'); return; }
     const cost = parseFloat(costo);
     const costFinal = isNaN(cost) || cost < 0 ? 0 : cost;
+    // La meta programada es la misma para todos: se toma del catálogo (se define una sola vez)
+    const metaCat = parseInt(metaCatalogo, 10);
+    const metaFinal = isNaN(metaCat) || metaCat < 0 ? 0 : metaCat;
+    const semNum = parseInt(semanas, 10);
+    const semFinal = semNum === 5 ? 5 : 4;
     // Se construye sin anotar el tipo y se castea al guardar para no chocar con el
     // chequeo de propiedades del literal mientras el tipo Inspeccion no declare costo/total.
     const insp = {
@@ -144,6 +169,8 @@ export const InspeccionesRegistro = () => {
       cantidad: cant,
       costo: costFinal,
       total: cant * costFinal,
+      meta: metaFinal,
+      semanas: semFinal,
     };
     guardarInspeccion(insp as Inspeccion);
     cerrarModal();
@@ -202,18 +229,18 @@ export const InspeccionesRegistro = () => {
         </div>
       </div>
 
-      {/* CATÁLOGO: COSTO PREDEFINIDO DE LA INSPECCIÓN */}
+      {/* CATÁLOGO: COSTO Y META PREDEFINIDOS DE LA INSPECCIÓN */}
       <div className="card" style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'flex-end', gap: '1.25rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: '240px' }}>
           <DollarSign size={28} color="var(--primary)" />
           <div>
-            <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Catálogo de Costos</h3>
+            <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Catálogo de Costos y Meta</h3>
             <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              El costo definido aquí se cargará automáticamente al crear una nueva inspección.
+              El costo y la meta definidos aquí se aplican automáticamente a todas las inspecciones (se configuran una sola vez).
             </p>
           </div>
         </div>
-        <div className="form-group" style={{ minWidth: '200px', margin: 0 }}>
+        <div className="form-group" style={{ minWidth: '180px', margin: 0 }}>
           <label className="form-label">Costo predefinido de inspección</label>
           <input
             type="number"
@@ -231,6 +258,27 @@ export const InspeccionesRegistro = () => {
             <Save size={16} /> Guardar costo
           </button>
           {catalogoGuardado && (
+            <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
+          )}
+        </div>
+        <div style={{ width: '100%', height: '1px', background: 'var(--border)', margin: '0.25rem 0' }} />
+        <div className="form-group" style={{ minWidth: '180px', margin: 0 }}>
+          <label className="form-label">Meta programada de inspecciones</label>
+          <input
+            type="number"
+            min={0}
+            className="form-control"
+            style={{ boxSizing: 'border-box' }}
+            value={metaCatalogo}
+            onChange={(e) => setMetaCatalogo(e.target.value)}
+            placeholder="0"
+          />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
+          <button onClick={guardarMetaCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+            <Save size={16} /> Guardar meta
+          </button>
+          {catalogoMetaGuardado && (
             <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
           )}
         </div>
@@ -343,6 +391,29 @@ export const InspeccionesRegistro = () => {
                     <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">Inspecciones</label>
                       <input type="number" min={0} className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="0" />
+                    </div>
+                    <div className="form-group" style={{ minWidth: 0 }}>
+                      <label className="form-label">
+                        Meta programada <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(del catálogo)</small>
+                      </label>
+                      <input
+                        type="text"
+                        readOnly
+                        tabIndex={-1}
+                        className="form-control"
+                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)', color: 'var(--text-muted)', cursor: 'default' }}
+                        value={metaCatalogo ? `${metaCatalogo} inspecciones` : 'Sin definir'}
+                        title="La meta se define una sola vez en el Catálogo (arriba). Es la misma para todos."
+                      />
+                    </div>
+                    <div className="form-group" style={{ minWidth: 0 }}>
+                      <label className="form-label">
+                        Semanas del mes <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(4 o 5)</small>
+                      </label>
+                      <select className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={semanas} onChange={(e) => setSemanas(e.target.value)}>
+                        <option value="4">4 semanas</option>
+                        <option value="5">5 semanas</option>
+                      </select>
                     </div>
                     <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">

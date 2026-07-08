@@ -2,7 +2,7 @@ import { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
-import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter, DollarSign, Download, Printer, FileText, ClipboardCheck, Target } from 'lucide-react';
+import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter, DollarSign, Download, Printer, FileText, ClipboardCheck, Target, GripVertical } from 'lucide-react';
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -46,6 +46,40 @@ export const InspeccionesDashboard = () => {
   const [is3D, setIs3D] = useState<boolean>(true);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  // --- Reordenamiento de tarjetas KPI (persistente y compartido vía Firestore) ---
+  const ORDEN_DEFAULT = ['meta', 'mejor4', 'mejor5', 'variacion', 'total', 'cumplimiento', 'monetario'];
+  const ordenGuardado = (contexto as any)?.inspeccionesOrden as string[] | undefined;
+  const [ordenTarjetas, setOrdenTarjetas] = useState<string[]>(ORDEN_DEFAULT);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  // Sincroniza el orden con lo guardado en la nube (reconciliando ids nuevos/eliminados)
+  useEffect(() => {
+    if (Array.isArray(ordenGuardado) && ordenGuardado.length > 0) {
+      const validos = ordenGuardado.filter(id => ORDEN_DEFAULT.includes(id));
+      const faltantes = ORDEN_DEFAULT.filter(id => !validos.includes(id));
+      setOrdenTarjetas([...validos, ...faltantes]);
+    } else {
+      setOrdenTarjetas(ORDEN_DEFAULT);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(ordenGuardado)]);
+
+  const soltarTarjeta = (targetId: string) => {
+    if (!dragId || dragId === targetId) { setDragId(null); setOverId(null); return; }
+    const nuevo = [...ordenTarjetas];
+    const from = nuevo.indexOf(dragId);
+    const to = nuevo.indexOf(targetId);
+    if (from < 0 || to < 0) { setDragId(null); setOverId(null); return; }
+    nuevo.splice(from, 1);
+    nuevo.splice(to, 0, dragId);
+    setOrdenTarjetas(nuevo);
+    setDragId(null);
+    setOverId(null);
+    const guardar = (contexto as any)?.guardarInspeccionesOrden;
+    if (typeof guardar === 'function') guardar(nuevo);
+  };
+
   // --- Exportación: imagen PNG y PDF ejecutivo (una hoja por taller) ---
   const reporteImagenRef = useRef<HTMLDivElement>(null);
   const [generandoImagen, setGenerandoImagen] = useState<boolean>(false);
@@ -76,9 +110,10 @@ export const InspeccionesDashboard = () => {
         const costo = typeof (reg as any).costo === 'number' ? (reg as any).costo : 0;
         const total = typeof (reg as any).total === 'number' ? (reg as any).total : reg.cantidad * costo;
         const meta = typeof (reg as any).meta === 'number' ? (reg as any).meta : 0;
-        return { mes, cantidad: reg.cantidad, costo, total, meta };
+        const semanas = typeof (reg as any).semanas === 'number' && (reg as any).semanas > 0 ? (reg as any).semanas : 4;
+        return { mes, cantidad: reg.cantidad, costo, total, meta, semanas };
       })
-      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number } => d !== null);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null);
   }, [inspecciones, tallerSeleccionado, ano]);
 
   // Sectores para torta/anillo/barras/leyenda (distribución sobre el total)
@@ -115,14 +150,19 @@ export const InspeccionesDashboard = () => {
     const totalMeta = datos.reduce((acc, d) => acc + d.meta, 0);
     const cumplimientoGlobal = totalMeta > 0 ? (total / totalMeta) * 100 : null;
     const promedio = datos.length > 0 ? total / datos.length : 0;
-    const mejor = datos.reduce((best, d) => (d.cantidad > best.cantidad ? d : best), { mes: '-', cantidad: 0 });
+    // Los meses de 5 semanas se agrupan aparte: no compiten como "mejor mes" normal
+    const meses4 = datos.filter(d => d.semanas < 5);
+    const meses5 = datos.filter(d => d.semanas >= 5);
+    const mejor4 = meses4.reduce((best, d) => (d.cantidad > best.cantidad ? d : best), { mes: '-', cantidad: 0 });
+    const mejor5 = meses5.reduce((best, d) => (d.cantidad > best.cantidad ? d : best), { mes: '-', cantidad: 0 });
+    const hay5 = meses5.length > 0;
     let variacionUltimo: number | null = null;
     if (datos.length >= 2) {
       const a = datos[datos.length - 2].cantidad;
       const b = datos[datos.length - 1].cantidad;
       variacionUltimo = b - a; // diferencia en número de inspecciones (no porcentaje)
     }
-    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor, variacionUltimo };
+    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor4, mejor5, hay5, variacionUltimo };
   }, [datos]);
 
   // =========================================================================
@@ -136,16 +176,19 @@ export const InspeccionesDashboard = () => {
         const costo = typeof (reg as any).costo === 'number' ? (reg as any).costo : 0;
         const total = typeof (reg as any).total === 'number' ? (reg as any).total : reg.cantidad * costo;
         const meta = typeof (reg as any).meta === 'number' ? (reg as any).meta : 0;
-        return { mes, cantidad: reg.cantidad, costo, total, meta };
+        const semanas = typeof (reg as any).semanas === 'number' && (reg as any).semanas > 0 ? (reg as any).semanas : 4;
+        return { mes, cantidad: reg.cantidad, costo, total, meta, semanas };
       })
-      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number } => d !== null);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null);
 
     const totalCantidad = meses.reduce((a, m) => a + m.cantidad, 0);
     const totalMonto = meses.reduce((a, m) => a + m.total, 0);
     const totalMeta = meses.reduce((a, m) => a + m.meta, 0);
     const cumplimiento = totalMeta > 0 ? (totalCantidad / totalMeta) * 100 : null;
     const promedio = meses.length > 0 ? totalCantidad / meses.length : 0;
-    const mejor = meses.reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
+    // Mejor mes: solo meses de 4 semanas (los de 5 semanas se agrupan aparte)
+    const mejor = meses.filter(m => m.semanas < 5).reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
+    const mejor5 = meses.filter(m => m.semanas >= 5).reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
 
     // Donut: distribución de inspecciones por mes
     const base = totalCantidad || 1;
@@ -159,7 +202,7 @@ export const InspeccionesDashboard = () => {
       return { id: m.mes, mes: m.mes, color, cantidad: m.cantidad, costo: m.costo, total: m.total, pct: frac * 100, path: arcoPie(110, 110, 95, inicio, fin) };
     });
 
-    return { meses, totalCantidad, totalMonto, totalMeta, cumplimiento, promedio, mejor, segs };
+    return { meses, totalCantidad, totalMonto, totalMeta, cumplimiento, promedio, mejor, mejor5, segs };
   };
 
   // Carga dinámica de html2canvas / jsPDF desde CDN
@@ -227,10 +270,10 @@ export const InspeccionesDashboard = () => {
         for (let i = 0; i < slidesPDF.length; i++) {
           const el = slideRefs.current[slidesPDF[i].taller.nombre];
           if (!el) continue;
-          const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
-          const img = canvas.toDataURL('image/png');
+          const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#ffffff', useCORS: true, logging: false });
+          const img = canvas.toDataURL('image/jpeg', 0.95);
           if (agregadas > 0) pdf.addPage('a4', 'landscape');
-          pdf.addImage(img, 'PNG', 0, 0, pageW, pageH);
+          pdf.addImage(img, 'JPEG', 0, 0, pageW, pageH);
           agregadas++;
         }
         if (!cancelado) pdf.save(`Inspecciones_Ejecutivo_${ano}.pdf`);
@@ -247,7 +290,11 @@ export const InspeccionesDashboard = () => {
   // ---- GRÁFICA DE LÍNEAS (formato reporte: eje 1..12, círculo por mes con SU color y la cantidad dentro) ----
   const renderLinea = () => {
     const esPct = modo === 'porcentual';
-    // Cada punto se ubica en su mes real (0..11) y usa el color correspondiente al mes
+    // Color guardado del taller seleccionado (no el color de la semana/mes)
+    const tallerColor = (tallerObj && (tallerObj as any).color) ? (tallerObj as any).color : '#1d8cf8';
+    const tallerLogo = tallerObj?.logo || '';
+
+    // Cada punto se ubica en su mes real (0..11)
     const puntos = datos.map((d, i) => {
       const monthIdx = Math.max(0, MESES.indexOf(d.mes)); // 0..11
       let valor: number;
@@ -257,10 +304,11 @@ export const InspeccionesDashboard = () => {
         const prev = i > 0 ? datos[i - 1].cantidad : 0;
         valor = i > 0 && prev > 0 ? Number((((d.cantidad - prev) / prev) * 100).toFixed(1)) : 0;
       }
-      return { monthIdx, valor, cantidad: d.cantidad, mes: d.mes, color: COLORES[i % COLORES.length] };
+      return { monthIdx, valor, cantidad: d.cantidad, mes: d.mes };
     });
 
-    const W = 900, H = 440, pl = 46, pr = 28, pt = 54, pb = 44;
+    // Gráfica un poco más pequeña
+    const W = 960, H = 520, pl = 56, pr = 32, pt = 32, pb = 52;
     const iw = W - pl - pr, ih = H - pt - pb;
     const vals = puntos.map(p => p.valor);
     let min = Math.min(...vals, 0);
@@ -276,48 +324,59 @@ export const InspeccionesDashboard = () => {
     const poly = puntos.map(p => `${X(p.monthIdx).toFixed(1)},${Y(p.valor).toFixed(1)}`).join(' ');
 
     return (
-      <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '620px', display: 'block' }}>
-          {/* Título tipo reporte */}
-          <text x={W / 2} y={26} textAnchor="middle" fontSize="16" fontWeight="800" fill="var(--primary)">{tallerSeleccionado} · {ano}</text>
-
-          {/* Rejilla horizontal + escala Y */}
-          {Array.from({ length: ticks + 1 }).map((_, k) => {
-            const v = min + (max - min) * (k / ticks);
-            const yy = Y(v);
-            return (
-              <g key={`grid-${k}`}>
-                <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="var(--border)" strokeWidth="1" opacity="0.4" />
-                <text x={pl - 8} y={yy + 4} textAnchor="end" fontSize="10" fill="var(--text-muted)">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
-              </g>
-            );
-          })}
-          {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="var(--text-muted)" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
-
-          {/* Etiquetas del eje X: meses 1..12 */}
-          {Array.from({ length: 12 }).map((_, m) => (
-            <text key={`xl-${m}`} x={X(m)} y={H - pb + 24} textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--text-muted)">{m + 1}</text>
-          ))}
-
-          {/* Línea que conecta los puntos con datos */}
-          {puntos.length > 1 && (
-            <polyline points={poly} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <div style={{ width: '100%' }}>
+        {/* ENCABEZADO: logo a la izquierda + título grande con el color del taller */}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '78px', marginBottom: '0.5rem' }}>
+          {tallerLogo && (
+            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '72px', height: '72px', borderRadius: '14px', backgroundColor: '#ffffff', border: `2px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '7px', boxShadow: '0 3px 10px rgba(0,0,0,0.3)', flexShrink: 0 }}>
+              <img src={tallerLogo} alt={tallerSeleccionado} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            </div>
           )}
+          <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: tallerColor, letterSpacing: '0.5px', textAlign: 'center', lineHeight: 1.1, padding: tallerLogo ? '0 88px' : '0' }}>
+            {tallerSeleccionado} <span style={{ color: 'var(--text-muted)', fontWeight: 800 }}>· {ano}</span>
+          </h3>
+        </div>
 
-          {/* Círculos: color del mes + cantidad de inspecciones dentro */}
-          {puntos.map((p, i) => {
-            const cx = X(p.monthIdx), cy = Y(p.valor);
-            const texto = esPct ? `${p.valor}%` : String(p.cantidad);
-            const r = texto.length >= 4 ? 16 : texto.length === 3 ? 15 : 13;
-            const fs = texto.length >= 4 ? 8.5 : texto.length === 3 ? 9.5 : 11;
-            return (
-              <g key={`pt-${i}`}>
-                <circle cx={cx} cy={cy} r={r} fill={p.color} stroke="#ffffff" strokeWidth="2.5" />
-                <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="#ffffff">{texto}</text>
-              </g>
-            );
-          })}
-        </svg>
+        <div style={{ width: '100%', overflowX: 'auto' }}>
+          <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '680px', display: 'block' }}>
+            {/* Rejilla horizontal + escala Y */}
+            {Array.from({ length: ticks + 1 }).map((_, k) => {
+              const v = min + (max - min) * (k / ticks);
+              const yy = Y(v);
+              return (
+                <g key={`grid-${k}`}>
+                  <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="var(--border)" strokeWidth="1" opacity="0.4" />
+                  <text x={pl - 10} y={yy + 4} textAnchor="end" fontSize="12" fill="var(--text-muted)">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
+                </g>
+              );
+            })}
+            {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="var(--text-muted)" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
+
+            {/* Etiquetas del eje X: meses 1..12 */}
+            {Array.from({ length: 12 }).map((_, m) => (
+              <text key={`xl-${m}`} x={X(m)} y={H - pb + 28} textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--text-muted)">{m + 1}</text>
+            ))}
+
+            {/* Línea que conecta los puntos con datos (color del taller) */}
+            {puntos.length > 1 && (
+              <polyline points={poly} fill="none" stroke={tallerColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+            )}
+
+            {/* Círculos: color del taller + cantidad de inspecciones dentro */}
+            {puntos.map((p, i) => {
+              const cx = X(p.monthIdx), cy = Y(p.valor);
+              const texto = esPct ? `${p.valor}%` : String(p.cantidad);
+              const r = texto.length >= 4 ? 20 : texto.length === 3 ? 18 : 16;
+              const fs = texto.length >= 4 ? 10.5 : texto.length === 3 ? 11.5 : 13;
+              return (
+                <g key={`pt-${i}`}>
+                  <circle cx={cx} cy={cy} r={r} fill={tallerColor} stroke="#ffffff" strokeWidth="3" />
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="#ffffff">{texto}</text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     );
   };
@@ -452,9 +511,12 @@ export const InspeccionesDashboard = () => {
             <ClipboardCheck size={landscape ? 42 : 34} color="#1d8cf8" />
           </div>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
           <div style={{ fontSize: landscape ? '30px' : '22px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>
-            {tNombre} <span style={{ color: '#1d8cf8' }}>{ano}</span>
+            {tNombre}
+          </div>
+          <div style={{ fontSize: landscape ? '34px' : '26px', fontWeight: 900, color: '#38bdf8', letterSpacing: '1.5px', lineHeight: 1.05, marginTop: '4px' }}>
+            {ano}
           </div>
           <div style={{ fontSize: landscape ? '14px' : '12px', color: '#cbd5e1', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
             REPORTE DE INSPECCIONES &nbsp;·&nbsp; AÑO FISCAL {ano}
@@ -462,8 +524,8 @@ export const InspeccionesDashboard = () => {
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '24px' }}>
           <div style={{ fontSize: landscape ? '13px' : '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>🔍 INSPECCIONES</div>
-          <div style={{ fontSize: landscape ? '38px' : '28px', color: '#38bdf8', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.1 }}>{rep.totalCantidad}</div>
-          <div style={{ fontSize: landscape ? '15px' : '13px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>{miFormatearMoneda(rep.totalMonto)}</div>
+          <div style={{ fontSize: landscape ? '46px' : '34px', color: '#38bdf8', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.05 }}>{rep.totalCantidad}</div>
+          <div style={{ fontSize: landscape ? '17px' : '14px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>{miFormatearMoneda(rep.totalMonto)}</div>
         </div>
       </div>
 
@@ -478,8 +540,8 @@ export const InspeccionesDashboard = () => {
           { label: '💲 TOTAL MONETARIO', valor: miFormatearMoneda(rep.totalMonto), color: '#15803d' },
         ].map((chip, i, arr) => (
           <div key={chip.label} style={{ flex: 1, minWidth: landscape ? undefined : '150px', padding: '14px 14px', textAlign: 'center', borderRight: i < arr.length - 1 ? '1px solid #e2e8f0' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
-            <div style={{ fontSize: '18px', color: chip.color, fontWeight: 900, marginTop: '4px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
+            <div style={{ fontSize: landscape ? '23px' : '21px', color: chip.color, fontWeight: 900, marginTop: '5px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
           </div>
         ))}
       </div>
@@ -568,9 +630,72 @@ export const InspeccionesDashboard = () => {
 
   const hayDatos = datos.length > 0;
 
+  // Mapa de tarjetas KPI (para renderizarlas en el orden guardado/arrastrado)
+  const tarjetasMap: Record<string, React.ReactNode> = {
+    meta: (
+      <div className="kpi-card">
+        <div className="kpi-title">Meta {ano} <Target size={16} color="var(--primary)" /></div>
+        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</div>
+      </div>
+    ),
+    mejor4: (
+      <div className="kpi-card">
+        <div className="kpi-title">Mejor mes (4 sem) <Award size={16} color="var(--success)" /></div>
+        <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor4.cantidad || '—'}</div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.mejor4.mes !== '-' ? kpis.mejor4.mes : 'Sin datos'}</div>
+      </div>
+    ),
+    mejor5: (
+      <div className="kpi-card">
+        <div className="kpi-title">Mejor mes (5 sem) <Award size={16} color="var(--primary)" /></div>
+        <div className="kpi-value" style={{ color: kpis.hay5 ? 'var(--primary)' : 'var(--text-muted)' }}>{kpis.hay5 ? kpis.mejor5.cantidad : '—'}</div>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.hay5 && kpis.mejor5.mes !== '-' ? kpis.mejor5.mes : 'Sin meses de 5 semanas'}</div>
+      </div>
+    ),
+    variacion: (
+      <div className="kpi-card" style={{ position: 'relative' }}>
+        <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          Variación último mes
+          {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
+            ? <TrendingUp size={16} color="var(--success)" />
+            : <TrendingDown size={16} color="var(--danger)" />)}
+        </div>
+        <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
+          {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo}`}
+        </div>
+      </div>
+    ),
+    total: (
+      <div className="kpi-card">
+        <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
+        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
+      </div>
+    ),
+    cumplimiento: (
+      <div className="kpi-card">
+        <div className="kpi-title">% Cumplimiento <Target size={16} color="var(--success)" /></div>
+        <div className="kpi-value" style={{ color: colorCumpl(kpis.cumplimientoGlobal) }}>
+          {kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}
+        </div>
+      </div>
+    ),
+    monetario: (
+      <div className="kpi-card">
+        <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
+        <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
+      </div>
+    ),
+  };
+
   return (
     <div className="animate-in fade-in">
       <style>{`
+        .insp-kpis { gap: 0.85rem !important; }
+        .insp-kpis.kpi-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-items: stretch; }
+        .insp-kpis > div { display: flex; }
+        .insp-kpis .kpi-card { padding: 0.9rem 1rem !important; flex: 1; width: 100%; min-height: 120px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start; }
+        .insp-kpis .kpi-title { font-size: 0.72rem !important; }
+        .insp-kpis .kpi-value { font-size: 1.5rem !important; }
         @media screen { .insp-print-only { display: none !important; } }
         @media print {
           @page { size: A4 landscape; margin: 0 8mm 8mm 8mm; }
@@ -631,46 +756,38 @@ export const InspeccionesDashboard = () => {
           </div>
         ) : (
           <>
-            {/* KPIs (incluye el apartado monetario) */}
-            <div className="kpi-grid">
-              <div className="kpi-card">
-                <div className="kpi-title">Promedio mensual <LineChart size={16} /></div>
-                <div className="kpi-value">{kpis.promedio.toFixed(1)}</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-title">Mejor mes <Award size={16} color="var(--success)" /></div>
-                <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor.cantidad}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.mejor.mes}</div>
-              </div>
-              <div className="kpi-card" style={{ position: 'relative' }}>
-                <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  Variación último mes
-                  {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
-                    ? <TrendingUp size={16} color="var(--success)" />
-                    : <TrendingDown size={16} color="var(--danger)" />)}
-                </div>
-                <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
-                  {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo}`}
-                </div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
-                <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-title">Meta {ano} <Target size={16} color="var(--primary)" /></div>
-                <div className="kpi-value">{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-title">% Cumplimiento <Target size={16} color="var(--success)" /></div>
-                <div className="kpi-value" style={{ color: colorCumpl(kpis.cumplimientoGlobal) }}>
-                  {kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}
-                </div>
-              </div>
-              <div className="kpi-card">
-                <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
-                <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
-              </div>
+            {/* KPIs reordenables (arrastra para cambiar el orden; se guarda para todos) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 0 0.6rem 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <GripVertical size={14} /> Arrastra las tarjetas para reordenarlas — el orden se guarda para todos los usuarios.
+            </div>
+            <div className="kpi-grid insp-kpis">
+              {ordenTarjetas.map(id => {
+                const card = tarjetasMap[id];
+                if (!card) return null;
+                const arrastrando = dragId === id;
+                const esObjetivo = overId === id && dragId !== null && dragId !== id;
+                return (
+                  <div
+                    key={id}
+                    draggable
+                    onDragStart={() => setDragId(id)}
+                    onDragEnter={() => setOverId(id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => soltarTarjeta(id)}
+                    onDragEnd={() => { setDragId(null); setOverId(null); }}
+                    style={{
+                      cursor: 'grab',
+                      opacity: arrastrando ? 0.45 : 1,
+                      outline: esObjetivo ? '2px dashed var(--primary)' : 'none',
+                      outlineOffset: '2px',
+                      borderRadius: '12px',
+                      transition: 'opacity 0.15s',
+                    }}
+                  >
+                    {card}
+                  </div>
+                );
+              })}
             </div>
 
             {/* GRÁFICA CON CONTROLES */}
@@ -701,11 +818,11 @@ export const InspeccionesDashboard = () => {
                 </div>
               </div>
 
-              <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
+              <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto' }}>
                 {renderGrafico()}
               </div>
 
-              <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '1000px', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+              <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', maxWidth: '1120px', display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
                 {datosGrafico.arr.map(op => {
                   const isHovered = hovered === op.id;
                   const isDimmed = hovered !== null && !isHovered;

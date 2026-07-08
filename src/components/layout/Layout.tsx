@@ -113,9 +113,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                   className={`nav-item ${grupoActivo ? 'active' : ''}`}
                   onClick={() => setAbierto(estaAbierto ? null : grupo.id)}
                   title={grupo.label}
-                  style={{ justifyContent: 'space-between' }}
+                  style={{ justifyContent: sidebarCollapsed ? 'center' : 'space-between' }}
                 >
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : '0.75rem', justifyContent: 'center' }}>
                     <Icono size={18} /><span>{grupo.label}</span>
                   </span>
                   {!sidebarCollapsed && (
@@ -139,6 +139,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                         onClick={() => { if (!item.disabled) ir(item.vista); }}
                         style={{
                           paddingLeft: sidebarCollapsed ? undefined : '2.5rem',
+                          justifyContent: sidebarCollapsed ? 'center' : undefined,
                           opacity: item.disabled ? 0.5 : 1,
                           cursor: item.disabled ? 'default' : 'pointer',
                           fontStyle: item.disabled ? 'italic' : 'normal',

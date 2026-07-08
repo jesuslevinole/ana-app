@@ -8,6 +8,7 @@ export const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [talleres, setTalleres] = useState<Taller[]>([]);
+  const [inspeccionesOrden, setInspeccionesOrden] = useState<string[]>([]);
   const [vista, setVista] = useState<VistaApp>('talleres'); // Iniciamos en talleres para que veas el cambio
   const [registroEditando, setRegistroEditando] = useState<Registro | null>(null);
 
@@ -42,11 +43,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error("🔥 Error al leer 'talleres' de Firebase:", error);
     });
 
+    // Suscripción a la configuración compartida del Dashboard de Inspecciones
+    const unsubscribeConfig = onSnapshot(doc(db, 'config', 'inspeccionesDashboard'), (snap) => {
+      const data = snap.data();
+      if (data && Array.isArray(data.orden)) {
+        setInspeccionesOrden(data.orden.filter((x: any) => typeof x === 'string'));
+      }
+    }, (error) => {
+      console.error("🔥 Error al leer 'config/inspeccionesDashboard' de Firebase:", error);
+    });
+
     return () => {
       unsubscribeRegistros();
       unsubscribeTalleres();
+      unsubscribeConfig();
     };
   }, []);
+
+  // Guarda (compartido para todos) el orden de las tarjetas del Dashboard de Inspecciones
+  const guardarInspeccionesOrden = async (orden: string[]) => {
+    try {
+      await setDoc(doc(db, 'config', 'inspeccionesDashboard'), { orden }, { merge: true });
+    } catch (error) {
+      console.error("Error al guardar el orden del dashboard de inspecciones:", error);
+    }
+  };
 
   const agregarRegistro = async (nuevoRegistro: Registro) => {
     try {
@@ -90,8 +111,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     <AppContext.Provider value={{ 
       registros, agregarRegistro, eliminarRegistro, registroEditando, setRegistroEditando, 
       talleres, agregarTaller, eliminarTaller,
+      inspeccionesOrden, guardarInspeccionesOrden,
       vista, setVista 
-    }}>
+    } as AppContextType}>
       {children}
     </AppContext.Provider>
   );

@@ -359,13 +359,14 @@ export const Comparacion = () => {
       </div>
 
       {/* REJILLA PARALELA: LADO A LADO */}
-      <div className="comparison-grid">
-        
-        {/* =========================================================
-            COLUMNA IZQUIERDA: DETALLE DEL PERÍODO BASE
-            ========================================================= */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <style>{`
+        .comparison-grid.comparison-grid-2x2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; align-items: stretch; }
+        @media (max-width: 900px) { .comparison-grid.comparison-grid-2x2 { grid-template-columns: 1fr; } }
+      `}</style>
+      <div className="comparison-grid comparison-grid-2x2">
+
+          {/* Tabla período base (T1) */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden', order: 1 }}>
             <div className="report-header t1">{periodo1.titulo}</div>
             <table className="table" style={{ width: '100%' }}>
               <thead>
@@ -405,8 +406,8 @@ export const Comparacion = () => {
             </table>
           </div>
 
-          {/* Gráfico y Controles Izquierdos */}
-          <div className="card">
+          {/* Gráfico período base (T1) */}
+          <div className="card" style={{ order: 3 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
               <h3 className="detail-section-title" style={{ border: 'none', margin: 0 }}>Desglose {trimestre1}</h3>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -439,14 +440,9 @@ export const Comparacion = () => {
               ))}
             </ul>
           </div>
-        </div>
 
-        {/* =========================================================
-            COLUMNA DERECHA: COMPARACIÓN DE TOTALES (T1 vs T2)
-            ========================================================= */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Tabla comparación (T1 vs T2) */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden', order: 2 }}>
             <div className="report-header" style={{ borderTop: '3px solid var(--text-muted)' }}>
               CRECIMIENTO: {ano1} VS {ano2}
             </div>
@@ -488,15 +484,15 @@ export const Comparacion = () => {
             </table>
           </div>
 
-          {/* Gráfico y Controles Derechos */}
-          <div className="card">
+          {/* Gráfico comparación (T1 vs T2) */}
+          <div className="card" style={{ order: 4 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.4rem 0.75rem', borderRadius: '20px', fontWeight: 700, fontSize: '0.75rem',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1.1rem', borderRadius: '24px', fontWeight: 800, fontSize: '1.05rem',
                   backgroundColor: crecimiento >= 0 ? 'rgba(0, 214, 180, 0.15)' : 'rgba(255, 141, 114, 0.15)', color: crecimiento >= 0 ? 'var(--success)' : 'var(--danger)'
                 }}>
-                  {crecimiento >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                  {crecimiento >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
                   {crecimiento > 0 ? '+' : ''}{crecimiento.toFixed(2)}%
                 </div>
               </div>
@@ -531,7 +527,6 @@ export const Comparacion = () => {
               ))}
             </ul>
           </div>
-        </div>
 
       </div>
     </div>
