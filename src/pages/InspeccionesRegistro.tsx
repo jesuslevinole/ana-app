@@ -288,6 +288,15 @@ export const InspeccionesRegistro = () => {
       <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
         <table className="table" style={{ width: '100%' }}>
           <thead>
+            {/* TOTALES: arriba del encabezado (respetan los filtros activos) */}
+            {lista.length > 0 && (
+              <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
+                <td colSpan={3} style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total ({lista.length} registros)</strong></td>
+                <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{totalLista}</td>
+                <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
+                <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{miFormatearMoneda(totalMontoLista)}</td>
+              </tr>
+            )}
             <tr>
               <th style={{ width: '110px' }}>Acciones</th>
               <th>Periodo</th>
@@ -322,16 +331,6 @@ export const InspeccionesRegistro = () => {
               ))
             )}
           </tbody>
-          {lista.length > 0 && (
-            <tfoot>
-              <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                <td colSpan={3} style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total ({lista.length} registros)</strong></td>
-                <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{totalLista}</td>
-                <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
-                <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{miFormatearMoneda(totalMontoLista)}</td>
-              </tr>
-            </tfoot>
-          )}
         </table>
       </div>
 

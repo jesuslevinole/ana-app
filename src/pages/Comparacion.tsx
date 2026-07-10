@@ -480,6 +480,23 @@ export const Comparacion = () => {
                   <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(totalAmbosPeriodos)}</td>
                   <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{totalAmbosPeriodos > 0 ? '100.00%' : '0.00%'}</td>
                 </tr>
+                {/* CRECIMIENTO / DECRECIMIENTO: diferencia entre T2 y T1 (monto y %) */}
+                <tr style={{ backgroundColor: crecimiento >= 0 ? 'rgba(0, 214, 180, 0.08)' : 'rgba(255, 141, 114, 0.08)', borderTop: `2px solid ${crecimiento >= 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      {crecimiento >= 0 ? <TrendingUp size={18} color="var(--success)" /> : <TrendingDown size={18} color="var(--danger)" />}
+                      <strong style={{ fontSize: '1rem', color: crecimiento >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                        {crecimiento >= 0 ? 'CRECIMIENTO' : 'DECRECIMIENTO'}
+                      </strong>
+                    </div>
+                  </td>
+                  <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 800, color: crecimiento >= 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                    {crecimiento >= 0 ? '+' : '-'}{miFormatearMoneda(Math.abs(periodo2.total - periodo1.total))}
+                  </td>
+                  <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 800, color: crecimiento >= 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                    {crecimiento > 0 ? '+' : ''}{crecimiento.toFixed(2)}%
+                  </td>
+                </tr>
               </tfoot>
             </table>
           </div>

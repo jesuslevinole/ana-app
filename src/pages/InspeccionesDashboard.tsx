@@ -2,7 +2,7 @@ import { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
-import { LineChart, TrendingUp, TrendingDown, Award, Sigma, Filter, DollarSign, Download, Printer, FileText, ClipboardCheck, Target, GripVertical } from 'lucide-react';
+import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, FileText, ClipboardCheck, Target, GripVertical } from 'lucide-react';
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -47,7 +47,7 @@ export const InspeccionesDashboard = () => {
   const [hovered, setHovered] = useState<string | null>(null);
 
   // --- Reordenamiento de tarjetas KPI (persistente y compartido vía Firestore) ---
-  const ORDEN_DEFAULT = ['meta', 'mejor4', 'mejor5', 'variacion', 'total', 'cumplimiento', 'monetario'];
+  const ORDEN_DEFAULT = ['meta', 'mejor4', 'mejor5', 'variacion', 'cumplimiento'];
   const ordenGuardado = (contexto as any)?.inspeccionesOrden as string[] | undefined;
   const [ordenTarjetas, setOrdenTarjetas] = useState<string[]>(ORDEN_DEFAULT);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -315,8 +315,9 @@ export const InspeccionesDashboard = () => {
   // ---- GRÁFICA DE LÍNEAS (formato reporte: eje 1..12, círculo por mes con SU color y la cantidad dentro) ----
   const renderLinea = () => {
     const esPct = modo === 'porcentual';
-    // Color guardado del taller seleccionado (no el color de la semana/mes)
-    const tallerColor = (tallerObj && (tallerObj as any).color) ? (tallerObj as any).color : '#1d8cf8';
+    // Color de la gráfica según imagen de referencia (verde azulado oscuro / petróleo).
+    // Si quieres otro tono, cambia este código hexadecimal:
+    const tallerColor = '#16697A';
     const tallerLogo = tallerObj?.logo || '';
 
     // Cada punto se ubica en su mes real (0..11)
@@ -364,22 +365,25 @@ export const InspeccionesDashboard = () => {
 
         <div style={{ width: '100%', overflowX: 'auto' }}>
           <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '680px', display: 'block' }}>
+            {/* Fondo gris claro de la gráfica (como la imagen de referencia) */}
+            <rect x="0" y="0" width={W} height={H} rx="12" fill="#DDDFDA" />
+
             {/* Rejilla horizontal + escala Y */}
             {Array.from({ length: ticks + 1 }).map((_, k) => {
               const v = min + (max - min) * (k / ticks);
               const yy = Y(v);
               return (
                 <g key={`grid-${k}`}>
-                  <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="var(--border)" strokeWidth="1" opacity="0.4" />
-                  <text x={pl - 10} y={yy + 4} textAnchor="end" fontSize="12" fill="var(--text-muted)">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
+                  <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="#b9bcb4" strokeWidth="1" opacity="0.7" />
+                  <text x={pl - 10} y={yy + 4} textAnchor="end" fontSize="12" fontWeight="600" fill="#3f4a58">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
                 </g>
               );
             })}
-            {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="var(--text-muted)" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
+            {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="#3f4a58" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
 
             {/* Etiquetas del eje X: meses 1..12 */}
             {Array.from({ length: 12 }).map((_, m) => (
-              <text key={`xl-${m}`} x={X(m)} y={H - pb + 28} textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--text-muted)">{m + 1}</text>
+              <text key={`xl-${m}`} x={X(m)} y={H - pb + 28} textAnchor="middle" fontSize="13" fontWeight="700" fill="#3f4a58">{m + 1}</text>
             ))}
 
             {/* Línea que conecta los puntos con datos (color del taller) */}
@@ -537,20 +541,20 @@ export const InspeccionesDashboard = () => {
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-          <div style={{ fontSize: landscape ? '30px' : '22px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>
+          <div style={{ fontSize: landscape ? '30px' : '28px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.1 }}>
             {tNombre}
           </div>
-          <div style={{ fontSize: landscape ? '34px' : '26px', fontWeight: 900, color: '#38bdf8', letterSpacing: '1.5px', lineHeight: 1.05, marginTop: '4px' }}>
+          <div style={{ fontSize: landscape ? '34px' : '36px', fontWeight: 900, color: '#38bdf8', letterSpacing: '2px', lineHeight: 1.05, marginTop: '4px' }}>
             {ano}
           </div>
-          <div style={{ fontSize: landscape ? '14px' : '12px', color: '#cbd5e1', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
+          <div style={{ fontSize: landscape ? '14px' : '15px', color: '#e2e8f0', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
             REPORTE DE INSPECCIONES &nbsp;·&nbsp; AÑO FISCAL {ano}
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '24px' }}>
-          <div style={{ fontSize: landscape ? '13px' : '12px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>🔍 INSPECCIONES</div>
-          <div style={{ fontSize: landscape ? '46px' : '34px', color: '#38bdf8', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.05 }}>{rep.totalCantidad}</div>
-          <div style={{ fontSize: landscape ? '17px' : '14px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>{miFormatearMoneda(rep.totalMonto)}</div>
+          <div style={{ fontSize: landscape ? '13px' : '14px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>🔍 INSPECCIONES</div>
+          <div style={{ fontSize: landscape ? '46px' : '46px', color: '#38bdf8', fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.05 }}>{rep.totalCantidad}</div>
+          <div style={{ fontSize: landscape ? '17px' : '18px', color: '#22c55e', fontWeight: 800, marginTop: '2px' }}>{miFormatearMoneda(rep.totalMonto)}</div>
         </div>
       </div>
 
@@ -565,8 +569,8 @@ export const InspeccionesDashboard = () => {
           { label: '💲 TOTAL MONETARIO', valor: miFormatearMoneda(rep.totalMonto), color: '#15803d' },
         ].map((chip, i, arr) => (
           <div key={chip.label} style={{ flex: 1, minWidth: landscape ? undefined : '150px', padding: '14px 14px', textAlign: 'center', borderRight: i < arr.length - 1 ? '1px solid #e2e8f0' : 'none', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
-            <div style={{ fontSize: landscape ? '23px' : '21px', color: chip.color, fontWeight: 900, marginTop: '5px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
+            <div style={{ fontSize: landscape ? '11px' : '13px', color: '#475569', fontWeight: 800, letterSpacing: '0.5px' }}>{chip.label}</div>
+            <div style={{ fontSize: landscape ? '23px' : '25px', color: chip.color, fontWeight: 900, marginTop: '5px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
           </div>
         ))}
       </div>
@@ -576,7 +580,7 @@ export const InspeccionesDashboard = () => {
         {/* TABLA MENSUAL */}
         <div style={{ flex: landscape ? 1.1 : undefined, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', flex: landscape ? 1 : undefined, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '11px 16px', fontSize: '10px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+            <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '11px 16px', fontSize: landscape ? '10px' : '15px', fontWeight: 800, color: '#cbd5e1', letterSpacing: '1px' }}>
               <div style={{ flex: 1 }}>MES</div>
               <div style={{ width: '95px', textAlign: 'center' }}>INSPECC.</div>
               <div style={{ width: '75px', textAlign: 'center' }}>META</div>
@@ -584,9 +588,9 @@ export const InspeccionesDashboard = () => {
               <div style={{ width: '130px', textAlign: 'right' }}>TOTAL</div>
             </div>
             {rep.meses.map((m: any, i: number) => (
-              <div key={m.mes} style={{ display: 'flex', alignItems: 'center', padding: '10px 16px', fontSize: '13px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+              <div key={m.mes} style={{ display: 'flex', alignItems: 'center', padding: landscape ? '10px 16px' : '14px 16px', fontSize: landscape ? '13px' : '20px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
                 <div style={{ flex: 1, color: '#334155', fontWeight: 700 }}>
-                  <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '3px', backgroundColor: COLORES[i % COLORES.length], marginRight: '8px' }} />
+                  <span style={{ display: 'inline-block', width: landscape ? '10px' : '15px', height: landscape ? '10px' : '15px', borderRadius: '3px', backgroundColor: COLORES[i % COLORES.length], marginRight: '8px' }} />
                   {m.mes}
                 </div>
                 <div style={{ width: '95px', textAlign: 'center', color: '#0f172a', fontWeight: 800 }}>{m.cantidad}</div>
@@ -596,24 +600,24 @@ export const InspeccionesDashboard = () => {
               </div>
             ))}
             {/* TOTAL */}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', fontSize: '14px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #1d8cf8', marginTop: landscape ? 'auto' : undefined }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: landscape ? '14px 16px' : '17px 16px', fontSize: landscape ? '14px' : '21px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #1d8cf8', marginTop: landscape ? 'auto' : undefined }}>
               <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL</div>
-              <div style={{ width: '95px', textAlign: 'center', color: '#38bdf8', fontWeight: 900, fontSize: '16px' }}>{rep.totalCantidad}</div>
+              <div style={{ width: '95px', textAlign: 'center', color: '#38bdf8', fontWeight: 900, fontSize: landscape ? '16px' : '25px' }}>{rep.totalCantidad}</div>
               <div style={{ width: '75px', textAlign: 'center', color: '#cbd5e1', fontWeight: 900 }}>{rep.totalMeta > 0 ? Math.round(rep.totalMeta * 100) / 100 : '—'}</div>
               <div style={{ width: '110px', textAlign: 'right', color: '#94a3b8' }}>—</div>
-              <div style={{ width: '130px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '15px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(rep.totalMonto)}</div>
+              <div style={{ width: '130px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: landscape ? '15px' : '22px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(rep.totalMonto)}</div>
             </div>
           </div>
         </div>
 
         {/* ANILLO DISTRIBUCIÓN POR MES */}
         <div style={{ flex: landscape ? 0.9 : undefined, marginTop: landscape ? 0 : '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ backgroundColor: '#f1f5f9', padding: '10px 16px', fontSize: '11px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ backgroundColor: '#f1f5f9', padding: landscape ? '10px 16px' : '13px 16px', fontSize: landscape ? '11px' : '16px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
             DISTRIBUCIÓN DE INSPECCIONES POR MES
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: landscape ? 'column' : 'row', alignItems: 'center', gap: landscape ? '12px' : '20px', padding: '16px 20px', minHeight: 0 }}>
-            <div style={{ flexShrink: 0, width: landscape ? '180px' : '200px', height: landscape ? '180px' : '200px' }}>
-              <svg viewBox="0 0 220 220" width={landscape ? 180 : 200} height={landscape ? 180 : 200} style={{ display: 'block' }}>
+            <div style={{ flexShrink: 0, width: landscape ? '180px' : '230px', height: landscape ? '180px' : '230px' }}>
+              <svg viewBox="0 0 220 220" width={landscape ? 180 : 230} height={landscape ? 180 : 230} style={{ display: 'block' }}>
                 {(rep.segs || []).length === 1 ? (
                   <circle cx="110" cy="110" r="95" fill={rep.segs[0].color} stroke="#ffffff" strokeWidth="2" />
                 ) : (
@@ -622,21 +626,21 @@ export const InspeccionesDashboard = () => {
                   ))
                 )}
                 <circle cx="110" cy="110" r="46" fill="#ffffff" />
-                <text x="110" y="104" textAnchor="middle" fontSize="11" fontWeight="700" fill="#94a3b8">TOTAL</text>
-                <text x="110" y="122" textAnchor="middle" fontSize="14" fontWeight="900" fill="#1d8cf8">{rep.totalCantidad}</text>
+                <text x="110" y="101" textAnchor="middle" fontSize={landscape ? 11 : 13} fontWeight="700" fill="#94a3b8">TOTAL</text>
+                <text x="110" y="126" textAnchor="middle" fontSize={landscape ? 14 : 20} fontWeight="900" fill="#1d8cf8">{rep.totalCantidad}</text>
               </svg>
             </div>
-            <div style={{ flex: 1, width: landscape ? '100%' : undefined, display: 'flex', flexDirection: 'column', gap: '6px', minWidth: 0 }}>
+            <div style={{ flex: 1, width: landscape ? '100%' : undefined, display: 'flex', flexDirection: 'column', gap: landscape ? '6px' : '9px', minWidth: 0 }}>
               {(rep.segs || []).map((seg: any) => (
-                <div key={`leg-${tNombre}-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '7px 12px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
+                <div key={`leg-${tNombre}-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: landscape ? '7px 12px' : '11px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                    <span style={{ width: '13px', height: '13px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
-                    <span style={{ fontSize: '12px', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{seg.mes}</span>
+                    <span style={{ width: landscape ? '13px' : '18px', height: landscape ? '13px' : '18px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: landscape ? '12px' : '19px', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{seg.mes}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '14px', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontSize: '12px', color: '#0f172a', fontWeight: 800 }}>{seg.cantidad}</span>
-                    <span style={{ fontSize: '12px', color: '#15803d', fontWeight: 700 }}>{miFormatearMoneda(seg.total)}</span>
-                    <span style={{ fontSize: '12px', color: seg.color, fontWeight: 800, minWidth: '44px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
+                    <span style={{ fontSize: landscape ? '12px' : '19px', color: '#0f172a', fontWeight: 800 }}>{seg.cantidad}</span>
+                    <span style={{ fontSize: landscape ? '12px' : '19px', color: '#15803d', fontWeight: 700 }}>{miFormatearMoneda(seg.total)}</span>
+                    <span style={{ fontSize: landscape ? '12px' : '19px', color: seg.color, fontWeight: 800, minWidth: landscape ? '44px' : '68px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
                   </div>
                 </div>
               ))}
@@ -646,7 +650,7 @@ export const InspeccionesDashboard = () => {
       </div>
 
       {/* PIE DE PÁGINA */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: landscape ? '11px 40px' : '12px 32px', backgroundColor: '#0f172a', fontSize: landscape ? '11px' : '10px', color: '#64748b', fontWeight: 600, height: landscape ? '42px' : 'auto', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: landscape ? '11px 40px' : '13px 32px', backgroundColor: '#0f172a', fontSize: landscape ? '11px' : '13px', color: '#94a3b8', fontWeight: 600, height: landscape ? '42px' : 'auto', boxSizing: 'border-box' }}>
         <span style={{ letterSpacing: '0.5px' }}>REPORTE DE INSPECCIONES &nbsp;·&nbsp; {ano}</span>
         <span>Generado el {fechaReporte}</span>
       </div>
@@ -667,14 +671,14 @@ export const InspeccionesDashboard = () => {
       <div className="kpi-card">
         <div className="kpi-title">Mejor mes (4 sem) <Award size={16} color="var(--success)" /></div>
         <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor4.cantidad || '—'}</div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.mejor4.mes !== '-' ? kpis.mejor4.mes : 'Sin datos'}</div>
+        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.3rem' }}>{kpis.mejor4.mes !== '-' ? kpis.mejor4.mes : 'Sin datos'}</div>
       </div>
     ),
     mejor5: (
       <div className="kpi-card">
         <div className="kpi-title">Mejor mes (5 sem) <Award size={16} color="var(--primary)" /></div>
         <div className="kpi-value" style={{ color: kpis.hay5 ? 'var(--primary)' : 'var(--text-muted)' }}>{kpis.hay5 ? kpis.mejor5.cantidad : '—'}</div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>{kpis.hay5 && kpis.mejor5.mes !== '-' ? kpis.mejor5.mes : 'Sin meses de 5 semanas'}</div>
+        <div style={{ fontSize: '0.95rem', fontWeight: 700, color: kpis.hay5 ? 'var(--text-main)' : 'var(--text-muted)', marginTop: '0.3rem' }}>{kpis.hay5 && kpis.mejor5.mes !== '-' ? kpis.mejor5.mes : 'Sin meses de 5 semanas'}</div>
       </div>
     ),
     variacion: (
@@ -690,12 +694,6 @@ export const InspeccionesDashboard = () => {
         </div>
       </div>
     ),
-    total: (
-      <div className="kpi-card">
-        <div className="kpi-title">Total {ano} <Sigma size={16} color="var(--primary)" /></div>
-        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.total}</div>
-      </div>
-    ),
     cumplimiento: (
       <div className="kpi-card">
         <div className="kpi-title">% Cumplimiento <Target size={16} color="var(--success)" /></div>
@@ -704,22 +702,16 @@ export const InspeccionesDashboard = () => {
         </div>
       </div>
     ),
-    monetario: (
-      <div className="kpi-card">
-        <div className="kpi-title">Total monetario <DollarSign size={16} color="var(--success)" /></div>
-        <div className="kpi-value" style={{ color: 'var(--success)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.totalMonto)}</div>
-      </div>
-    ),
   };
 
   return (
     <div className="animate-in fade-in">
       <style>{`
         .insp-kpis { gap: 0.85rem !important; }
-        .insp-kpis.kpi-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-items: stretch; }
-        .insp-kpis > div { display: flex; }
-        .insp-kpis .kpi-card { padding: 0.9rem 1rem !important; flex: 1; width: 100%; min-height: 120px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start; }
-        .insp-kpis .kpi-title { font-size: 0.72rem !important; }
+        .insp-kpis.kpi-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; }
+        .insp-kpis > div { display: flex; flex: 1 1 200px; min-width: 190px; max-width: 260px; }
+        .insp-kpis .kpi-card { padding: 0.9rem 1rem !important; flex: 1; width: 100%; min-height: 120px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; text-align: center; }
+        .insp-kpis .kpi-title { font-size: 0.72rem !important; display: flex; align-items: center; justify-content: center; gap: 4px; }
         .insp-kpis .kpi-value { font-size: 1.5rem !important; }
         @media screen { .insp-print-only { display: none !important; } }
         @media print {
@@ -874,6 +866,17 @@ export const InspeccionesDashboard = () => {
               <h3 className="detail-section-title">Detalle de evolución</h3>
               <table className="table" style={{ width: '100%', marginTop: '1rem' }}>
                 <thead>
+                  {/* TOTALES: arriba del encabezado */}
+                  <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
+                    <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{kpis.total}</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: colorCumpl(kpis.cumplimientoGlobal) }}>{kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--success)' }}>{miFormatearMoneda(kpis.totalMonto)}</td>
+                    <td colSpan={2}></td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>100%</td>
+                  </tr>
                   <tr>
                     <th>Mes</th>
                     <th style={{ textAlign: 'center' }}>Inspecciones</th>
@@ -901,18 +904,6 @@ export const InspeccionesDashboard = () => {
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                    <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
-                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{kpis.total}</td>
-                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</td>
-                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: colorCumpl(kpis.cumplimientoGlobal) }}>{kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}</td>
-                    <td style={{ textAlign: 'right', padding: '0.85rem', color: 'var(--text-muted)' }}>—</td>
-                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--success)' }}>{miFormatearMoneda(kpis.totalMonto)}</td>
-                    <td colSpan={2}></td>
-                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>100%</td>
-                  </tr>
-                </tfoot>
               </table>
             </div>
           </>
