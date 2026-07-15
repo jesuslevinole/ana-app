@@ -48,6 +48,7 @@ const GRUPOS: GrupoNav[] = [
     items: [
       { vista: 'inspeccionesRegistro', label: 'Registro', icon: ClipboardList },
       { vista: 'inspeccionesDashboard', label: 'Dashboard', icon: LineChart },
+      { vista: 'inspeccionesComparacion', label: 'Comparación', icon: GitCompare },
     ],
   },
   {
