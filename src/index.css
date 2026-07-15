@@ -22,6 +22,36 @@
   color-scheme: dark;
 }
 
+/* =========================================
+   MODO CLARO (se activa con data-theme="light" en <html>)
+   ========================================= */
+:root[data-theme='light'] {
+  --bg-body: #f1f5f9;
+  --bg-panel: #ffffff;
+  --bg-sidebar: #ffffff;
+  --sidebar-hover: #eef2f7;
+  --bg-highlight: #eef2f7;
+
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+
+  --primary: #1d8cf8;
+  --primary-hover: #1877d2;
+  --success: #0aa17c;
+  --danger: #e2543a;
+  --danger-hover: #c93a20;
+
+  --border: #dbe2ea;
+
+  color-scheme: light;
+}
+
+:root[data-theme='light'] ::-webkit-calendar-picker-indicator { filter: none; opacity: 0.7; }
+
+body, .sidebar, .card, .table-wrapper, .kpi-card, .filter-bar, .main-content {
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background-color: var(--bg-body); color: var(--text-main); }
 

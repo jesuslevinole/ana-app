@@ -40,11 +40,16 @@ export const FormularioRegistro = () => {
   const [meta, setMeta] = useState(initialState.meta);
   const [detalles, setDetalles] = useState<Detalle[]>(initialState.detalles as Detalle[]);
 
+  // --- NUEVO: IDENTIFICADOR DE SEMANAS DEL MES (4 o 5) ---
+  // De esto depende la división de la meta: Semanal = Meta ÷ semanasMes
+  const semanasIni = ((initialState as any).semanas === 5) ? 5 : 4;
+  const [semanasMes, setSemanasMes] = useState<number>(semanasIni);
+
   // --- NUEVO: METAS SEMANAL Y DIARIA ---
-  // Fórmula: Semanal = Meta / 4   |   Diario = Semanal / 6
+  // Fórmula: Semanal = Meta / semanas del mes (4 o 5)   |   Diario = Semanal / 6
   // Son calculados automáticamente, pero el usuario puede editarlos a mano.
   const metaIni = initialState.meta || 0;
-  const semanalIni = (initialState.semanal && initialState.semanal > 0) ? initialState.semanal : calc2(metaIni / 4);
+  const semanalIni = (initialState.semanal && initialState.semanal > 0) ? initialState.semanal : calc2(metaIni / semanasIni);
   const diarioIni = (initialState.diario && initialState.diario > 0) ? initialState.diario : calc2(semanalIni / 6);
 
   const [semanal, setSemanal] = useState<number>(semanalIni);
@@ -53,12 +58,6 @@ export const FormularioRegistro = () => {
   // Banderas: una vez que el usuario edita el campo a mano, dejamos de recalcularlo
   const [semanalManual, setSemanalManual] = useState<boolean>(false);
   const [diarioManual, setDiarioManual] = useState<boolean>(false);
-
-  // --- NUEVO: DIVISORES EDITABLES ---
-  // Semanas: entre cuántas semanas se divide la meta (4, 5, ...)
-  // Días: entre cuántos días se divide la meta semanal (6, 7, ...)
-  const [semanas, setSemanas] = useState<number>(4);
-  const [dias, setDias] = useState<number>(6);
   
   // Estados para el detalle
   const [desde, setDesde] = useState('');
@@ -82,35 +81,29 @@ export const FormularioRegistro = () => {
   const faltanteReal = isExcedente ? logrado - meta : Math.max(meta - logrado, 0);
   const porcentajeCumplido = meta > 0 ? Number(((logrado / meta) * 100).toFixed(2)) : 0;
 
-  // --- MANEJADORES PARA META / SEMANAL / DIARIO (con divisores editables) ---
+  // --- MANEJADORES PARA META / SEMANAL / DIARIO ---
   // Al cambiar la Meta, recalculamos Semanal y Diario SOLO si no han sido editados a mano.
   const handleMetaChange = (valor: number) => {
     setMeta(valor);
     if (!semanalManual) {
-      const s = valor > 0 && semanas > 0 ? calc2(valor / semanas) : 0;
+      const s = valor > 0 ? calc2(valor / semanasMes) : 0;
       setSemanal(s);
       if (!diarioManual) {
-        setDiario(s > 0 && dias > 0 ? calc2(s / dias) : 0);
+        setDiario(s > 0 ? calc2(s / 6) : 0);
       }
     }
   };
 
-  // Al cambiar el divisor de SEMANAS: recalcula la meta semanal (Meta ÷ semanas) y arrastra la diaria.
-  const handleSemanasChange = (n: number) => {
-    setSemanas(n);
-    setSemanalManual(false); // volver a modo calculado con el nuevo divisor
-    const s = meta > 0 && n > 0 ? calc2(meta / n) : 0;
+  // NUEVO: al cambiar el identificador de semanas del mes (4 o 5), se recalcula la distribución
+  const handleSemanasMesChange = (n: number) => {
+    const sem = n === 5 ? 5 : 4;
+    setSemanasMes(sem);
+    const s = meta > 0 ? calc2(meta / sem) : 0;
     setSemanal(s);
+    setSemanalManual(false);
     if (!diarioManual) {
-      setDiario(s > 0 && dias > 0 ? calc2(s / dias) : 0);
+      setDiario(s > 0 ? calc2(s / 6) : 0);
     }
-  };
-
-  // Al cambiar el divisor de DÍAS: recalcula la meta diaria (Semanal ÷ días).
-  const handleDiasChange = (n: number) => {
-    setDias(n);
-    setDiarioManual(false); // volver a modo calculado con el nuevo divisor
-    setDiario(semanal > 0 && n > 0 ? calc2(semanal / n) : 0);
   };
 
   // Al editar Semanal a mano: se marca como manual y arrastra el Diario (si éste no es manual)
@@ -118,7 +111,7 @@ export const FormularioRegistro = () => {
     setSemanal(valor);
     setSemanalManual(true);
     if (!diarioManual) {
-      setDiario(valor > 0 && dias > 0 ? calc2(valor / dias) : 0);
+      setDiario(valor > 0 ? calc2(valor / 6) : 0);
     }
   };
 
@@ -128,11 +121,11 @@ export const FormularioRegistro = () => {
     setDiarioManual(true);
   };
 
-  // Restaurar el cálculo automático usando los divisores actuales (Meta ÷ semanas y Semanal ÷ días)
+  // Restaurar la fórmula automática (Meta/semanas del mes y Semanal/6)
   const restaurarCalculoMetas = () => {
-    const s = meta > 0 && semanas > 0 ? calc2(meta / semanas) : 0;
+    const s = meta > 0 ? calc2(meta / semanasMes) : 0;
     setSemanal(s);
-    setDiario(s > 0 && dias > 0 ? calc2(s / dias) : 0);
+    setDiario(s > 0 ? calc2(s / 6) : 0);
     setSemanalManual(false);
     setDiarioManual(false);
   };
@@ -198,12 +191,13 @@ export const FormularioRegistro = () => {
 
   const guardarRegistro = () => {
     if (!taller || meta <= 0) return alert('Complete Taller y Meta.');
-    const registroFinal: Registro = { 
+    const registroFinal = { 
       id: isEditing ? contexto!.registroEditando!.id : crypto.randomUUID(), 
       ano, mes, taller, meta, logrado, faltante: Math.max(meta - logrado, 0), porcentajeCumplido, detalles,
       // NUEVO: se guardan las metas semanal y diaria (lo que esté en pantalla, calculado o editado)
-      semanal, diario
-    };
+      // y el identificador de semanas del mes (4 o 5), del cual depende la división de la meta
+      semanal, diario, semanas: semanasMes
+    } as Registro;
     contexto?.agregarRegistro(registroFinal);
   };
 
@@ -304,70 +298,66 @@ export const FormularioRegistro = () => {
 
         {/* --- NUEVO: META SEMANAL Y DIARIA (CALCULADAS PERO EDITABLES) --- */}
         <div style={{ marginTop: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', gap: '1rem', flexWrap: 'wrap' }}>
             <span className="form-label" style={{ margin: 0, color: 'var(--text-muted)' }}>
               Distribución de la Meta
             </span>
-            <button
-              type="button"
-              className="btn btn-outline"
-              onClick={restaurarCalculoMetas}
-              title="Recalcular usando los divisores actuales (Meta ÷ semanas y Semanal ÷ días)"
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
-            >
-              <RotateCcw size={14} /> Recalcular
-            </button>
+
+            {/* NUEVO: IDENTIFICADOR DE SEMANAS DEL MES (4 o 5) */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span className="form-label" style={{ margin: 0, color: 'var(--text-muted)' }} title="Define entre cuántas semanas se divide la meta del mes">
+                Semanas del mes:
+              </span>
+              <div style={{ display: 'flex', backgroundColor: 'var(--bg-body)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSemanasMesChange(4)}
+                  style={{ padding: '0.4rem 1rem', border: 'none', background: semanasMes === 4 ? 'var(--primary)' : 'transparent', color: semanasMes === 4 ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  4 semanas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSemanasMesChange(5)}
+                  style={{ padding: '0.4rem 1rem', border: 'none', background: semanasMes === 5 ? 'var(--primary)' : 'transparent', color: semanasMes === 5 ? 'white' : 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  5 semanas
+                </button>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={restaurarCalculoMetas}
+                title={`Restaurar cálculo automático (Meta ÷ ${semanasMes} y Semanal ÷ 6)`}
+                style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+              >
+                <RotateCcw size={14} /> Recalcular
+              </button>
+            </div>
           </div>
           <div className="grid-layout cols-2">
             <div className="form-group">
               <label className="form-label">
-                Meta Semanal <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Meta ÷ {semanas || '—'})</small>
+                Meta Semanal <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Meta ÷ {semanasMes})</small>
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} title="Número de semanas entre las que se divide la meta">Meta ÷</span>
-                <input
-                  type="number"
-                  min={1}
-                  className="form-control"
-                  style={{ width: '72px', flexShrink: 0, textAlign: 'center' }}
-                  value={semanas || ''}
-                  onChange={e => handleSemanasChange(Number(e.target.value))}
-                  title="Divisor de semanas (ej. 4 o 5)"
-                />
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>=</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ flex: 1, minWidth: 0 }}
-                  value={semanal || ''}
-                  onChange={e => handleSemanalChange(Number(e.target.value))}
-                />
-              </div>
+              <input
+                type="number"
+                className="form-control"
+                value={semanal || ''}
+                onChange={e => handleSemanalChange(Number(e.target.value))}
+              />
             </div>
             <div className="form-group">
               <label className="form-label">
-                Meta Diaria <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Semanal ÷ {dias || '—'})</small>
+                Meta Diaria <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(Semanal ÷ 6)</small>
               </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }} title="Número de días entre los que se divide la meta semanal">Sem ÷</span>
-                <input
-                  type="number"
-                  min={1}
-                  className="form-control"
-                  style={{ width: '72px', flexShrink: 0, textAlign: 'center' }}
-                  value={dias || ''}
-                  onChange={e => handleDiasChange(Number(e.target.value))}
-                  title="Divisor de días (ej. 6 o 7)"
-                />
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>=</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ flex: 1, minWidth: 0 }}
-                  value={diario || ''}
-                  onChange={e => handleDiarioChange(Number(e.target.value))}
-                />
-              </div>
+              <input
+                type="number"
+                className="form-control"
+                value={diario || ''}
+                onChange={e => handleDiarioChange(Number(e.target.value))}
+              />
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { AppContext } from '../../context/AppContext';
 import {
   Calendar, PieChart, FileText, Menu, ChevronLeft, ChevronRight,
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
-  ClipboardList, LineChart
+  ClipboardList, LineChart, Sun, Moon
 } from 'lucide-react';
 
 type ItemNav = {
@@ -20,6 +20,9 @@ type GrupoNav = {
   icon: React.ComponentType<{ size?: number }>;
   items: ItemNav[];
 };
+
+// Clave de almacenamiento del tema elegido (claro / oscuro)
+const STORAGE_TEMA = 'app_tema_v1';
 
 // =========================================================================
 //  ESTRUCTURA DE MENÚS Y SUBMENÚS
@@ -62,6 +65,19 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   const contexto = useContext(AppContext);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // --- NUEVO: TEMA CLARO / OSCURO (persistente) ---
+  const [tema, setTema] = useState<'dark' | 'light'>(() => {
+    try { return localStorage.getItem(STORAGE_TEMA) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+  });
+
+  // Aplica el tema al documento y lo guarda
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', tema);
+    try { localStorage.setItem(STORAGE_TEMA, tema); } catch { /* almacenamiento no disponible */ }
+  }, [tema]);
+
+  const alternarTema = () => setTema(t => (t === 'dark' ? 'light' : 'dark'));
 
   // Leemos la vista como string para poder comparar con las vistas nuevas
   const vistaActual = (contexto?.vista as string) ?? '';
@@ -155,7 +171,22 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           })}
         </ul>
 
-        <button className="sidebar-toggle-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expandir" : "Colapsar"}>
+        {/* NUEVO: BOTÓN DE TEMA CLARO / OSCURO */}
+        <button
+          className="sidebar-toggle-btn"
+          style={{ marginTop: 'auto', borderTop: '1px solid var(--border)' }}
+          onClick={alternarTema}
+          title={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+        >
+          {tema === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          {!sidebarCollapsed && (
+            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>
+              {tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+            </span>
+          )}
+        </button>
+
+        <button className="sidebar-toggle-btn" style={{ marginTop: 0 }} onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expandir" : "Colapsar"}>
           {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </aside>

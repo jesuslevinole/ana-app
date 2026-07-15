@@ -315,10 +315,17 @@ export const InspeccionesDashboard = () => {
   // ---- GRÁFICA DE LÍNEAS (formato reporte: eje 1..12, círculo por mes con SU color y la cantidad dentro) ----
   const renderLinea = () => {
     const esPct = modo === 'porcentual';
-    // Color de la gráfica según imagen de referencia (verde azulado oscuro / petróleo).
-    // Si quieres otro tono, cambia este código hexadecimal:
-    const tallerColor = '#16697A';
+    // Color GUARDADO del taller (módulo Talleres): si se cambia allá, aquí se
+    // actualiza automáticamente porque tallerObj viene del contexto en tiempo real.
+    const tallerColor = (tallerObj && (tallerObj as any).color) ? (tallerObj as any).color : '#1d8cf8';
     const tallerLogo = tallerObj?.logo || '';
+
+    // Meta programada del catálogo (misma clave que usa el Registro de Inspecciones)
+    let metaProg = 0;
+    try { metaProg = parseInt(localStorage.getItem('inspecciones_meta_default_v1') ?? '', 10) || 0; } catch { metaProg = 0; }
+    const fmtN = (n: number) => String(Math.round(n * 100) / 100);
+    const semanalProg = metaProg > 0 ? metaProg / 4 : 0;
+    const diarioProg = semanalProg > 0 ? Math.round(semanalProg / 6) : 0;
 
     // Cada punto se ubica en su mes real (0..11)
     const puntos = datos.map((d, i) => {
@@ -352,15 +359,17 @@ export const InspeccionesDashboard = () => {
     return (
       <div style={{ width: '100%' }}>
         {/* ENCABEZADO: logo a la izquierda + título grande con el color del taller */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '78px', marginBottom: '0.5rem' }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '112px', marginBottom: '0.5rem' }}>
           {tallerLogo && (
-            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '72px', height: '72px', borderRadius: '14px', backgroundColor: '#ffffff', border: `2px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '7px', boxShadow: '0 3px 10px rgba(0,0,0,0.3)', flexShrink: 0 }}>
+            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '104px', height: '104px', borderRadius: '16px', backgroundColor: '#ffffff', border: `3px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '9px', boxShadow: '0 4px 12px rgba(0,0,0,0.35)', flexShrink: 0 }}>
               <img src={tallerLogo} alt={tallerSeleccionado} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             </div>
           )}
-          <h3 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 900, color: tallerColor, letterSpacing: '0.5px', textAlign: 'center', lineHeight: 1.1, padding: tallerLogo ? '0 88px' : '0' }}>
-            {tallerSeleccionado} <span style={{ color: 'var(--text-muted)', fontWeight: 800 }}>· {ano}</span>
-          </h3>
+          <div style={{ padding: tallerLogo ? '0 120px' : '0', display: 'flex', justifyContent: 'center' }}>
+            <h3 style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.5rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textAlign: 'center', lineHeight: 1.15, backgroundColor: tallerColor, padding: '0.55rem 1.6rem', borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.35)', border: '2px solid rgba(255,255,255,0.25)' }}>
+              {tallerSeleccionado} <span style={{ opacity: 0.85, fontWeight: 800 }}>· {ano}</span>
+            </h3>
+          </div>
         </div>
 
         <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -406,6 +415,13 @@ export const InspeccionesDashboard = () => {
             })}
           </svg>
         </div>
+
+        {/* FRANJA AMARILLA: META PROGRAMADA (como en la imagen de referencia) */}
+        {metaProg > 0 && (
+          <div style={{ marginTop: '0.9rem', backgroundColor: '#F7E733', color: '#111827', padding: '0.7rem 1.25rem', borderRadius: '6px', fontWeight: 800, fontSize: '1rem', letterSpacing: '0.5px', textAlign: 'center', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+            META PROGRAMADA &nbsp; DIARIO : {diarioProg} &nbsp;/&nbsp; SEMANAL {fmtN(semanalProg)} &nbsp;/&nbsp; 4 WEEK : {fmtN(metaProg)} &nbsp;/&nbsp; 5 WEEK {fmtN(semanalProg * 5)}
+          </div>
+        )}
       </div>
     );
   };
