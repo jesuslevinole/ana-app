@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo } from 'react';
+import { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones, idInspeccion, type Inspeccion } from '../hooks/useInspecciones';
@@ -15,8 +15,42 @@ const miFormatearMoneda = (valor: number) =>
 
 // Catálogo: clave de almacenamiento del costo predefinido de la inspección
 const STORAGE_COSTO_DEFAULT = 'inspecciones_costo_default_v1';
-// Catálogo: clave de almacenamiento de la meta programada predefinida
+// Catálogo (LEGADO): meta global única — se conserva solo como respaldo de lectura
 const STORAGE_META_DEFAULT = 'inspecciones_meta_default_v1';
+// Catálogo (NUEVO): metas POR TALLER, con meta de 4 semanas y meta de 5 semanas
+//   Estructura: { [nombreTaller]: { m4: string; m5: string } }
+export const STORAGE_METAS_TALLER = 'inspecciones_metas_taller_v1';
+
+export type MetasTaller = Record<string, { m4: string; m5: string }>;
+
+// Lee el mapa completo de metas por taller desde el almacenamiento
+export const leerMetasTaller = (): MetasTaller => {
+  try {
+    const raw = localStorage.getItem(STORAGE_METAS_TALLER);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? (obj as MetasTaller) : {};
+  } catch {
+    return {};
+  }
+};
+
+// Meta programada de un taller según las semanas del mes (4 o 5).
+// Si el taller no tiene meta propia, cae a la meta global legada (solo 4 semanas).
+export const metaDeTaller = (metas: MetasTaller, taller: string, semanas: number): number => {
+  const reg = metas[taller];
+  const crudo = reg ? (semanas >= 5 ? reg.m5 : reg.m4) : '';
+  let v = parseInt(crudo, 10);
+  if (isNaN(v) || v < 0) {
+    // Respaldo: meta global legada (aplicaba a meses de 4 semanas)
+    if (semanas < 5) {
+      try { v = parseInt(localStorage.getItem(STORAGE_META_DEFAULT) ?? '', 10); } catch { v = NaN; }
+    } else {
+      v = NaN;
+    }
+  }
+  return isNaN(v) || v < 0 ? 0 : v;
+};
 
 export const InspeccionesRegistro = () => {
   const contexto = useContext(AppContext);
@@ -61,17 +95,47 @@ export const InspeccionesRegistro = () => {
     setTimeout(() => setCatalogoGuardado(false), 1800);
   };
 
-  // --- CATÁLOGO: meta programada predefinida (misma para todos, se agrega una sola vez) ---
-  const [metaCatalogo, setMetaCatalogo] = useState<string>(() => {
-    try { return localStorage.getItem(STORAGE_META_DEFAULT) ?? ''; } catch { return ''; }
-  });
+  // --- CATÁLOGO: metas programadas POR TALLER (meta de 4 semanas y meta de 5 semanas) ---
+  const [metasTaller, setMetasTaller] = useState<MetasTaller>(() => leerMetasTaller());
+  const [catTallerMeta, setCatTallerMeta] = useState<string>(''); // taller seleccionado en el catálogo
+  const [catMeta4, setCatMeta4] = useState<string>('');           // meta para meses de 4 semanas
+  const [catMeta5, setCatMeta5] = useState<string>('');           // meta para meses de 5 semanas
   const [catalogoMetaGuardado, setCatalogoMetaGuardado] = useState<boolean>(false);
 
+  const tallerCatalogoActual = catTallerMeta || (talleresOrdenados[0]?.nombre ?? '');
+
+  // Al cambiar de taller en el catálogo, precarga sus metas guardadas
+  const seleccionarTallerCatalogo = (nombre: string) => {
+    setCatTallerMeta(nombre);
+    const reg = metasTaller[nombre];
+    setCatMeta4(reg?.m4 ?? '');
+    setCatMeta5(reg?.m5 ?? '');
+  };
+
+  // Precarga las metas guardadas cuando cambia el taller activo del catálogo
+  useEffect(() => {
+    if (tallerCatalogoActual) {
+      const reg = metasTaller[tallerCatalogoActual];
+      setCatMeta4(reg?.m4 ?? '');
+      setCatMeta5(reg?.m5 ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tallerCatalogoActual]);
+
+  const limpiarEntero = (s: string) => {
+    const v = parseInt(s, 10);
+    return isNaN(v) || v < 0 ? '' : String(v);
+  };
+
   const guardarMetaCatalogo = () => {
-    const v = parseInt(metaCatalogo, 10);
-    const limpio = isNaN(v) || v < 0 ? '' : String(v);
-    setMetaCatalogo(limpio);
-    try { localStorage.setItem(STORAGE_META_DEFAULT, limpio); } catch { /* almacenamiento no disponible */ }
+    if (!tallerCatalogoActual) { alert('Selecciona un taller para guardar sus metas.'); return; }
+    const m4 = limpiarEntero(catMeta4);
+    const m5 = limpiarEntero(catMeta5);
+    const nuevo: MetasTaller = { ...metasTaller, [tallerCatalogoActual]: { m4, m5 } };
+    setMetasTaller(nuevo);
+    setCatMeta4(m4);
+    setCatMeta5(m5);
+    try { localStorage.setItem(STORAGE_METAS_TALLER, JSON.stringify(nuevo)); } catch { /* almacenamiento no disponible */ }
     setCatalogoMetaGuardado(true);
     setTimeout(() => setCatalogoMetaGuardado(false), 1800);
   };
@@ -148,17 +212,20 @@ export const InspeccionesRegistro = () => {
   const costoNum = parseFloat(costo);
   const totalInspeccion = (isNaN(cantNum) ? 0 : cantNum) * (isNaN(costoNum) ? 0 : costoNum);
 
+  // --- Meta programada en vivo dentro del modal: depende del TALLER y de las SEMANAS (4 o 5) ---
+  const semanasNum = parseInt(semanas, 10) === 5 ? 5 : 4;
+  const metaModal = taller ? metaDeTaller(metasTaller, taller, semanasNum) : 0;
+
   const guardar = () => {
     if (!taller) { alert('Selecciona un taller.'); return; }
     const cant = parseInt(cantidad, 10);
     if (isNaN(cant) || cant < 0) { alert('Ingresa un número de inspecciones válido.'); return; }
     const cost = parseFloat(costo);
     const costFinal = isNaN(cost) || cost < 0 ? 0 : cost;
-    // La meta programada es la misma para todos: se toma del catálogo (se define una sola vez)
-    const metaCat = parseInt(metaCatalogo, 10);
-    const metaFinal = isNaN(metaCat) || metaCat < 0 ? 0 : metaCat;
     const semNum = parseInt(semanas, 10);
     const semFinal = semNum === 5 ? 5 : 4;
+    // La meta programada se toma del catálogo POR TALLER, según las semanas del mes (4 o 5)
+    const metaFinal = metaDeTaller(metasTaller, taller, semFinal);
     // Se construye sin anotar el tipo y se castea al guardar para no chocar con el
     // chequeo de propiedades del literal mientras el tipo Inspeccion no declare costo/total.
     const insp = {
@@ -262,25 +329,55 @@ export const InspeccionesRegistro = () => {
           )}
         </div>
         <div style={{ width: '100%', height: '1px', background: 'var(--border)', margin: '0.25rem 0' }} />
-        <div className="form-group" style={{ minWidth: '180px', margin: 0 }}>
-          <label className="form-label">Meta programada de inspecciones</label>
-          <input
-            type="number"
-            min={0}
-            className="form-control"
-            style={{ boxSizing: 'border-box' }}
-            value={metaCatalogo}
-            onChange={(e) => setMetaCatalogo(e.target.value)}
-            placeholder="0"
-          />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
-          <button onClick={guardarMetaCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-            <Save size={16} /> Guardar meta
-          </button>
-          {catalogoMetaGuardado && (
-            <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
-          )}
+        {/* METAS PROGRAMADAS POR TALLER: una meta para meses de 4 semanas y otra para meses de 5 semanas */}
+        <div style={{ width: '100%', display: 'flex', alignItems: 'flex-end', gap: '1.25rem', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ minWidth: '240px', flex: 1, margin: 0 }}>
+            <label className="form-label">Taller (meta programada)</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', boxSizing: 'border-box' }}
+              value={tallerCatalogoActual}
+              onChange={(e) => seleccionarTallerCatalogo(e.target.value)}
+            >
+              {talleresOrdenados.length === 0 && <option value="">Sin talleres</option>}
+              {talleresOrdenados.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{ minWidth: '160px', margin: 0 }}>
+            <label className="form-label">Meta 4 semanas</label>
+            <input
+              type="number"
+              min={0}
+              className="form-control"
+              style={{ boxSizing: 'border-box' }}
+              value={catMeta4}
+              onChange={(e) => setCatMeta4(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div className="form-group" style={{ minWidth: '160px', margin: 0 }}>
+            <label className="form-label">Meta 5 semanas</label>
+            <input
+              type="number"
+              min={0}
+              className="form-control"
+              style={{ boxSizing: 'border-box' }}
+              value={catMeta5}
+              onChange={(e) => setCatMeta5(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
+            <button onClick={guardarMetaCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresOrdenados.length === 0}>
+              <Save size={16} /> Guardar metas
+            </button>
+            {catalogoMetaGuardado && (
+              <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
+            )}
+          </div>
+          <p style={{ width: '100%', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes.
+          </p>
         </div>
       </div>
 
@@ -393,16 +490,16 @@ export const InspeccionesRegistro = () => {
                     </div>
                     <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">
-                        Meta programada <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(del catálogo)</small>
+                        Meta programada <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({semanasNum} semanas · del catálogo del taller)</small>
                       </label>
                       <input
                         type="text"
                         readOnly
                         tabIndex={-1}
                         className="form-control"
-                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)', color: 'var(--text-muted)', cursor: 'default' }}
-                        value={metaCatalogo ? `${metaCatalogo} inspecciones` : 'Sin definir'}
-                        title="La meta se define una sola vez en el Catálogo (arriba). Es la misma para todos."
+                        style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)', color: metaModal > 0 ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'default' }}
+                        value={metaModal > 0 ? `${metaModal} inspecciones` : 'Sin definir'}
+                        title="La meta se define por taller en el Catálogo (arriba), con un valor para meses de 4 semanas y otro para meses de 5 semanas."
                       />
                     </div>
                     <div className="form-group" style={{ minWidth: 0 }}>

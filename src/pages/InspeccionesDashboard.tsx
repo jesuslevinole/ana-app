@@ -6,6 +6,20 @@ import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, 
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
+type FiltroSemanas = 'todas' | '4' | '5';
+
+// Metas por taller guardadas desde el Registro (Catálogo): { [taller]: { m4, m5 } }
+const STORAGE_METAS_TALLER = 'inspecciones_metas_taller_v1';
+const leerMetasTallerDash = (): Record<string, { m4: string; m5: string }> => {
+  try {
+    const raw = localStorage.getItem(STORAGE_METAS_TALLER);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return obj && typeof obj === 'object' ? obj : {};
+  } catch {
+    return {};
+  }
+};
 
 const COLORES = ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849'];
 
@@ -40,6 +54,8 @@ export const InspeccionesDashboard = () => {
   const [taller, setTaller] = useState<string>('');
   const [ano, setAno] = useState<string>(String(anoActual));
   const [modo, setModo] = useState<Modo>('enteros');
+  // Filtro de semanas: 'todas' | '4' | '5'. Con '4' se oculta TODO lo de 5 semanas y viceversa.
+  const [filtroSemanas, setFiltroSemanas] = useState<FiltroSemanas>('todas');
 
   // Controles de gráfico (como en el Dashboard principal)
   const [tipoGrafico, setTipoGrafico] = useState<TipoGrafico>('lineas');
@@ -133,8 +149,10 @@ export const InspeccionesDashboard = () => {
         const semanas = typeof (reg as any).semanas === 'number' && (reg as any).semanas > 0 ? (reg as any).semanas : 4;
         return { mes, cantidad: reg.cantidad, costo, total, meta, semanas };
       })
-      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null);
-  }, [inspecciones, tallerSeleccionado, ano]);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null)
+      // Filtro de semanas: solo meses de 4 semanas, solo de 5, o todos
+      .filter(d => filtroSemanas === 'todas' || d.semanas === parseInt(filtroSemanas, 10));
+  }, [inspecciones, tallerSeleccionado, ano, filtroSemanas]);
 
   // Sectores para torta/anillo/barras/leyenda (distribución sobre el total)
   const datosGrafico = useMemo(() => {
@@ -199,15 +217,19 @@ export const InspeccionesDashboard = () => {
         const semanas = typeof (reg as any).semanas === 'number' && (reg as any).semanas > 0 ? (reg as any).semanas : 4;
         return { mes, cantidad: reg.cantidad, costo, total, meta, semanas };
       })
-      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null);
+      .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null)
+      // El reporte exportado respeta el filtro de semanas activo en el dashboard
+      .filter(d => filtroSemanas === 'todas' || d.semanas === parseInt(filtroSemanas, 10));
 
     const totalCantidad = meses.reduce((a, m) => a + m.cantidad, 0);
     const totalMonto = meses.reduce((a, m) => a + m.total, 0);
     const totalMeta = meses.reduce((a, m) => a + m.meta, 0);
     const cumplimiento = totalMeta > 0 ? (totalCantidad / totalMeta) * 100 : null;
     const promedio = meses.length > 0 ? totalCantidad / meses.length : 0;
-    // Mejor mes: solo meses de 4 semanas (los de 5 semanas se agrupan aparte)
-    const mejor = meses.filter(m => m.semanas < 5).reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
+    // Mejor mes: sin filtro, solo compiten los meses de 4 semanas (los de 5 se agrupan aparte).
+    // Con filtro de semanas activo los meses ya son homogéneos y compiten todos.
+    const mejor = (filtroSemanas === 'todas' ? meses.filter(m => m.semanas < 5) : meses)
+      .reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
     const mejor5 = meses.filter(m => m.semanas >= 5).reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
 
     // Donut: distribución de inspecciones por mes
@@ -320,12 +342,26 @@ export const InspeccionesDashboard = () => {
     const tallerColor = (tallerObj && (tallerObj as any).color) ? (tallerObj as any).color : '#1d8cf8';
     const tallerLogo = tallerObj?.logo || '';
 
-    // Meta programada del catálogo (misma clave que usa el Registro de Inspecciones)
-    let metaProg = 0;
-    try { metaProg = parseInt(localStorage.getItem('inspecciones_meta_default_v1') ?? '', 10) || 0; } catch { metaProg = 0; }
+    // Metas programadas POR TALLER (guardadas desde el Catálogo del Registro):
+    // meta4 = meta para meses de 4 semanas, meta5 = meta para meses de 5 semanas
+    const metasGuardadas = leerMetasTallerDash();
+    const regMetas = metasGuardadas[tallerSeleccionado];
+    let meta4 = regMetas ? parseInt(regMetas.m4, 10) : NaN;
+    if (isNaN(meta4) || meta4 < 0) {
+      // Respaldo: meta global legada (aplicaba a 4 semanas)
+      try { meta4 = parseInt(localStorage.getItem('inspecciones_meta_default_v1') ?? '', 10); } catch { meta4 = NaN; }
+    }
+    if (isNaN(meta4) || meta4 < 0) meta4 = 0;
+    let meta5 = regMetas ? parseInt(regMetas.m5, 10) : NaN;
+    if (isNaN(meta5) || meta5 < 0) meta5 = 0;
+
     const fmtN = (n: number) => String(Math.round(n * 100) / 100);
-    const semanalProg = metaProg > 0 ? metaProg / 4 : 0;
+    // Semanal/diario según la modalidad visible (con '5' se calcula sobre la meta de 5 semanas)
+    const metaBase = filtroSemanas === '5' ? meta5 : meta4;
+    const semanasBase = filtroSemanas === '5' ? 5 : 4;
+    const semanalProg = metaBase > 0 ? metaBase / semanasBase : 0;
     const diarioProg = semanalProg > 0 ? Math.round(semanalProg / 6) : 0;
+    const metaProg = filtroSemanas === '5' ? meta5 : filtroSemanas === '4' ? meta4 : (meta4 || meta5);
 
     // Cada punto se ubica en su mes real (0..11)
     const puntos = datos.map((d, i) => {
@@ -416,10 +452,12 @@ export const InspeccionesDashboard = () => {
           </svg>
         </div>
 
-        {/* FRANJA AMARILLA: META PROGRAMADA (como en la imagen de referencia) */}
+        {/* FRANJA AMARILLA: META PROGRAMADA (respeta el filtro de semanas: 4, 5 o ambas) */}
         {metaProg > 0 && (
           <div style={{ marginTop: '0.9rem', backgroundColor: '#F7E733', color: '#111827', padding: '0.7rem 1.25rem', borderRadius: '6px', fontWeight: 800, fontSize: '1rem', letterSpacing: '0.5px', textAlign: 'center', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-            META PROGRAMADA &nbsp; DIARIO : {diarioProg} &nbsp;/&nbsp; SEMANAL {fmtN(semanalProg)} &nbsp;/&nbsp; 4 WEEK : {fmtN(metaProg)} &nbsp;/&nbsp; 5 WEEK {fmtN(semanalProg * 5)}
+            META PROGRAMADA &nbsp; DIARIO : {diarioProg} &nbsp;/&nbsp; SEMANAL {fmtN(semanalProg)}
+            {filtroSemanas !== '5' && meta4 > 0 && <> &nbsp;/&nbsp; 4 WEEK : {fmtN(meta4)}</>}
+            {filtroSemanas !== '4' && meta5 > 0 && <> &nbsp;/&nbsp; 5 WEEK : {fmtN(meta5)}</>}
           </div>
         )}
       </div>
@@ -539,7 +577,7 @@ export const InspeccionesDashboard = () => {
   const colorCumpl = (v: number | null) => (v === null ? 'var(--text-muted)' : v >= 100 ? 'var(--success)' : v >= 70 ? 'var(--primary)' : 'var(--danger)');
 
   // Reporte del taller seleccionado (para la imagen PNG y el PDF de impresión)
-  const reporteSel = useMemo(() => construirReporte(tallerSeleccionado, ano), [inspecciones, tallerSeleccionado, ano]);
+  const reporteSel = useMemo(() => construirReporte(tallerSeleccionado, ano), [inspecciones, tallerSeleccionado, ano, filtroSemanas]);
 
   // Pequeño componente reutilizable: contenido del reporte (imagen / diapositiva)
   const ContenidoReporte = ({ rep, tNombre, tLogo, landscape }: { rep: any; tNombre: string; tLogo?: string; landscape?: boolean }) => (
@@ -565,6 +603,7 @@ export const InspeccionesDashboard = () => {
           </div>
           <div style={{ fontSize: landscape ? '14px' : '15px', color: '#e2e8f0', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
             REPORTE DE INSPECCIONES &nbsp;·&nbsp; AÑO FISCAL {ano}
+            {filtroSemanas !== 'todas' && <> &nbsp;·&nbsp; SOLO MESES DE {filtroSemanas} SEMANAS</>}
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '24px' }}>
@@ -779,13 +818,25 @@ export const InspeccionesDashboard = () => {
               {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
+          <div className="filter-group">
+            <label>Meta programada (semanas)</label>
+            <select value={filtroSemanas} onChange={(e) => setFiltroSemanas(e.target.value as FiltroSemanas)}>
+              <option value="todas">Todas las semanas</option>
+              <option value="4">Solo 4 semanas</option>
+              <option value="5">Solo 5 semanas</option>
+            </select>
+          </div>
         </div>
 
         {datos.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '1.5rem' }}>
             <Filter size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
             <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Sin inspecciones registradas</h3>
-            <p style={{ color: 'var(--text-muted)' }}>Captura inspecciones en "Registro" para ver la evolución de {tallerSeleccionado || 'este taller'} en {ano}.</p>
+            <p style={{ color: 'var(--text-muted)' }}>
+              {filtroSemanas === 'todas'
+                ? `Captura inspecciones en "Registro" para ver la evolución de ${tallerSeleccionado || 'este taller'} en ${ano}.`
+                : `No hay meses de ${filtroSemanas} semanas registrados para ${tallerSeleccionado || 'este taller'} en ${ano}. Cambia el filtro de semanas o captura inspecciones en "Registro".`}
+            </p>
           </div>
         ) : (
           <>
@@ -795,6 +846,9 @@ export const InspeccionesDashboard = () => {
             </div>
             <div className="kpi-grid insp-kpis">
               {ordenTarjetas.map(id => {
+                // Con el filtro de semanas activo se oculta la tarjeta de la otra modalidad
+                if (filtroSemanas === '4' && id === 'mejor5') return null;
+                if (filtroSemanas === '5' && id === 'mejor4') return null;
                 const card = tarjetasMap[id];
                 if (!card) return null;
                 const arrastrando = dragId === id;
