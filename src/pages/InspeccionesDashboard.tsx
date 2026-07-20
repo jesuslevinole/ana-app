@@ -6,7 +6,8 @@ import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, 
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
-type FiltroSemanas = 'todas' | '4' | '5';
+// '' = sin selección (el dashboard NO se muestra hasta elegir 4 o 5 semanas)
+type FiltroSemanas = '' | '4' | '5';
 
 // Metas por taller guardadas desde el Registro (Catálogo): { [taller]: { m4, m5 } }
 const STORAGE_METAS_TALLER = 'inspecciones_metas_taller_v1';
@@ -54,8 +55,9 @@ export const InspeccionesDashboard = () => {
   const [taller, setTaller] = useState<string>('');
   const [ano, setAno] = useState<string>(String(anoActual));
   const [modo, setModo] = useState<Modo>('enteros');
-  // Filtro de semanas: 'todas' | '4' | '5'. Con '4' se oculta TODO lo de 5 semanas y viceversa.
-  const [filtroSemanas, setFiltroSemanas] = useState<FiltroSemanas>('todas');
+  // Filtro de semanas OBLIGATORIO: hasta no elegir 4 o 5 semanas, el dashboard no se muestra.
+  // El filtro define qué META se usa; la gráfica de líneas siempre muestra el año completo.
+  const [filtroSemanas, setFiltroSemanas] = useState<FiltroSemanas>('');
 
   // Controles de gráfico (como en el Dashboard principal)
   const [tipoGrafico, setTipoGrafico] = useState<TipoGrafico>('lineas');
@@ -137,6 +139,21 @@ export const InspeccionesDashboard = () => {
     return Array.from(set).sort();
   }, [inspecciones, tallerSeleccionado, anoActual]);
 
+  // Metas del catálogo del TALLER seleccionado (guardadas desde el Registro):
+  // m4 = meta mensual para meses de 4 semanas, m5 = meta mensual para meses de 5 semanas
+  const metasCatalogoTaller = useMemo(() => {
+    const reg = leerMetasTallerDash()[tallerSeleccionado];
+    let m4 = reg ? parseInt(reg.m4, 10) : NaN;
+    if (isNaN(m4) || m4 < 0) {
+      // Respaldo: meta global legada (aplicaba a 4 semanas)
+      try { m4 = parseInt(localStorage.getItem('inspecciones_meta_default_v1') ?? '', 10); } catch { m4 = NaN; }
+    }
+    if (isNaN(m4) || m4 < 0) m4 = 0;
+    let m5 = reg ? parseInt(reg.m5, 10) : NaN;
+    if (isNaN(m5) || m5 < 0) m5 = 0;
+    return { m4, m5 };
+  }, [tallerSeleccionado, inspecciones]);
+
   // Datos del taller/año, en orden calendario, solo meses con registro (incluye costo/total)
   const datos = useMemo(() => {
     return MESES
@@ -150,8 +167,8 @@ export const InspeccionesDashboard = () => {
         return { mes, cantidad: reg.cantidad, costo, total, meta, semanas };
       })
       .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null)
-      // Filtro de semanas: solo meses de 4 semanas, solo de 5, o todos
-      .filter(d => filtroSemanas === 'todas' || d.semanas === parseInt(filtroSemanas, 10));
+      // Filtro de semanas (KPIs y tabla): solo meses de la modalidad seleccionada
+      .filter(d => filtroSemanas === '' || d.semanas === parseInt(filtroSemanas, 10));
   }, [inspecciones, tallerSeleccionado, ano, filtroSemanas]);
 
   // Sectores para torta/anillo/barras/leyenda (distribución sobre el total)
@@ -195,12 +212,16 @@ export const InspeccionesDashboard = () => {
     const mejor5 = meses5.reduce((best, d) => (d.cantidad > best.cantidad ? d : best), { mes: '-', cantidad: 0 });
     const hay5 = meses5.length > 0;
     let variacionUltimo: number | null = null;
+    let mesUltimo = '';
+    let mesPenultimo = '';
     if (datos.length >= 2) {
       const a = datos[datos.length - 2].cantidad;
       const b = datos[datos.length - 1].cantidad;
       variacionUltimo = b - a; // diferencia en número de inspecciones (no porcentaje)
+      mesUltimo = datos[datos.length - 1].mes;
+      mesPenultimo = datos[datos.length - 2].mes;
     }
-    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor4, mejor5, hay5, variacionUltimo };
+    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor4, mejor5, hay5, variacionUltimo, mesUltimo, mesPenultimo };
   }, [datos]);
 
   // =========================================================================
@@ -219,7 +240,7 @@ export const InspeccionesDashboard = () => {
       })
       .filter((d): d is { mes: string; cantidad: number; costo: number; total: number; meta: number; semanas: number } => d !== null)
       // El reporte exportado respeta el filtro de semanas activo en el dashboard
-      .filter(d => filtroSemanas === 'todas' || d.semanas === parseInt(filtroSemanas, 10));
+      .filter(d => filtroSemanas === '' || d.semanas === parseInt(filtroSemanas, 10));
 
     const totalCantidad = meses.reduce((a, m) => a + m.cantidad, 0);
     const totalMonto = meses.reduce((a, m) => a + m.total, 0);
@@ -228,7 +249,7 @@ export const InspeccionesDashboard = () => {
     const promedio = meses.length > 0 ? totalCantidad / meses.length : 0;
     // Mejor mes: sin filtro, solo compiten los meses de 4 semanas (los de 5 se agrupan aparte).
     // Con filtro de semanas activo los meses ya son homogéneos y compiten todos.
-    const mejor = (filtroSemanas === 'todas' ? meses.filter(m => m.semanas < 5) : meses)
+    const mejor = (filtroSemanas === '' ? meses.filter(m => m.semanas < 5) : meses)
       .reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
     const mejor5 = meses.filter(m => m.semanas >= 5).reduce((b, m) => (m.cantidad > b.cantidad ? m : b), { mes: '-', cantidad: 0 });
 
@@ -342,42 +363,48 @@ export const InspeccionesDashboard = () => {
     const tallerColor = (tallerObj && (tallerObj as any).color) ? (tallerObj as any).color : '#1d8cf8';
     const tallerLogo = tallerObj?.logo || '';
 
-    // Metas programadas POR TALLER (guardadas desde el Catálogo del Registro):
-    // meta4 = meta para meses de 4 semanas, meta5 = meta para meses de 5 semanas
-    const metasGuardadas = leerMetasTallerDash();
-    const regMetas = metasGuardadas[tallerSeleccionado];
-    let meta4 = regMetas ? parseInt(regMetas.m4, 10) : NaN;
-    if (isNaN(meta4) || meta4 < 0) {
-      // Respaldo: meta global legada (aplicaba a 4 semanas)
-      try { meta4 = parseInt(localStorage.getItem('inspecciones_meta_default_v1') ?? '', 10); } catch { meta4 = NaN; }
-    }
-    if (isNaN(meta4) || meta4 < 0) meta4 = 0;
-    let meta5 = regMetas ? parseInt(regMetas.m5, 10) : NaN;
-    if (isNaN(meta5) || meta5 < 0) meta5 = 0;
+    // Metas programadas POR TALLER (calculadas a nivel componente desde el catálogo)
+    const { m4: meta4, m5: meta5 } = metasCatalogoTaller;
 
     const fmtN = (n: number) => String(Math.round(n * 100) / 100);
-    // Semanal/diario según la modalidad visible (con '5' se calcula sobre la meta de 5 semanas)
+    // Semanal/diario según la modalidad seleccionada (con '5' se calcula sobre la meta de 5 semanas)
     const metaBase = filtroSemanas === '5' ? meta5 : meta4;
     const semanasBase = filtroSemanas === '5' ? 5 : 4;
     const semanalProg = metaBase > 0 ? metaBase / semanasBase : 0;
     const diarioProg = semanalProg > 0 ? Math.round(semanalProg / 6) : 0;
-    const metaProg = filtroSemanas === '5' ? meta5 : filtroSemanas === '4' ? meta4 : (meta4 || meta5);
+    const metaProg = filtroSemanas === '5' ? meta5 : meta4;
+
+    // TODOS los meses del taller/año, SIN filtro de semanas: la gráfica de líneas
+    // siempre muestra el año completo. El filtro solo decide qué META se muestra
+    // y cada mes se etiqueta con sus semanas (4 o 5).
+    const datosLinea = MESES
+      .map(mes => {
+        const reg = inspecciones.find(i => i.taller === tallerSeleccionado && String(i.ano) === ano && i.mes === mes);
+        if (!reg) return null;
+        const semReg = typeof (reg as any).semanas === 'number' && (reg as any).semanas > 0 ? (reg as any).semanas : 4;
+        return { mes, cantidad: reg.cantidad, semanas: semReg >= 5 ? 5 : 4 };
+      })
+      .filter((d): d is { mes: string; cantidad: number; semanas: number } => d !== null);
+
+    // Semanas por mes (para etiquetar el eje X): mes -> 4 | 5
+    const semanasPorMes: Record<string, number> = {};
+    datosLinea.forEach(d => { semanasPorMes[d.mes] = d.semanas; });
 
     // Cada punto se ubica en su mes real (0..11)
-    const puntos = datos.map((d, i) => {
+    const puntos = datosLinea.map((d, i) => {
       const monthIdx = Math.max(0, MESES.indexOf(d.mes)); // 0..11
       let valor: number;
       if (!esPct) {
         valor = d.cantidad;
       } else {
-        const prev = i > 0 ? datos[i - 1].cantidad : 0;
+        const prev = i > 0 ? datosLinea[i - 1].cantidad : 0;
         valor = i > 0 && prev > 0 ? Number((((d.cantidad - prev) / prev) * 100).toFixed(1)) : 0;
       }
-      return { monthIdx, valor, cantidad: d.cantidad, mes: d.mes };
+      return { monthIdx, valor, cantidad: d.cantidad, mes: d.mes, semanas: d.semanas };
     });
 
-    // Gráfica un poco más pequeña
-    const W = 960, H = 520, pl = 56, pr = 32, pt = 32, pb = 52;
+    // Gráfica un poco más pequeña (pb amplio: nombre del mes + etiqueta de semanas)
+    const W = 960, H = 536, pl = 56, pr = 32, pt = 32, pb = 68;
     const iw = W - pl - pr, ih = H - pt - pb;
     const vals = puntos.map(p => p.valor);
     let min = Math.min(...vals, 0);
@@ -426,17 +453,29 @@ export const InspeccionesDashboard = () => {
             })}
             {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="#3f4a58" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
 
-            {/* Etiquetas del eje X: meses 1..12 */}
-            {Array.from({ length: 12 }).map((_, m) => (
-              <text key={`xl-${m}`} x={X(m)} y={H - pb + 28} textAnchor="middle" fontSize="13" fontWeight="700" fill="#3f4a58">{m + 1}</text>
-            ))}
+            {/* Etiquetas del eje X: nombre del mes + sus semanas (4 SEM / 5 SEM) */}
+            {Array.from({ length: 12 }).map((_, m) => {
+              const nombreMes = MESES[m] ?? '';
+              const sem = semanasPorMes[nombreMes]; // undefined si el mes no tiene registro
+              const esCinco = sem === 5;
+              return (
+                <g key={`xl-${m}`}>
+                  <text x={X(m)} y={H - pb + 26} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#3f4a58">{nombreMes.substring(0, 3)}</text>
+                  {sem !== undefined && (
+                    <text x={X(m)} y={H - pb + 42} textAnchor="middle" fontSize="9.5" fontWeight="800" fill={esCinco ? '#7c3aed' : '#64748b'} letterSpacing="0.5">
+                      {sem} SEM
+                    </text>
+                  )}
+                </g>
+              );
+            })}
 
             {/* Línea que conecta los puntos con datos (color del taller) */}
             {puntos.length > 1 && (
               <polyline points={poly} fill="none" stroke={tallerColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
             )}
 
-            {/* Círculos: color del taller + cantidad de inspecciones dentro */}
+            {/* Círculos: color del taller + cantidad dentro; los meses de 5 semanas llevan anillo punteado */}
             {puntos.map((p, i) => {
               const cx = X(p.monthIdx), cy = Y(p.valor);
               const texto = esPct ? `${p.valor}%` : String(p.cantidad);
@@ -444,6 +483,9 @@ export const InspeccionesDashboard = () => {
               const fs = texto.length >= 4 ? 10.5 : texto.length === 3 ? 11.5 : 13;
               return (
                 <g key={`pt-${i}`}>
+                  {p.semanas === 5 && (
+                    <circle cx={cx} cy={cy} r={r + 5} fill="none" stroke="#7c3aed" strokeWidth="2" strokeDasharray="4,3" />
+                  )}
                   <circle cx={cx} cy={cy} r={r} fill={tallerColor} stroke="#ffffff" strokeWidth="3" />
                   <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="#ffffff">{texto}</text>
                 </g>
@@ -566,7 +608,10 @@ export const InspeccionesDashboard = () => {
   };
 
   const notaGrafico = () => {
-    if (tipoGrafico === 'lineas') return modo === 'enteros' ? 'Número de inspecciones por mes.' : 'Variación porcentual respecto al mes anterior.';
+    if (tipoGrafico === 'lineas') {
+      const base = modo === 'enteros' ? 'Número de inspecciones por mes.' : 'Variación porcentual respecto al mes anterior.';
+      return `${base} La gráfica muestra todos los meses del año: la etiqueta bajo cada mes indica si fue de 4 o 5 semanas (los de 5 semanas llevan anillo punteado).`;
+    }
     if (tipoGrafico === 'barras') return 'Número de inspecciones por mes.';
     return 'Distribución de inspecciones por mes (% del total anual).';
   };
@@ -603,7 +648,7 @@ export const InspeccionesDashboard = () => {
           </div>
           <div style={{ fontSize: landscape ? '14px' : '15px', color: '#e2e8f0', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
             REPORTE DE INSPECCIONES &nbsp;·&nbsp; AÑO FISCAL {ano}
-            {filtroSemanas !== 'todas' && <> &nbsp;·&nbsp; SOLO MESES DE {filtroSemanas} SEMANAS</>}
+            {filtroSemanas !== '' && <> &nbsp;·&nbsp; SOLO MESES DE {filtroSemanas} SEMANAS</>}
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '24px' }}>
@@ -712,14 +757,24 @@ export const InspeccionesDashboard = () => {
     </>
   );
 
-  const hayDatos = datos.length > 0;
+  // Sin semanas seleccionadas no hay dashboard ni exportaciones
+  const hayDatos = filtroSemanas !== '' && datos.length > 0;
 
   // Mapa de tarjetas KPI (para renderizarlas en el orden guardado/arrastrado)
+  const metaCard4 = metasCatalogoTaller.m4;
+  const metaCard5 = metasCatalogoTaller.m5;
   const tarjetasMap: Record<string, React.ReactNode> = {
     meta: (
       <div className="kpi-card">
-        <div className="kpi-title">Meta {ano} <Target size={16} color="var(--primary)" /></div>
-        <div className="kpi-value" style={{ color: 'var(--primary)' }}>{kpis.totalMeta > 0 ? fmtNum(kpis.totalMeta) : '—'}</div>
+        <div className="kpi-title">
+          Meta ({filtroSemanas || '4'} semanas) <Target size={16} color="var(--primary)" />
+        </div>
+        <div className="kpi-value" style={{ color: 'var(--primary)' }}>
+          {(filtroSemanas === '5' ? metaCard5 : metaCard4) > 0 ? fmtNum(filtroSemanas === '5' ? metaCard5 : metaCard4) : '—'}
+        </div>
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+          Meta mensual del taller · {filtroSemanas || '4'} semanas
+        </div>
       </div>
     ),
     mejor4: (
@@ -747,6 +802,13 @@ export const InspeccionesDashboard = () => {
         <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
           {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo}`}
         </div>
+        {kpis.variacionUltimo !== null && (
+          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.3rem', lineHeight: 1.35 }}>
+            {kpis.variacionUltimo > 0 && <>En {kpis.mesUltimo} sobraron <strong style={{ color: 'var(--success)' }}>{kpis.variacionUltimo}</strong> respecto a {kpis.mesPenultimo}</>}
+            {kpis.variacionUltimo < 0 && <>En {kpis.mesUltimo} faltaron <strong style={{ color: 'var(--danger)' }}>{Math.abs(kpis.variacionUltimo)}</strong> para igualar {kpis.mesPenultimo}</>}
+            {kpis.variacionUltimo === 0 && <>{kpis.mesUltimo} igualó a {kpis.mesPenultimo}</>}
+          </div>
+        )}
       </div>
     ),
     cumplimiento: (
@@ -791,7 +853,7 @@ export const InspeccionesDashboard = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <button onClick={() => abrirAjustePDF('ejecutivo')} disabled={generandoPDF} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: generandoPDF ? 'not-allowed' : 'pointer', opacity: generandoPDF ? 0.6 : 1, background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }} title="PDF ejecutivo: una hoja por taller del año seleccionado">
+            <button onClick={() => abrirAjustePDF('ejecutivo')} disabled={generandoPDF || filtroSemanas === ''} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (generandoPDF || filtroSemanas === '') ? 'not-allowed' : 'pointer', opacity: (generandoPDF || filtroSemanas === '') ? 0.6 : 1, background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)' }} title={filtroSemanas === '' ? 'Selecciona 4 o 5 semanas para exportar' : 'PDF ejecutivo: una hoja por taller del año seleccionado'}>
               <FileText size={18} /> {generandoPDF ? 'Generando PDF...' : 'PDF Ejecutivo (Todos los Talleres)'}
             </button>
             <button onClick={generarImagen} disabled={!hayDatos || generandoImagen} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (!hayDatos || generandoImagen) ? 'not-allowed' : 'pointer', opacity: (!hayDatos || generandoImagen) ? 0.55 : 1, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.35)' }} title={!hayDatos ? 'Sin datos para exportar' : 'Descargar reporte como imagen PNG'}>
@@ -821,21 +883,27 @@ export const InspeccionesDashboard = () => {
           <div className="filter-group">
             <label>Meta programada (semanas)</label>
             <select value={filtroSemanas} onChange={(e) => setFiltroSemanas(e.target.value as FiltroSemanas)}>
-              <option value="todas">Todas las semanas</option>
-              <option value="4">Solo 4 semanas</option>
-              <option value="5">Solo 5 semanas</option>
+              <option value="">Selecciona semanas...</option>
+              <option value="4">4 semanas</option>
+              <option value="5">5 semanas</option>
             </select>
           </div>
         </div>
 
-        {datos.length === 0 ? (
+        {filtroSemanas === '' ? (
+          <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '1.5rem' }}>
+            <Target size={48} color="var(--primary)" style={{ opacity: 0.7, marginBottom: '1rem' }} />
+            <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Selecciona la meta programada</h3>
+            <p style={{ color: 'var(--text-muted)', maxWidth: '520px', margin: '0 auto' }}>
+              Elige <strong style={{ color: 'var(--text-main)' }}>4 semanas</strong> o <strong style={{ color: 'var(--text-main)' }}>5 semanas</strong> en el filtro "Meta programada (semanas)" para ver el dashboard de {tallerSeleccionado || 'este taller'} con la meta correspondiente.
+            </p>
+          </div>
+        ) : datos.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '1.5rem' }}>
             <Filter size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
             <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Sin inspecciones registradas</h3>
             <p style={{ color: 'var(--text-muted)' }}>
-              {filtroSemanas === 'todas'
-                ? `Captura inspecciones en "Registro" para ver la evolución de ${tallerSeleccionado || 'este taller'} en ${ano}.`
-                : `No hay meses de ${filtroSemanas} semanas registrados para ${tallerSeleccionado || 'este taller'} en ${ano}. Cambia el filtro de semanas o captura inspecciones en "Registro".`}
+              No hay meses de {filtroSemanas} semanas registrados para {tallerSeleccionado || 'este taller'} en {ano}. Cambia el filtro de semanas o captura inspecciones en "Registro".
             </p>
           </div>
         ) : (

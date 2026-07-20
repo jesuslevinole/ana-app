@@ -79,6 +79,10 @@ export const InspeccionesRegistro = () => {
   const [cantidad, setCantidad] = useState<string>('');
   const [costo, setCosto] = useState<string>(''); // NUEVO: costo por inspección
   const [semanas, setSemanas] = useState<string>('4'); // NUEVO: semanas del mes (4 o 5)
+  // Al EDITAR: meta/taller/semanas originales del registro, para NO pisar la meta ya guardada
+  const [metaOriginal, setMetaOriginal] = useState<number | null>(null);
+  const [tallerOriginal, setTallerOriginal] = useState<string>('');
+  const [semanasOriginal, setSemanasOriginal] = useState<number>(4);
 
   // --- CATÁLOGO: costo predefinido de la inspección (persistente) ---
   const [costoCatalogo, setCostoCatalogo] = useState<string>(() => {
@@ -184,6 +188,9 @@ export const InspeccionesRegistro = () => {
     setCantidad('');
     setCosto(costoCatalogo || ''); // precarga el costo predefinido del catálogo
     setSemanas('4');
+    setMetaOriginal(null);
+    setTallerOriginal('');
+    setSemanasOriginal(4);
     setModalAbierto(true);
   };
 
@@ -194,7 +201,12 @@ export const InspeccionesRegistro = () => {
     setMes(i.mes);
     setCantidad(String(i.cantidad));
     setCosto((i as any).costo != null ? String((i as any).costo) : '');
-    setSemanas((i as any).semanas != null && (i as any).semanas > 0 ? String((i as any).semanas) : '4');
+    const semReg = (i as any).semanas != null && (i as any).semanas > 0 ? Number((i as any).semanas) : 4;
+    setSemanas(String(semReg));
+    // Se conserva la meta YA GUARDADA del registro: editarlo no debe tomar la meta nueva del catálogo
+    setMetaOriginal(typeof (i as any).meta === 'number' ? (i as any).meta : null);
+    setTallerOriginal(i.taller);
+    setSemanasOriginal(semReg === 5 ? 5 : 4);
     setModalAbierto(true);
   };
 
@@ -212,9 +224,19 @@ export const InspeccionesRegistro = () => {
   const costoNum = parseFloat(costo);
   const totalInspeccion = (isNaN(cantNum) ? 0 : cantNum) * (isNaN(costoNum) ? 0 : costoNum);
 
-  // --- Meta programada en vivo dentro del modal: depende del TALLER y de las SEMANAS (4 o 5) ---
+  // --- Meta programada en vivo dentro del modal ---
+  // Al EDITAR se conserva la meta original del registro (los cambios del catálogo
+  // no afectan lo ya guardado). Solo se recalcula del catálogo si cambian el
+  // taller o las semanas, porque entonces la meta original ya no aplica.
   const semanasNum = parseInt(semanas, 10) === 5 ? 5 : 4;
-  const metaModal = taller ? metaDeTaller(metasTaller, taller, semanasNum) : 0;
+  const conservaMetaOriginal =
+    editandoId !== null &&
+    metaOriginal !== null &&
+    taller === tallerOriginal &&
+    semanasNum === semanasOriginal;
+  const metaModal = conservaMetaOriginal
+    ? (metaOriginal as number)
+    : (taller ? metaDeTaller(metasTaller, taller, semanasNum) : 0);
 
   const guardar = () => {
     if (!taller) { alert('Selecciona un taller.'); return; }
@@ -224,8 +246,12 @@ export const InspeccionesRegistro = () => {
     const costFinal = isNaN(cost) || cost < 0 ? 0 : cost;
     const semNum = parseInt(semanas, 10);
     const semFinal = semNum === 5 ? 5 : 4;
-    // La meta programada se toma del catálogo POR TALLER, según las semanas del mes (4 o 5)
-    const metaFinal = metaDeTaller(metasTaller, taller, semFinal);
+    // Meta final: al editar se CONSERVA la meta original del registro (salvo que
+    // cambien taller o semanas); al crear se toma del catálogo por taller.
+    const metaFinal =
+      editandoId !== null && metaOriginal !== null && taller === tallerOriginal && semFinal === semanasOriginal
+        ? metaOriginal
+        : metaDeTaller(metasTaller, taller, semFinal);
     // Se construye sin anotar el tipo y se castea al guardar para no chocar con el
     // chequeo de propiedades del literal mientras el tipo Inspeccion no declare costo/total.
     const insp = {
@@ -376,7 +402,7 @@ export const InspeccionesRegistro = () => {
             )}
           </div>
           <p style={{ width: '100%', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes.
+            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes. <strong style={{ color: 'var(--text-main)' }}>Cambiar estas metas no afecta los registros ya guardados</strong>: cada registro conserva la meta con la que fue capturado.
           </p>
         </div>
       </div>
@@ -490,7 +516,9 @@ export const InspeccionesRegistro = () => {
                     </div>
                     <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">
-                        Meta programada <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({semanasNum} semanas · del catálogo del taller)</small>
+                        Meta programada <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                          {conservaMetaOriginal ? '(meta original del registro)' : `(${semanasNum} semanas · del catálogo del taller)`}
+                        </small>
                       </label>
                       <input
                         type="text"
@@ -499,7 +527,9 @@ export const InspeccionesRegistro = () => {
                         className="form-control"
                         style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)', color: metaModal > 0 ? 'var(--text-main)' : 'var(--text-muted)', cursor: 'default' }}
                         value={metaModal > 0 ? `${metaModal} inspecciones` : 'Sin definir'}
-                        title="La meta se define por taller en el Catálogo (arriba), con un valor para meses de 4 semanas y otro para meses de 5 semanas."
+                        title={conservaMetaOriginal
+                          ? 'Este registro conserva la meta con la que fue guardado. Los cambios posteriores del catálogo no lo afectan (solo se recalcula si cambias el taller o las semanas).'
+                          : 'La meta se define por taller en el Catálogo (arriba), con un valor para meses de 4 semanas y otro para meses de 5 semanas.'}
                       />
                     </div>
                     <div className="form-group" style={{ minWidth: 0 }}>
