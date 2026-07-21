@@ -80,18 +80,36 @@ export const Comparacion = () => {
   }, [periodo1]);
   const maxVentaMensual = Math.max(...datasetLeft.map(d => d.ventas));
 
-  // Construcción de Dataset para Gráfico Derecho
+  // ============================================================================
+  // ORDEN CRONOLÓGICO: el período más ANTIGUO siempre es la base (va arriba en la
+  // tabla) y el más RECIENTE se compara contra él, sin importar en qué filtro
+  // (T1 o T2) los haya puesto el usuario. Así, si 2026 generó menos que 2025,
+  // el resultado es DECRECIMIENTO aunque 2026 esté seleccionado como período base.
+  // ============================================================================
+  const keyPeriodo = (a: string, t: keyof typeof TRIMESTRES) =>
+    parseInt(a, 10) * 4 + Object.keys(TRIMESTRES).indexOf(t);
+  const p1EsAntiguo = keyPeriodo(ano1, trimestre1) <= keyPeriodo(ano2, trimestre2);
+
+  // "base" = período más antiguo · "reciente" = período más nuevo
+  const base = p1EsAntiguo
+    ? { total: periodo1.total, label: `${trimestre1} ${ano1}` }
+    : { total: periodo2.total, label: `${trimestre2} ${ano2}` };
+  const reciente = p1EsAntiguo
+    ? { total: periodo2.total, label: `${trimestre2} ${ano2}` }
+    : { total: periodo1.total, label: `${trimestre1} ${ano1}` };
+
   const totalAmbosPeriodos = periodo1.total + periodo2.total;
-  const pctPeriodo1 = totalAmbosPeriodos > 0 ? (periodo1.total / totalAmbosPeriodos) * 100 : 0;
-  const pctPeriodo2 = totalAmbosPeriodos > 0 ? (periodo2.total / totalAmbosPeriodos) * 100 : 0;
-  const crecimiento = periodo1.total > 0 ? ((periodo2.total - periodo1.total) / periodo1.total) * 100 : 0;
-  
+  const pctBase = totalAmbosPeriodos > 0 ? (base.total / totalAmbosPeriodos) * 100 : 0;
+  const pctReciente = totalAmbosPeriodos > 0 ? (reciente.total / totalAmbosPeriodos) * 100 : 0;
+  // Crecimiento REAL: cuánto cambió el período reciente respecto al antiguo
+  const crecimiento = base.total > 0 ? ((reciente.total - base.total) / base.total) * 100 : 0;
+
   const datasetRight = useMemo(() => {
     return [
-      { id: 'R1', label: `${trimestre1} ${ano1}`, ventas: periodo1.total, color: '#1d8cf8', pctStr: pctPeriodo1.toFixed(2) },
-      { id: 'R2', label: `${trimestre2} ${ano2}`, ventas: periodo2.total, color: '#ff8d72', pctStr: pctPeriodo2.toFixed(2) }
+      { id: 'R1', label: base.label, ventas: base.total, color: '#1d8cf8', pctStr: pctBase.toFixed(2) },
+      { id: 'R2', label: reciente.label, ventas: reciente.total, color: '#ff8d72', pctStr: pctReciente.toFixed(2) }
     ];
-  }, [trimestre1, ano1, periodo1.total, pctPeriodo1, trimestre2, ano2, periodo2.total, pctPeriodo2]);
+  }, [base.label, base.total, pctBase, reciente.label, reciente.total, pctReciente]);
   const maxTotalComparacion = Math.max(...datasetRight.map(d => d.ventas));
 
   // ============================================================================
@@ -444,7 +462,7 @@ export const Comparacion = () => {
           {/* Tabla comparación (T1 vs T2) */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', order: 2 }}>
             <div className="report-header" style={{ borderTop: '3px solid var(--text-muted)' }}>
-              CRECIMIENTO: {ano1} VS {ano2}
+              CRECIMIENTO: {base.label} VS {reciente.label}
             </div>
             <table className="table" style={{ width: '100%' }}>
               <thead>
@@ -491,7 +509,7 @@ export const Comparacion = () => {
                     </div>
                   </td>
                   <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 800, color: crecimiento >= 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
-                    {crecimiento >= 0 ? '+' : '-'}{miFormatearMoneda(Math.abs(periodo2.total - periodo1.total))}
+                    {crecimiento >= 0 ? '+' : '-'}{miFormatearMoneda(Math.abs(reciente.total - base.total))}
                   </td>
                   <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 800, color: crecimiento >= 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
                     {crecimiento > 0 ? '+' : ''}{crecimiento.toFixed(2)}%
