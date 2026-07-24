@@ -1010,7 +1010,7 @@ export const Dashboard = () => {
           </div>
         ) : (
           <>
-            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem' }}>Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
+            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%' }}>Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
             <div className="kpi-grid">
               <div className="kpi-card meta">
                 <div className="kpi-title">Meta Total <Target size={16} /></div>
@@ -1038,7 +1038,7 @@ export const Dashboard = () => {
                 </div>
               </div>
               
-              <div className="kpi-card" style={{ position: 'relative' }}>
+              <div className="kpi-card" style={{ position: 'relative', borderBottom: '3px solid var(--primary)' }}>
                 {/* SOLO EL PORCENTAJE E ICONO, PARTE SUPERIOR DERECHA */}
                 <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-main)' }}>
                   <Target size={16} color="var(--primary)" />

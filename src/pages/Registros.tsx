@@ -112,6 +112,21 @@ export const Registros = () => {
     return { totalMeta, totalLogrado, sumaPorcentajes, cumplimientoGlobal, count: registrosFiltrados.length };
   }, [registrosFiltrados]);
 
+  // --- META ANUAL: suma de las METAS MENSUALES del año (por taller o consolidado) ---
+  // Usa el año del filtro (o el año en curso si el filtro está en 'Todos los años')
+  // y el taller del filtro (o todos los talleres = consolidado global).
+  const anoResumen = filtroAno || String(new Date().getFullYear());
+  const resumenAnual = useMemo(() => {
+    const regs = contexto.registros.filter(r =>
+      r.ano.toString() === anoResumen && (!filtroTaller || r.taller === filtroTaller)
+    );
+    const metaAnual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
+    const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
+    const faltante = Math.max(metaAnual - logrado, 0);
+    const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
+    return { metaAnual, logrado, faltante, pct, tieneDatos: regs.length > 0 };
+  }, [contexto.registros, anoResumen, filtroTaller]);
+
   const handleEditar = (registro: Registro) => { 
     contexto.setRegistroEditando(registro); 
     contexto.setVista('formulario'); 
@@ -304,6 +319,45 @@ export const Registros = () => {
             <option value="">Todos los talleres</option>
             {talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
+        </div>
+      </div>
+
+      {/* META ANUAL DEL TALLER (o consolidado): suma de metas mensuales del año */}
+      <div style={{
+        backgroundColor: 'var(--bg-panel)', borderRadius: '12px', padding: '1.1rem 1.5rem', marginBottom: '1.5rem',
+        border: '1px solid var(--border)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      }}>
+        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.85rem' }}>
+          Meta anual {anoResumen} · {filtroTaller || 'Todos los talleres'} <span style={{ fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>(suma de las metas mensuales del año)</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: '3px solid #ffbc11' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Meta Anual</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{resumenAnual.tieneDatos ? miFormatearMoneda(resumenAnual.metaAnual) : '—'}</div>
+          </div>
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: '3px solid var(--primary)' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Logrado</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{resumenAnual.tieneDatos ? miFormatearMoneda(resumenAnual.logrado) : '—'}</div>
+          </div>
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: `3px solid ${resumenAnual.tieneDatos && resumenAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Faltante para la meta</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: resumenAnual.tieneDatos && resumenAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+              {!resumenAnual.tieneDatos ? '—' : resumenAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenAnual.faltante)}
+            </div>
+          </div>
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: `3px solid ${resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)'}` }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>% Alcanzado</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                {resumenAnual.tieneDatos ? `${resumenAnual.pct.toFixed(2)}%` : '—'}
+              </span>
+              {resumenAnual.tieneDatos && (
+                <div style={{ flex: 1, height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(resumenAnual.pct, 100)}%`, height: '100%', backgroundColor: resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

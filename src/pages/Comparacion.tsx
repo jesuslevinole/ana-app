@@ -110,6 +110,23 @@ export const Comparacion = () => {
       { id: 'R2', label: reciente.label, ventas: reciente.total, color: '#ff8d72', pctStr: pctReciente.toFixed(2) }
     ];
   }, [base.label, base.total, pctBase, reciente.label, reciente.total, pctReciente]);
+
+  // ============================================================================
+  // META ANUAL por año seleccionado: suma de las METAS MENSUALES de todo el año
+  // (respetando el filtro de taller). Incluye lo logrado en el año, lo que falta
+  // para alcanzar la meta anual y el % alcanzado hasta el momento.
+  // ============================================================================
+  const resumenesAnuales = useMemo(() => {
+    const anos = Array.from(new Set([ano1, ano2])).sort();
+    return anos.map(anoStr => {
+      const regs = registros.filter(r => r.ano.toString() === anoStr && (taller === 'Todos' || r.taller === taller));
+      const metaAnual = regs.reduce((a, r) => a + (r.meta || 0), 0);
+      const logrado = regs.reduce((a, r) => a + (r.logrado || 0), 0);
+      const faltante = Math.max(metaAnual - logrado, 0);
+      const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
+      return { ano: anoStr, metaAnual, logrado, faltante, pct, tieneDatos: regs.length > 0 };
+    });
+  }, [registros, taller, ano1, ano2]);
   const maxTotalComparacion = Math.max(...datasetRight.map(d => d.ventas));
 
   // ============================================================================
@@ -185,8 +202,8 @@ export const Comparacion = () => {
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer'
                   }}
                 >
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(op.ventas)}</span>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.ventas)}</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color, whiteSpace: 'nowrap' }}>{op.pctStr}%</span>
                 </div>
               );
             })}
@@ -213,8 +230,8 @@ export const Comparacion = () => {
                 }}
               >
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.ventas)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
+                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.ventas)}</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color, whiteSpace: 'nowrap' }}>{op.pctStr}%</span>
                 </div>
               </div>
             );
@@ -253,7 +270,7 @@ export const Comparacion = () => {
               >
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.ventas)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color, whiteSpace: 'nowrap' }}>{op.pctStr}%</span>
                 </div>
               </div>
             );
@@ -323,7 +340,7 @@ export const Comparacion = () => {
               >
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s', pointerEvents: 'none' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none' }}>{miFormatearMoneda(op.ventas)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.pctStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color, whiteSpace: 'nowrap' }}>{op.pctStr}%</span>
                 </div>
               </div>
             );
@@ -561,6 +578,58 @@ export const Comparacion = () => {
                 </li>
               ))}
             </ul>
+          </div>
+
+          {/* META ANUAL POR AÑO: suma de metas mensuales, logrado, faltante y % alcanzado (arriba de la comparación) */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden', order: 0, gridColumn: '1 / -1' }}>
+            <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
+              META ANUAL POR AÑO &nbsp;·&nbsp; {taller === 'Todos' ? 'CONSOLIDADO GLOBAL' : taller.toUpperCase()}
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Año</th>
+                    <th style={{ textAlign: 'right' }}>Meta Anual</th>
+                    <th style={{ textAlign: 'right' }}>Logrado</th>
+                    <th style={{ textAlign: 'right' }}>Faltante</th>
+                    <th style={{ textAlign: 'center', minWidth: '180px' }}>% Alcanzado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumenesAnuales.map(r => {
+                    const colorPct = r.pct >= 100 ? 'var(--success)' : r.pct >= 70 ? 'var(--primary)' : 'var(--danger)';
+                    return (
+                      <tr key={`ma-${r.ano}`}>
+                        <td><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>{r.ano}</strong></td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+                          {r.tieneDatos ? miFormatearMoneda(r.metaAnual) : '—'}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                          {r.tieneDatos ? miFormatearMoneda(r.logrado) : '—'}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 700, color: r.tieneDatos && r.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                          {!r.tieneDatos ? '—' : r.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(r.faltante)}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {!r.tieneDatos ? '—' : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                              <div style={{ flex: 1, maxWidth: '120px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min(r.pct, 100)}%`, height: '100%', backgroundColor: colorPct, borderRadius: '4px', transition: 'width 0.4s' }} />
+                              </div>
+                              <span style={{ fontWeight: 800, color: colorPct, whiteSpace: 'nowrap', fontSize: '0.85rem' }}>{r.pct.toFixed(2)}%</span>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+              La meta anual es la suma de las metas mensuales registradas del año. "Faltante" es lo que resta por lograr para alcanzarla y "% Alcanzado" es el avance hasta el momento (logrado ÷ meta anual).
+            </p>
           </div>
 
       </div>

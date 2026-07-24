@@ -144,6 +144,15 @@ export const InspeccionesRegistro = () => {
     setTimeout(() => setCatalogoMetaGuardado(false), 1800);
   };
 
+  // META ANUAL del taller del catálogo: suma de las metas mensuales de sus registros
+  // capturados en el año (el del filtro Año, o el año en curso si el filtro está en 'Todos')
+  const anoMetaAnual = filtroAno !== 'Todos' ? filtroAno : String(anoActual);
+  const metaAnualCatalogo = useMemo(() => {
+    return inspecciones
+      .filter(i => i.taller === tallerCatalogoActual && String(i.ano) === anoMetaAnual)
+      .reduce((acc, i) => acc + (typeof (i as any).meta === 'number' ? (i as any).meta : 0), 0);
+  }, [inspecciones, tallerCatalogoActual, anoMetaAnual]);
+
   const anosDisponibles = useMemo(() => {
     const set = new Set<string>(inspecciones.map(i => String(i.ano)));
     set.add(String(anoActual));
@@ -401,8 +410,17 @@ export const InspeccionesRegistro = () => {
               <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
             )}
           </div>
+          {/* META ANUAL: suma de las metas mensuales de los registros del taller en el año */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 1rem', backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', borderBottom: '3px solid #ffbc11' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+              Meta anual {anoMetaAnual}
+            </span>
+            <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+              {metaAnualCatalogo > 0 ? metaAnualCatalogo.toLocaleString('en-US') : '—'}
+            </span>
+          </div>
           <p style={{ width: '100%', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes. <strong style={{ color: 'var(--text-main)' }}>Cambiar estas metas no afecta los registros ya guardados</strong>: cada registro conserva la meta con la que fue capturado.
+            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes. <strong style={{ color: 'var(--text-main)' }}>Cambiar estas metas no afecta los registros ya guardados</strong>: cada registro conserva la meta con la que fue capturado. La <strong style={{ color: 'var(--text-main)' }}>meta anual</strong> es la suma de las metas mensuales de los registros capturados del taller en el año.
           </p>
         </div>
       </div>

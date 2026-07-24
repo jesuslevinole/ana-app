@@ -2,7 +2,19 @@ import { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
-import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, FileText, ClipboardCheck, Target, GripVertical } from 'lucide-react';
+import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, FileText, ClipboardCheck, Target, GripVertical, Sigma } from 'lucide-react';
+
+// Color de texto (oscuro o blanco) que contrasta con un fondo hexadecimal dado
+const colorTextoSobre = (hex: string): string => {
+  const h = (hex || '').replace('#', '');
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  if (full.length !== 6) return '#111827';
+  const r = parseInt(full.substring(0, 2), 16);
+  const g = parseInt(full.substring(2, 4), 16);
+  const b = parseInt(full.substring(4, 6), 16);
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  return lum > 150 ? '#111827' : '#ffffff';
+};
 
 type Modo = 'enteros' | 'porcentual';
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -65,7 +77,7 @@ export const InspeccionesDashboard = () => {
   const [hovered, setHovered] = useState<string | null>(null);
 
   // --- Reordenamiento de tarjetas KPI (persistente y compartido vía Firestore) ---
-  const ORDEN_DEFAULT = ['meta', 'mejor4', 'mejor5', 'variacion', 'cumplimiento'];
+  const ORDEN_DEFAULT = ['meta', 'metaAnual', 'mejor4', 'mejor5', 'variacion', 'cumplimiento'];
   const ordenGuardado = (contexto as any)?.inspeccionesOrden as string[] | undefined;
   const [ordenTarjetas, setOrdenTarjetas] = useState<string[]>(ORDEN_DEFAULT);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -153,6 +165,14 @@ export const InspeccionesDashboard = () => {
     if (isNaN(m5) || m5 < 0) m5 = 0;
     return { m4, m5 };
   }, [tallerSeleccionado, inspecciones]);
+
+  // META ANUAL del taller: suma de las metas mensuales de los registros del año
+  // (sin filtro de semanas: es un total anual, incluye meses de 4 y de 5 semanas)
+  const metaAnual = useMemo(() => {
+    return inspecciones
+      .filter(i => i.taller === tallerSeleccionado && String(i.ano) === ano)
+      .reduce((acc, i) => acc + (typeof (i as any).meta === 'number' ? (i as any).meta : 0), 0);
+  }, [inspecciones, tallerSeleccionado, ano]);
 
   // Datos del taller/año, en orden calendario, solo meses con registro (incluye costo/total)
   const datos = useMemo(() => {
@@ -494,9 +514,9 @@ export const InspeccionesDashboard = () => {
           </svg>
         </div>
 
-        {/* FRANJA AMARILLA: META PROGRAMADA (respeta el filtro de semanas: 4, 5 o ambas) */}
+        {/* FRANJA DE META PROGRAMADA: color del TALLER seleccionado (texto con contraste automático) */}
         {metaProg > 0 && (
-          <div style={{ marginTop: '0.9rem', backgroundColor: '#F7E733', color: '#111827', padding: '0.7rem 1.25rem', borderRadius: '6px', fontWeight: 800, fontSize: '1rem', letterSpacing: '0.5px', textAlign: 'center', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+          <div style={{ marginTop: '0.9rem', backgroundColor: tallerColor, color: colorTextoSobre(tallerColor), padding: '0.7rem 1.25rem', borderRadius: '6px', fontWeight: 800, fontSize: '1rem', letterSpacing: '0.5px', textAlign: 'center', textTransform: 'uppercase', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
             META PROGRAMADA &nbsp; DIARIO : {diarioProg} &nbsp;/&nbsp; SEMANAL {fmtN(semanalProg)}
             {filtroSemanas !== '5' && meta4 > 0 && <> &nbsp;/&nbsp; 4 WEEK : {fmtN(meta4)}</>}
             {filtroSemanas !== '4' && meta5 > 0 && <> &nbsp;/&nbsp; 5 WEEK : {fmtN(meta5)}</>}
@@ -765,7 +785,7 @@ export const InspeccionesDashboard = () => {
   const metaCard5 = metasCatalogoTaller.m5;
   const tarjetasMap: Record<string, React.ReactNode> = {
     meta: (
-      <div className="kpi-card">
+      <div className="kpi-card" style={{ borderBottom: '3px solid var(--primary)' }}>
         <div className="kpi-title">
           Meta ({filtroSemanas || '4'} semanas) <Target size={16} color="var(--primary)" />
         </div>
@@ -777,22 +797,31 @@ export const InspeccionesDashboard = () => {
         </div>
       </div>
     ),
+    metaAnual: (
+      <div className="kpi-card" style={{ borderBottom: '3px solid #ffbc11' }}>
+        <div className="kpi-title">Meta anual {ano} <Sigma size={16} color="#ffbc11" /></div>
+        <div className="kpi-value" style={{ color: '#ffbc11' }}>{metaAnual > 0 ? fmtNum(metaAnual) : '—'}</div>
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+          Suma de metas mensuales del año
+        </div>
+      </div>
+    ),
     mejor4: (
-      <div className="kpi-card">
+      <div className="kpi-card" style={{ borderBottom: '3px solid var(--success)' }}>
         <div className="kpi-title">Mejor mes (4 sem) <Award size={16} color="var(--success)" /></div>
         <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor4.cantidad || '—'}</div>
         <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.3rem' }}>{kpis.mejor4.mes !== '-' ? kpis.mejor4.mes : 'Sin datos'}</div>
       </div>
     ),
     mejor5: (
-      <div className="kpi-card">
-        <div className="kpi-title">Mejor mes (5 sem) <Award size={16} color="var(--primary)" /></div>
-        <div className="kpi-value" style={{ color: kpis.hay5 ? 'var(--primary)' : 'var(--text-muted)' }}>{kpis.hay5 ? kpis.mejor5.cantidad : '—'}</div>
+      <div className="kpi-card" style={{ borderBottom: '3px solid #7c3aed' }}>
+        <div className="kpi-title">Mejor mes (5 sem) <Award size={16} color="#7c3aed" /></div>
+        <div className="kpi-value" style={{ color: kpis.hay5 ? '#7c3aed' : 'var(--text-muted)' }}>{kpis.hay5 ? kpis.mejor5.cantidad : '—'}</div>
         <div style={{ fontSize: '0.95rem', fontWeight: 700, color: kpis.hay5 ? 'var(--text-main)' : 'var(--text-muted)', marginTop: '0.3rem' }}>{kpis.hay5 && kpis.mejor5.mes !== '-' ? kpis.mejor5.mes : 'Sin meses de 5 semanas'}</div>
       </div>
     ),
     variacion: (
-      <div className="kpi-card" style={{ position: 'relative' }}>
+      <div className="kpi-card" style={{ position: 'relative', borderBottom: `3px solid ${kpis.variacionUltimo === null ? 'var(--border)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)')}` }}>
         <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           Variación último mes
           {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
@@ -812,7 +841,7 @@ export const InspeccionesDashboard = () => {
       </div>
     ),
     cumplimiento: (
-      <div className="kpi-card">
+      <div className="kpi-card" style={{ borderBottom: `3px solid ${kpis.cumplimientoGlobal === null ? 'var(--border)' : colorCumpl(kpis.cumplimientoGlobal)}` }}>
         <div className="kpi-title">% Cumplimiento <Target size={16} color="var(--success)" /></div>
         <div className="kpi-value" style={{ color: colorCumpl(kpis.cumplimientoGlobal) }}>
           {kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}
