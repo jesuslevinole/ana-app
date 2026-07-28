@@ -2,6 +2,7 @@ import { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones, idInspeccion, type Inspeccion } from '../hooks/useInspecciones';
+import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { Plus, Save, Trash2, Pencil, X, Search, ClipboardList, Info, DollarSign } from 'lucide-react';
 
 // Formato de moneda en USD (mismo estilo usado en el resto de la app)
@@ -55,6 +56,8 @@ export const metaDeTaller = (metas: MetasTaller, taller: string, semanas: number
 export const InspeccionesRegistro = () => {
   const contexto = useContext(AppContext);
   const { inspecciones, guardarInspeccion, eliminarInspeccion } = useInspecciones();
+  // Metas anuales por taller (compartidas en Firestore)
+  const { metasAnuales, obtenerMetaAnual, guardarMetaAnual } = useMetasAnuales();
 
   const talleres = contexto?.talleres ?? [];
   const talleresOrdenados = useMemo(
@@ -144,9 +147,38 @@ export const InspeccionesRegistro = () => {
     setTimeout(() => setCatalogoMetaGuardado(false), 1800);
   };
 
-  // META ANUAL del taller del catálogo: suma de las metas mensuales de sus registros
-  // capturados en el año (el del filtro Año, o el año en curso si el filtro está en 'Todos')
+  // Año de referencia para la meta anual: el del filtro Año, o el año en curso
   const anoMetaAnual = filtroAno !== 'Todos' ? filtroAno : String(anoActual);
+
+  // --- EDITOR DE LA META ANUAL DE INSPECCIONES (por taller y por año) ---
+  const [valorMetaAnual, setValorMetaAnual] = useState<string>('');
+  const [metaAnualGuardada, setMetaAnualGuardada] = useState<boolean>(false);
+
+  // Precarga la meta anual guardada al cambiar de taller o de año
+  useEffect(() => {
+    if (!tallerCatalogoActual) { setValorMetaAnual(''); return; }
+    const actual = obtenerMetaAnual('inspecciones', anoMetaAnual, tallerCatalogoActual);
+    setValorMetaAnual(actual > 0 ? String(actual) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tallerCatalogoActual, anoMetaAnual, metasAnuales]);
+
+  const guardarEditorMetaAnual = async () => {
+    if (!tallerCatalogoActual) { alert('Selecciona un taller para guardar su meta anual.'); return; }
+    const v = parseInt(valorMetaAnual, 10);
+    await guardarMetaAnual('inspecciones', anoMetaAnual, tallerCatalogoActual, isNaN(v) ? 0 : v);
+    setMetaAnualGuardada(true);
+    setTimeout(() => setMetaAnualGuardada(false), 1800);
+  };
+
+  // Meta anual ESTABLECIDA del taller del catálogo (0 si no tiene)
+  const metaAnualEstablecida = useMemo(
+    () => (tallerCatalogoActual ? obtenerMetaAnual('inspecciones', anoMetaAnual, tallerCatalogoActual) : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [metasAnuales, anoMetaAnual, tallerCatalogoActual]
+  );
+
+  // META ANUAL CALCULADA del taller del catálogo: suma de las metas mensuales
+  // de sus registros capturados en el año
   const metaAnualCatalogo = useMemo(() => {
     return inspecciones
       .filter(i => i.taller === tallerCatalogoActual && String(i.ano) === anoMetaAnual)
@@ -410,14 +442,48 @@ export const InspeccionesRegistro = () => {
               <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
             )}
           </div>
-          {/* META ANUAL: suma de las metas mensuales de los registros del taller en el año */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 1rem', backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', borderBottom: '3px solid #ffbc11' }}>
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-              Meta anual {anoMetaAnual}
-            </span>
-            <span style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
-              {metaAnualCatalogo > 0 ? metaAnualCatalogo.toLocaleString('en-US') : '—'}
-            </span>
+          {/* META ANUAL EDITABLE: objetivo del año que deben conseguir los empleados */}
+          <div style={{ width: '100%', height: '1px', background: 'var(--border)', margin: '0.25rem 0' }} />
+          <div style={{ width: '100%', display: 'flex', alignItems: 'flex-end', gap: '1.25rem', flexWrap: 'wrap' }}>
+            <div className="form-group" style={{ minWidth: '200px', margin: 0 }}>
+              <label className="form-label">Meta anual {anoMetaAnual} (inspecciones)</label>
+              <input
+                type="number"
+                min={0}
+                className="form-control"
+                style={{ boxSizing: 'border-box' }}
+                value={valorMetaAnual}
+                onChange={(e) => setValorMetaAnual(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
+              <button onClick={guardarEditorMetaAnual} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresOrdenados.length === 0}>
+                <Save size={16} /> Guardar meta anual
+              </button>
+              {metaAnualGuardada && (
+                <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
+              )}
+            </div>
+            {/* Resumen: meta anual establecida vs suma de las metas mensuales capturadas */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '0.55rem 1rem', backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', borderBottom: '3px solid #ffbc11', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                  Meta anual establecida
+                </div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+                  {metaAnualEstablecida > 0 ? metaAnualEstablecida.toLocaleString('en-US') : '—'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
+                  Suma de metas mensuales
+                </div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
+                  {metaAnualCatalogo > 0 ? metaAnualCatalogo.toLocaleString('en-US') : '—'}
+                </div>
+              </div>
+            </div>
           </div>
           <p style={{ width: '100%', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes. <strong style={{ color: 'var(--text-main)' }}>Cambiar estas metas no afecta los registros ya guardados</strong>: cada registro conserva la meta con la que fue capturado. La <strong style={{ color: 'var(--text-main)' }}>meta anual</strong> es la suma de las metas mensuales de los registros capturados del taller en el año.

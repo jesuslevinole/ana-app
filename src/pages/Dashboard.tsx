@@ -1,6 +1,7 @@
 import { useState, useMemo, useContext, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
+import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText } from 'lucide-react';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -29,6 +30,8 @@ const STORAGE_SEMANAS = 'roelca_semanas_editadas_v1';
 
 export const Dashboard = () => {
   const contexto = useContext(AppContext);
+  // Metas anuales por taller (compartidas en Firestore)
+  const { metasAnuales, obtenerMetaAnual, totalMetaAnualDelAno } = useMetasAnuales();
   if (!contexto) return null;
   const { registros, talleres } = contexto;
 
@@ -117,6 +120,28 @@ export const Dashboard = () => {
 
   // Listas únicas para selectores
   const anosDisponibles = useMemo(() => Array.from(new Set(registros.map(r => r.ano.toString()))).sort(), [registros]);
+
+  // --- META ANUAL DEL AÑO (establecida en el catálogo, o suma de metas mensuales) ---
+  const resumenMetaAnual = useMemo(() => {
+    const ano = filtroAno !== 'Todos' ? filtroAno : String(new Date().getFullYear());
+    const regs = registros.filter(r =>
+      r.ano.toString() === ano && (filtroTaller === 'Todos' || r.taller === filtroTaller)
+    );
+    const sumaMensual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
+    const establecida = filtroTaller === 'Todos'
+      ? totalMetaAnualDelAno('ventas', ano)
+      : obtenerMetaAnual('ventas', ano, filtroTaller);
+    const metaAnual = establecida > 0 ? establecida : sumaMensual;
+    const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
+    const faltante = Math.max(metaAnual - logrado, 0);
+    const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
+    return {
+      ano, metaAnual, sumaMensual, logrado, faltante, pct,
+      esEstablecida: establecida > 0,
+      tieneDatos: regs.length > 0 || establecida > 0
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registros, filtroAno, filtroTaller, metasAnuales]);
   const talleresDisponibles = useMemo(() => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)).map(t => t.nombre), [talleres]);
   const tallerActivo = useMemo(() => filtroTaller === 'Todos' ? null : talleres.find(t => t.nombre === filtroTaller) || null, [filtroTaller, talleres]);
 
@@ -1150,6 +1175,57 @@ export const Dashboard = () => {
                   </ul>
                 )}
               </div>
+            </div>
+
+            {/* META ANUAL POR AÑO: entre las gráficas y el reporte mensual */}
+            <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
+              <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
+                META ANUAL {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'CONSOLIDADO GLOBAL' : filtroTaller.toUpperCase()}
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Año</th>
+                      <th style={{ textAlign: 'right' }}>Meta Anual</th>
+                      <th style={{ textAlign: 'right' }}>Logrado</th>
+                      <th style={{ textAlign: 'right' }}>Faltante</th>
+                      <th style={{ textAlign: 'center', minWidth: '190px' }}>% Alcanzado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>{resumenMetaAnual.ano}</strong></td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+                        {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                        {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: resumenMetaAnual.tieneDatos && resumenMetaAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                        {!resumenMetaAnual.tieneDatos ? '—' : resumenMetaAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenMetaAnual.faltante)}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {!resumenMetaAnual.tieneDatos ? '—' : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                            <div style={{ flex: 1, maxWidth: '120px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', backgroundColor: resumenMetaAnual.pct >= 100 ? 'var(--success)' : resumenMetaAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
+                            </div>
+                            <span style={{ fontWeight: 800, color: resumenMetaAnual.pct >= 100 ? 'var(--success)' : resumenMetaAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
+                              {resumenMetaAnual.pct.toFixed(2)}%
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                {resumenMetaAnual.esEstablecida
+                  ? 'Meta anual establecida en el catálogo de Registros. "Faltante" es lo que resta por lograr y "% Alcanzado" el avance hasta el momento.'
+                  : 'Este taller no tiene meta anual establecida: se muestra la suma de sus metas mensuales. Puedes definirla en Registros → Meta anual por taller.'}
+              </p>
             </div>
 
             {/* SEGUNDA GRILLA DE TABLA Y GRAFICA MENSUAL (FULL WIDTH EN WEB) */}

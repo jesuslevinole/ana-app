@@ -1,7 +1,8 @@
-import { useState, useContext, useMemo } from 'react';
+import { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import type { Registro, Detalle } from '../types';
-import { FileText, Search, Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { FileText, Search, Plus, Pencil, Trash2, X, Save, Target } from 'lucide-react';
 
 // Función para forzar el formato Mes/Día/Año (MM/DD/YYYY)
 const formatearFechaMDY = (fecha: string) => {
@@ -26,6 +27,8 @@ const miFormatearMoneda = (valor: number) => {
 
 export const Registros = () => {
   const contexto = useContext(AppContext);
+  // Metas anuales por taller (compartidas en Firestore)
+  const { metasAnuales, obtenerMetaAnual, totalMetaAnualDelAno, guardarMetaAnual } = useMetasAnuales();
   const [busqueda, setBusqueda] = useState('');
   const [registroSeleccionado, setRegistroSeleccionado] = useState<Registro | null>(null);
 
@@ -112,20 +115,58 @@ export const Registros = () => {
     return { totalMeta, totalLogrado, sumaPorcentajes, cumplimientoGlobal, count: registrosFiltrados.length };
   }, [registrosFiltrados]);
 
-  // --- META ANUAL: suma de las METAS MENSUALES del año (por taller o consolidado) ---
+  // --- META ANUAL DEL AÑO (por taller o consolidado) ---
   // Usa el año del filtro (o el año en curso si el filtro está en 'Todos los años')
   // y el taller del filtro (o todos los talleres = consolidado global).
+  // La meta de referencia es la META ANUAL ESTABLECIDA en el catálogo; si el
+  // taller no tiene una definida, se usa la suma de las metas mensuales.
   const anoResumen = filtroAno || String(new Date().getFullYear());
+
+  const metaAnualEstablecida = useMemo(() => {
+    if (filtroTaller) return obtenerMetaAnual('ventas', anoResumen, filtroTaller);
+    // Consolidado global: suma de las metas anuales de todos los talleres
+    return totalMetaAnualDelAno('ventas', anoResumen);
+  }, [metasAnuales, anoResumen, filtroTaller]);
+
   const resumenAnual = useMemo(() => {
     const regs = contexto.registros.filter(r =>
       r.ano.toString() === anoResumen && (!filtroTaller || r.taller === filtroTaller)
     );
-    const metaAnual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
+    const sumaMensual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
+    // Si hay meta anual establecida se usa esa; si no, la suma de las mensuales
+    const metaAnual = metaAnualEstablecida > 0 ? metaAnualEstablecida : sumaMensual;
     const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
     const faltante = Math.max(metaAnual - logrado, 0);
     const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
-    return { metaAnual, logrado, faltante, pct, tieneDatos: regs.length > 0 };
-  }, [contexto.registros, anoResumen, filtroTaller]);
+    return {
+      metaAnual, sumaMensual, logrado, faltante, pct,
+      esEstablecida: metaAnualEstablecida > 0,
+      tieneDatos: regs.length > 0 || metaAnualEstablecida > 0
+    };
+  }, [contexto.registros, anoResumen, filtroTaller, metaAnualEstablecida]);
+
+  // --- EDITOR DE LA META ANUAL (por taller) ---
+  const [tallerMetaAnual, setTallerMetaAnual] = useState<string>('');
+  const [valorMetaAnual, setValorMetaAnual] = useState<string>('');
+  const [metaAnualGuardada, setMetaAnualGuardada] = useState<boolean>(false);
+
+  const tallerEditorActual = tallerMetaAnual || talleresDisponibles[0] || '';
+
+  // Precarga la meta guardada al cambiar de taller o de año
+  useEffect(() => {
+    if (!tallerEditorActual) { setValorMetaAnual(''); return; }
+    const actual = obtenerMetaAnual('ventas', anoResumen, tallerEditorActual);
+    setValorMetaAnual(actual > 0 ? String(actual) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tallerEditorActual, anoResumen, metasAnuales]);
+
+  const guardarEditorMetaAnual = async () => {
+    if (!tallerEditorActual) { alert('Selecciona un taller para guardar su meta anual.'); return; }
+    const v = parseFloat(valorMetaAnual);
+    await guardarMetaAnual('ventas', anoResumen, tallerEditorActual, isNaN(v) ? 0 : v);
+    setMetaAnualGuardada(true);
+    setTimeout(() => setMetaAnualGuardada(false), 1800);
+  };
 
   const handleEditar = (registro: Registro) => { 
     contexto.setRegistroEditando(registro); 
@@ -322,18 +363,90 @@ export const Registros = () => {
         </div>
       </div>
 
-      {/* META ANUAL DEL TALLER (o consolidado): suma de metas mensuales del año */}
+      {/* CATÁLOGO: META ANUAL POR TALLER (editable, la que deben conseguir los empleados) */}
+      <div style={{
+        backgroundColor: 'var(--bg-panel)', borderRadius: '12px', padding: '1.1rem 1.5rem', marginBottom: '1.5rem',
+        border: '1px solid var(--border)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.9rem' }}>
+          <Target size={20} color="#ffbc11" />
+          <div>
+            <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-main)' }}>Meta anual por taller</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Objetivo de ventas que los empleados deben conseguir en el año</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1.25rem', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ minWidth: '240px', flex: 1, margin: 0 }}>
+            <label className="form-label">Taller</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', boxSizing: 'border-box' }}
+              value={tallerEditorActual}
+              onChange={(e) => setTallerMetaAnual(e.target.value)}
+            >
+              {talleresDisponibles.length === 0 && <option value="">Sin talleres</option>}
+              {talleresDisponibles.map(t => <option key={`ma-${t}`} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div className="form-group" style={{ minWidth: '140px', margin: 0 }}>
+            <label className="form-label">Año</label>
+            <input
+              type="text"
+              readOnly
+              tabIndex={-1}
+              className="form-control"
+              style={{ boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)', cursor: 'default' }}
+              value={anoResumen}
+              title="El año se toma del filtro Año de arriba."
+            />
+          </div>
+          <div className="form-group" style={{ minWidth: '200px', margin: 0 }}>
+            <label className="form-label">Meta anual ($)</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              className="form-control"
+              style={{ boxSizing: 'border-box' }}
+              value={valorMetaAnual}
+              onChange={(e) => setValorMetaAnual(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
+            <button onClick={guardarEditorMetaAnual} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresDisponibles.length === 0}>
+              <Save size={16} /> Guardar meta anual
+            </button>
+            {metaAnualGuardada && (
+              <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
+            )}
+          </div>
+          <p style={{ width: '100%', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            La meta anual se guarda por taller y por año, y se comparte con todos los usuarios. Si un taller no tiene meta anual definida, se usa la suma de sus metas mensuales como referencia. Déjala en blanco o en 0 para eliminarla.
+          </p>
+        </div>
+      </div>
+
+      {/* RESUMEN DE LA META ANUAL DEL TALLER (o consolidado) */}
       <div style={{
         backgroundColor: 'var(--bg-panel)', borderRadius: '12px', padding: '1.1rem 1.5rem', marginBottom: '1.5rem',
         border: '1px solid var(--border)', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
       }}>
         <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.85rem' }}>
-          Meta anual {anoResumen} · {filtroTaller || 'Todos los talleres'} <span style={{ fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>(suma de las metas mensuales del año)</span>
+          Meta anual {anoResumen} · {filtroTaller || 'Todos los talleres'}{' '}
+          <span style={{ fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>
+            ({resumenAnual.esEstablecida ? 'meta anual establecida' : 'suma de las metas mensuales del año'})
+          </span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
           <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: '3px solid #ffbc11' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Meta Anual</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{resumenAnual.tieneDatos ? miFormatearMoneda(resumenAnual.metaAnual) : '—'}</div>
+            {resumenAnual.esEstablecida && resumenAnual.sumaMensual > 0 && (
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.25rem', whiteSpace: 'nowrap' }}>
+                Suma mensual: {miFormatearMoneda(resumenAnual.sumaMensual)}
+              </div>
+            )}
           </div>
           <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: '3px solid var(--primary)' }}>
             <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Logrado</div>

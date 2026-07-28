@@ -38,6 +38,7 @@ const GRUPOS: GrupoNav[] = [
       { vista: 'tabla', label: 'Registros', icon: FileText, extra: ['formulario'] },
       { vista: 'dashboard', label: 'Dashboard', icon: PieChart },
       { vista: 'comparacion', label: 'Comparación', icon: GitCompare },
+      { vista: 'comparacionMeses', label: 'Comparación de Meses', icon: CalendarRange },
       { vista: 'talleres', label: 'Talleres', icon: Store },
     ],
   },

@@ -5,6 +5,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Registros } from './pages/Registros';
 import { FormularioRegistro } from './pages/FormularioRegistro';
 import { Comparacion } from './pages/Comparacion';
+import { ComparacionMeses } from './pages/ComparacionMeses';
 import { Talleres } from './pages/Talleres';
 import { InspeccionesRegistro } from './pages/InspeccionesRegistro';
 import { InspeccionesDashboard } from './pages/InspeccionesDashboard';
@@ -27,6 +28,7 @@ const EnrutadorVistas = () => {
       {vista === 'tabla' && <Registros />}
       {vista === 'formulario' && <FormularioRegistro />}
       {vista === 'comparacion' && <Comparacion />}
+      {vista === 'comparacionMeses' && <ComparacionMeses />}
       {vista === 'talleres' && <Talleres />}
       {vista === 'inspeccionesRegistro' && <InspeccionesRegistro />}
       {vista === 'inspeccionesDashboard' && <InspeccionesDashboard />}
