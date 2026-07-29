@@ -185,6 +185,22 @@ export const InspeccionesRegistro = () => {
       .reduce((acc, i) => acc + (typeof (i as any).meta === 'number' ? (i as any).meta : 0), 0);
   }, [inspecciones, tallerCatalogoActual, anoMetaAnual]);
 
+  // RESUMEN ANUAL DE INSPECCIONES del taller del catálogo: meta, alcanzado,
+  // faltante, porcentaje alcanzado y porcentaje faltante
+  const resumenAnualInsp = useMemo(() => {
+    const regs = inspecciones.filter(i => i.taller === tallerCatalogoActual && String(i.ano) === anoMetaAnual);
+    const alcanzado = regs.reduce((acc, i) => acc + (i.cantidad || 0), 0);
+    const metaAnual = metaAnualEstablecida > 0 ? metaAnualEstablecida : metaAnualCatalogo;
+    const faltante = Math.max(metaAnual - alcanzado, 0);
+    const pct = metaAnual > 0 ? (alcanzado / metaAnual) * 100 : 0;
+    return {
+      metaAnual, alcanzado, faltante, pct,
+      pctFaltante: Math.max(100 - pct, 0),
+      esEstablecida: metaAnualEstablecida > 0,
+      tieneDatos: regs.length > 0 || metaAnualEstablecida > 0
+    };
+  }, [inspecciones, tallerCatalogoActual, anoMetaAnual, metaAnualEstablecida, metaAnualCatalogo]);
+
   const anosDisponibles = useMemo(() => {
     const set = new Set<string>(inspecciones.map(i => String(i.ano)));
     set.add(String(anoActual));
@@ -465,28 +481,43 @@ export const InspeccionesRegistro = () => {
                 <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>✓ Guardado</span>
               )}
             </div>
-            {/* Resumen: meta anual establecida vs suma de las metas mensuales capturadas */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', padding: '0.55rem 1rem', backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', borderBottom: '3px solid #ffbc11', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                  Meta anual establecida
-                </div>
+            {/* RESUMEN ANUAL: meta, alcanzada, faltante y porcentajes */}
+            <div style={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginTop: '0.25rem' }}>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: `3px solid ${'#ffbc11'}` }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Meta anual</div>
                 <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
-                  {metaAnualEstablecida > 0 ? metaAnualEstablecida.toLocaleString('en-US') : '—'}
+                  {resumenAnualInsp.metaAnual > 0 ? resumenAnualInsp.metaAnual.toLocaleString('en-US') : '—'}
+                </div>
+                <div style={{ fontSize: '0.64rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{resumenAnualInsp.esEstablecida ? 'Meta establecida' : 'Meta agregada desde registros'}</div>
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: `3px solid ${'var(--primary)'}` }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Meta anual alcanzada</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                  {resumenAnualInsp.tieneDatos ? resumenAnualInsp.alcanzado.toLocaleString('en-US') : '—'}
                 </div>
               </div>
-              <div>
-                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>
-                  Suma de metas mensuales
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: `3px solid ${resumenAnualInsp.tieneDatos && resumenAnualInsp.faltante === 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Meta anual faltante</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: resumenAnualInsp.tieneDatos && resumenAnualInsp.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                  {!resumenAnualInsp.tieneDatos ? '—' : resumenAnualInsp.faltante === 0 ? 'Meta alcanzada ✓' : resumenAnualInsp.faltante.toLocaleString('en-US')}
                 </div>
-                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>
-                  {metaAnualCatalogo > 0 ? metaAnualCatalogo.toLocaleString('en-US') : '—'}
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: `3px solid ${resumenAnualInsp.pct >= 100 ? 'var(--success)' : resumenAnualInsp.pct >= 70 ? 'var(--primary)' : 'var(--danger)'}` }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Porcentaje alcanzado</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: resumenAnualInsp.pct >= 100 ? 'var(--success)' : resumenAnualInsp.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                  {resumenAnualInsp.tieneDatos ? `${resumenAnualInsp.pct.toFixed(2)}%` : '—'}
+                </div>
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: `3px solid ${resumenAnualInsp.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Porcentaje faltante</div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: resumenAnualInsp.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                  {resumenAnualInsp.tieneDatos ? `${resumenAnualInsp.pctFaltante.toFixed(2)}%` : '—'}
                 </div>
               </div>
             </div>
           </div>
           <p style={{ width: '100%', margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes. <strong style={{ color: 'var(--text-main)' }}>Cambiar estas metas no afecta los registros ya guardados</strong>: cada registro conserva la meta con la que fue capturado. La <strong style={{ color: 'var(--text-main)' }}>meta anual</strong> es la suma de las metas mensuales de los registros capturados del taller en el año.
+            Cada taller tiene su propia meta: una para meses de 4 semanas y otra para meses de 5 semanas. Al capturar una inspección, la meta se toma automáticamente según el taller y las semanas del mes. <strong style={{ color: 'var(--text-main)' }}>Cambiar estas metas no afecta los registros ya guardados</strong>: cada registro conserva la meta con la que fue capturado. Si el taller no tiene <strong style={{ color: 'var(--text-main)' }}>meta anual</strong> establecida, se usa la suma de las metas mensuales de sus registros capturados en el año.
           </p>
         </div>
       </div>

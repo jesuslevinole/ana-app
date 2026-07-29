@@ -137,6 +137,7 @@ export const Dashboard = () => {
     const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
     return {
       ano, metaAnual, sumaMensual, logrado, faltante, pct,
+      pctFaltante: Math.max(100 - pct, 0),
       esEstablecida: establecida > 0,
       tieneDatos: regs.length > 0 || establecida > 0
     };
@@ -1187,10 +1188,16 @@ export const Dashboard = () => {
                   <thead>
                     <tr>
                       <th>Año</th>
-                      <th style={{ textAlign: 'right' }}>Meta Anual</th>
-                      <th style={{ textAlign: 'right' }}>Logrado</th>
-                      <th style={{ textAlign: 'right' }}>Faltante</th>
-                      <th style={{ textAlign: 'center', minWidth: '190px' }}>% Alcanzado</th>
+                      <th style={{ textAlign: 'right' }}>
+                        Meta anual
+                        <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                          {resumenMetaAnual.esEstablecida ? '(meta establecida)' : '(meta agregada desde registros)'}
+                        </small>
+                      </th>
+                      <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
+                      <th style={{ textAlign: 'right' }}>Meta anual faltante</th>
+                      <th style={{ textAlign: 'center', minWidth: '170px' }}>Porcentaje alcanzado</th>
+                      <th style={{ textAlign: 'center', minWidth: '170px' }}>Porcentaje faltante</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1199,20 +1206,32 @@ export const Dashboard = () => {
                       <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
                         {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
                         {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, color: resumenMetaAnual.tieneDatos && resumenMetaAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: resumenMetaAnual.tieneDatos && resumenMetaAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
                         {!resumenMetaAnual.tieneDatos ? '—' : resumenMetaAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenMetaAnual.faltante)}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         {!resumenMetaAnual.tieneDatos ? '—' : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
-                            <div style={{ flex: 1, maxWidth: '120px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, maxWidth: '90px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
                               <div style={{ width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', backgroundColor: resumenMetaAnual.pct >= 100 ? 'var(--success)' : resumenMetaAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
                             </div>
                             <span style={{ fontWeight: 800, color: resumenMetaAnual.pct >= 100 ? 'var(--success)' : resumenMetaAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
                               {resumenMetaAnual.pct.toFixed(2)}%
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {!resumenMetaAnual.tieneDatos ? '—' : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                            <div style={{ flex: 1, maxWidth: '90px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(resumenMetaAnual.pctFaltante, 100)}%`, height: '100%', backgroundColor: resumenMetaAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
+                            </div>
+                            <span style={{ fontWeight: 800, color: resumenMetaAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
+                              {resumenMetaAnual.pctFaltante.toFixed(2)}%
                             </span>
                           </div>
                         )}
@@ -1527,7 +1546,7 @@ export const Dashboard = () => {
           ref={reporteImagenRef}
           style={{
             position: 'fixed', left: '-10000px', top: 0, zIndex: -50, pointerEvents: 'none',
-            width: '840px', backgroundColor: '#ffffff',
+            width: '1120px', backgroundColor: '#ffffff',
             fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
             borderRadius: '16px', overflow: 'hidden',
             boxShadow: '0 10px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
@@ -1639,8 +1658,8 @@ export const Dashboard = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '22px', padding: '22px 24px' }}>
                 {/* PIE SVG */}
-                <div style={{ flexShrink: 0, position: 'relative', width: '250px', height: '250px' }}>
-                  <svg viewBox="0 0 220 220" width="250" height="250" style={{ display: 'block' }}>
+                <div style={{ flexShrink: 0, position: 'relative', width: '300px', height: '300px' }}>
+                  <svg viewBox="0 0 220 220" width="300" height="300" style={{ display: 'block' }}>
                     {(segmentosMeta?.segs || []).length === 1 ? (
                       <circle cx="110" cy="110" r="95" fill={segmentosMeta!.segs[0].color} stroke="#ffffff" strokeWidth="2" />
                     ) : (

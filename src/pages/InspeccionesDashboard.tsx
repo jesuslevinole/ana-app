@@ -2,6 +2,7 @@ import { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
+import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, FileText, ClipboardCheck, Target, GripVertical, Sigma } from 'lucide-react';
 
 // Color de texto (oscuro o blanco) que contrasta con un fondo hexadecimal dado
@@ -56,6 +57,8 @@ const arcoPie = (cx: number, cy: number, r: number, anguloInicio: number, angulo
 export const InspeccionesDashboard = () => {
   const contexto = useContext(AppContext);
   const { inspecciones } = useInspecciones();
+  // Metas anuales por taller (compartidas en Firestore)
+  const { metasAnuales, obtenerMetaAnual } = useMetasAnuales();
 
   const talleres = contexto?.talleres ?? [];
   const talleresOrdenados = useMemo(
@@ -173,6 +176,24 @@ export const InspeccionesDashboard = () => {
       .filter(i => i.taller === tallerSeleccionado && String(i.ano) === ano)
       .reduce((acc, i) => acc + (typeof (i as any).meta === 'number' ? (i as any).meta : 0), 0);
   }, [inspecciones, tallerSeleccionado, ano]);
+
+  // RESUMEN ANUAL: meta establecida (o suma de metas mensuales), alcanzado,
+  // faltante, porcentaje alcanzado y porcentaje faltante
+  const resumenAnual = useMemo(() => {
+    const regs = inspecciones.filter(i => i.taller === tallerSeleccionado && String(i.ano) === ano);
+    const alcanzado = regs.reduce((acc, i) => acc + (i.cantidad || 0), 0);
+    const establecida = obtenerMetaAnual('inspecciones', ano, tallerSeleccionado);
+    const metaTotal = establecida > 0 ? establecida : metaAnual;
+    const faltante = Math.max(metaTotal - alcanzado, 0);
+    const pct = metaTotal > 0 ? (alcanzado / metaTotal) * 100 : 0;
+    return {
+      metaTotal, alcanzado, faltante, pct,
+      pctFaltante: Math.max(100 - pct, 0),
+      esEstablecida: establecida > 0,
+      tieneDatos: regs.length > 0 || establecida > 0
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspecciones, tallerSeleccionado, ano, metaAnual, metasAnuales]);
 
   // Datos del taller/año, en orden calendario, solo meses con registro (incluye costo/total)
   const datos = useMemo(() => {
@@ -1028,6 +1049,71 @@ export const InspeccionesDashboard = () => {
               <p style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>{notaGrafico()}</p>
             </div>
 
+            {/* META ANUAL: entre la gráfica y la tabla de evolución */}
+            <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
+              <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
+                META ANUAL {ano} &nbsp;·&nbsp; {tallerSeleccionado.toUpperCase()}
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Año</th>
+                      <th style={{ textAlign: 'right' }}>
+                        Meta anual
+                        <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                          {resumenAnual.esEstablecida ? '(meta establecida)' : '(meta agregada desde registros)'}
+                        </small>
+                      </th>
+                      <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
+                      <th style={{ textAlign: 'right' }}>Meta anual faltante</th>
+                      <th style={{ textAlign: 'center', minWidth: '160px' }}>Porcentaje alcanzado</th>
+                      <th style={{ textAlign: 'center', minWidth: '160px' }}>Porcentaje faltante</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>{ano}</strong></td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+                        {resumenAnual.metaTotal > 0 ? fmtNum(resumenAnual.metaTotal) : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                        {resumenAnual.tieneDatos ? fmtNum(resumenAnual.alcanzado) : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: resumenAnual.tieneDatos && resumenAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                        {!resumenAnual.tieneDatos ? '—' : resumenAnual.faltante === 0 ? 'Meta alcanzada ✓' : fmtNum(resumenAnual.faltante)}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {!resumenAnual.tieneDatos ? '—' : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                            <div style={{ flex: 1, maxWidth: '85px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(resumenAnual.pct, 100)}%`, height: '100%', backgroundColor: resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
+                            </div>
+                            <span style={{ fontWeight: 800, color: resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>{resumenAnual.pct.toFixed(2)}%</span>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {!resumenAnual.tieneDatos ? '—' : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                            <div style={{ flex: 1, maxWidth: '85px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(resumenAnual.pctFaltante, 100)}%`, height: '100%', backgroundColor: resumenAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
+                            </div>
+                            <span style={{ fontWeight: 800, color: resumenAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>{resumenAnual.pctFaltante.toFixed(2)}%</span>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                {resumenAnual.esEstablecida
+                  ? 'Meta anual establecida en el catálogo de Registro. Incluye los meses de 4 y de 5 semanas: no la afecta el filtro de semanas.'
+                  : 'Este taller no tiene meta anual establecida: se muestra la suma de sus metas mensuales. Puedes definirla en Registro → Meta anual.'}
+              </p>
+            </div>
+
             {/* TABLA DE EVOLUCIÓN (con apartado monetario) */}
             <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
               <h3 className="detail-section-title">Detalle de evolución</h3>
@@ -1094,7 +1180,7 @@ export const InspeccionesDashboard = () => {
           ref={reporteImagenRef}
           style={{
             position: 'fixed', left: '-10000px', top: 0, zIndex: -50, pointerEvents: 'none',
-            width: '880px', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
+            width: '1120px', backgroundColor: '#ffffff', fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
             borderRadius: '16px', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
           }}
         >

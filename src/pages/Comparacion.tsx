@@ -124,7 +124,7 @@ export const Comparacion = () => {
       const logrado = regs.reduce((a, r) => a + (r.logrado || 0), 0);
       const faltante = Math.max(metaAnual - logrado, 0);
       const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
-      return { ano: anoStr, metaAnual, logrado, faltante, pct, tieneDatos: regs.length > 0 };
+      return { ano: anoStr, metaAnual, logrado, faltante, pct, pctFaltante: Math.max(100 - pct, 0), tieneDatos: regs.length > 0 };
     });
   }, [registros, taller, ano1, ano2]);
   const maxTotalComparacion = Math.max(...datasetRight.map(d => d.ventas));
@@ -590,34 +590,49 @@ export const Comparacion = () => {
                 <thead>
                   <tr>
                     <th>Año</th>
-                    <th style={{ textAlign: 'right' }}>Meta Anual</th>
-                    <th style={{ textAlign: 'right' }}>Logrado</th>
-                    <th style={{ textAlign: 'right' }}>Faltante</th>
-                    <th style={{ textAlign: 'center', minWidth: '180px' }}>% Alcanzado</th>
+                    <th style={{ textAlign: 'right' }}>
+                      Meta anual
+                      <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}>(meta agregada desde registros)</small>
+                    </th>
+                    <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
+                    <th style={{ textAlign: 'right' }}>Meta anual faltante</th>
+                    <th style={{ textAlign: 'center', minWidth: '160px' }}>Porcentaje alcanzado</th>
+                    <th style={{ textAlign: 'center', minWidth: '160px' }}>Porcentaje faltante</th>
                   </tr>
                 </thead>
                 <tbody>
                   {resumenesAnuales.map(r => {
                     const colorPct = r.pct >= 100 ? 'var(--success)' : r.pct >= 70 ? 'var(--primary)' : 'var(--danger)';
+                    const colorFalt = r.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)';
                     return (
                       <tr key={`ma-${r.ano}`}>
                         <td><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>{r.ano}</strong></td>
                         <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
                           {r.tieneDatos ? miFormatearMoneda(r.metaAnual) : '—'}
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
                           {r.tieneDatos ? miFormatearMoneda(r.logrado) : '—'}
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: 700, color: r.tieneDatos && r.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: r.tieneDatos && r.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
                           {!r.tieneDatos ? '—' : r.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(r.faltante)}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           {!r.tieneDatos ? '—' : (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
-                              <div style={{ flex: 1, maxWidth: '120px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ flex: 1, maxWidth: '85px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
                                 <div style={{ width: `${Math.min(r.pct, 100)}%`, height: '100%', backgroundColor: colorPct, borderRadius: '4px', transition: 'width 0.4s' }} />
                               </div>
                               <span style={{ fontWeight: 800, color: colorPct, whiteSpace: 'nowrap', fontSize: '0.85rem' }}>{r.pct.toFixed(2)}%</span>
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {!r.tieneDatos ? '—' : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                              <div style={{ flex: 1, maxWidth: '85px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min(r.pctFaltante, 100)}%`, height: '100%', backgroundColor: colorFalt, borderRadius: '4px', transition: 'width 0.4s' }} />
+                              </div>
+                              <span style={{ fontWeight: 800, color: colorFalt, whiteSpace: 'nowrap', fontSize: '0.85rem' }}>{r.pctFaltante.toFixed(2)}%</span>
                             </div>
                           )}
                         </td>

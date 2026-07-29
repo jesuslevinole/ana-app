@@ -140,6 +140,7 @@ export const Registros = () => {
     const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
     return {
       metaAnual, sumaMensual, logrado, faltante, pct,
+      pctFaltante: Math.max(100 - pct, 0),
       esEstablecida: metaAnualEstablecida > 0,
       tieneDatos: regs.length > 0 || metaAnualEstablecida > 0
     };
@@ -438,28 +439,33 @@ export const Registros = () => {
             ({resumenAnual.esEstablecida ? 'meta anual establecida' : 'suma de las metas mensuales del año'})
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
+          {/* 1. META ANUAL */}
           <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: '3px solid #ffbc11' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Meta Anual</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Meta anual</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{resumenAnual.tieneDatos ? miFormatearMoneda(resumenAnual.metaAnual) : '—'}</div>
-            {resumenAnual.esEstablecida && resumenAnual.sumaMensual > 0 && (
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.25rem', whiteSpace: 'nowrap' }}>
-                Suma mensual: {miFormatearMoneda(resumenAnual.sumaMensual)}
-              </div>
-            )}
+            <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+              {resumenAnual.esEstablecida ? 'Meta establecida' : 'Meta agregada desde registros'}
+            </div>
           </div>
+
+          {/* 2. META ANUAL ALCANZADA */}
           <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: '3px solid var(--primary)' }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Logrado</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Meta anual alcanzada</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{resumenAnual.tieneDatos ? miFormatearMoneda(resumenAnual.logrado) : '—'}</div>
           </div>
+
+          {/* 3. META ANUAL FALTANTE */}
           <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: `3px solid ${resumenAnual.tieneDatos && resumenAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)'}` }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Faltante para la meta</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Meta anual faltante</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 800, color: resumenAnual.tieneDatos && resumenAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
               {!resumenAnual.tieneDatos ? '—' : resumenAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenAnual.faltante)}
             </div>
           </div>
+
+          {/* 4. PORCENTAJE ALCANZADO */}
           <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: `3px solid ${resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)'}` }}>
-            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>% Alcanzado</div>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Porcentaje alcanzado</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <span style={{ fontSize: '1.25rem', fontWeight: 800, color: resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
                 {resumenAnual.tieneDatos ? `${resumenAnual.pct.toFixed(2)}%` : '—'}
@@ -467,6 +473,21 @@ export const Registros = () => {
               {resumenAnual.tieneDatos && (
                 <div style={{ flex: 1, height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
                   <div style={{ width: `${Math.min(resumenAnual.pct, 100)}%`, height: '100%', backgroundColor: resumenAnual.pct >= 100 ? 'var(--success)' : resumenAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 5. PORCENTAJE FALTANTE */}
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '8px', padding: '0.8rem 1rem', borderBottom: `3px solid ${resumenAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.35rem' }}>Porcentaje faltante</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.25rem', fontWeight: 800, color: resumenAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
+                {resumenAnual.tieneDatos ? `${resumenAnual.pctFaltante.toFixed(2)}%` : '—'}
+              </span>
+              {resumenAnual.tieneDatos && (
+                <div style={{ flex: 1, height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(resumenAnual.pctFaltante, 100)}%`, height: '100%', backgroundColor: resumenAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
                 </div>
               )}
             </div>
