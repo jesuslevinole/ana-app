@@ -1096,13 +1096,20 @@ export const Dashboard = () => {
                             const isHovered = hoveredOp === op.id;
                             const isDimmed = hoveredOp !== null && !isHovered;
                             return (
-                              <tr key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)} style={{ backgroundColor: isHovered ? 'var(--bg-highlight)' : 'transparent', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s', cursor: 'pointer' }}>
+                              <tr key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)} style={{ backgroundColor: op.isFaltante ? 'rgba(239, 68, 68, 0.07)' : (isHovered ? 'var(--bg-highlight)' : 'transparent'), borderTop: op.isFaltante ? '2px solid rgba(239, 68, 68, 0.35)' : undefined, opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s', cursor: 'pointer' }}>
                                 {op.isFaltante ? (
                                   <>
-                                    <td style={{ textAlign: 'center' }}><span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}><AlertTriangle size={12} /></span></td>
-                                    <td><div style={{fontSize: '0.8rem', color: 'var(--danger)', fontWeight: 700}}>Faltante por Cumplir</div><div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>Meta no alcanzada</div></td>
-                                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--danger)' }}>{miFormatearMoneda(op.vendido)}</td>
-                                    <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
+                                    <td style={{ textAlign: 'center', padding: '1.5rem 0.75rem' }}>
+                                      <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '46px', height: '46px', borderRadius: '12px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)', boxShadow: `0 4px 14px ${op.color}55` }}>
+                                        <AlertTriangle size={24} />
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '1.5rem 0.75rem' }}>
+                                      <div style={{ fontSize: '1.35rem', color: 'var(--danger)', fontWeight: 900, letterSpacing: '0.5px', lineHeight: 1.15 }}>Faltante por Cumplir</div>
+                                      <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600, marginTop: '0.35rem' }}>Meta no alcanzada</div>
+                                    </td>
+                                    <td style={{ textAlign: 'right', fontWeight: 900, color: 'var(--danger)', fontSize: '1.5rem', whiteSpace: 'nowrap', padding: '1.5rem 0.75rem' }}>{miFormatearMoneda(op.vendido)}</td>
+                                    <td style={{ textAlign: 'center', padding: '1.5rem 0.75rem' }}><span style={{ color: 'var(--danger)', fontWeight: 900, fontSize: '1.5rem', whiteSpace: 'nowrap' }}>{op.porcentajeStr}%</span></td>
                                   </>
                                 ) : (
                                   <>
@@ -1158,23 +1165,6 @@ export const Dashboard = () => {
                   </div>
                 </div>
                 {renderGrafico()}
-                {analisisOperaciones && (
-                  <ul className="legend-below-chart-list" style={{ listStyle: 'none', padding: 0, marginTop: '1rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-                    {analisisOperaciones.operaciones.map((op) => {
-                      const isHovered = hoveredOp === op.id;
-                      const isDimmed = hoveredOp !== null && !isHovered;
-                      return (
-                        <li key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)} style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', backgroundColor: isHovered ? 'var(--sidebar-hover)' : 'transparent', padding: '0.4rem 0.75rem', borderRadius: '6px', cursor: 'pointer', opacity: isDimmed ? 0.4 : 1, transition: 'all 0.2s' }}>
-                          <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: op.color, boxShadow: `0 0 5px ${op.color}`, flexShrink: 0 }}></span>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', flex: 1, alignItems: 'center' }}>
-                            <span style={{fontWeight: 500}}>{op.isFaltante ? 'Faltante por Cumplir' : `Venta semana ${op.semanaIndex}`}</span>
-                            <strong style={{ color: op.isFaltante ? 'var(--danger)' : 'var(--text-main)', fontWeight: 600 }}>{op.porcentajeStr}%</strong>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
               </div>
             </div>
 
@@ -1621,27 +1611,6 @@ export const Dashboard = () => {
                 </div>
               ))}
 
-              {/* FILA EXCEDENTE / FALTANTE */}
-              {analisisOperaciones?.excedenteObj ? (
-                <div style={{ display: 'flex', alignItems: 'center', padding: '15px 16px', fontSize: '20px', backgroundColor: 'rgba(22,163,74,0.08)', borderTop: '1px solid #dcfce7' }}>
-                  <div style={{ width: '56px', textAlign: 'center', flexShrink: 0 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#16a34a', color: '#fff' }}><TrendingUp size={18} /></span>
-                  </div>
-                  <div style={{ flex: 1, color: '#15803d', fontWeight: 800 }}>EXCEDENTE</div>
-                  <div style={{ width: '205px', textAlign: 'right', color: '#15803d', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}</div>
-                  <div style={{ width: '105px', textAlign: 'right', color: '#15803d', fontWeight: 800 }}>+{analisisOperaciones.excedenteObj.porcentaje.toFixed(0)}%</div>
-                </div>
-              ) : kpis.faltanteTotal > 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', padding: '15px 16px', fontSize: '20px', backgroundColor: 'rgba(239,68,68,0.06)', borderTop: '1px solid #fee2e2' }}>
-                  <div style={{ width: '56px', textAlign: 'center', flexShrink: 0 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#ef4444', color: '#fff' }}><AlertTriangle size={18} /></span>
-                  </div>
-                  <div style={{ flex: 1, color: '#dc2626', fontWeight: 800, fontSize: '18px' }}>FALTANTE POR CUMPLIR</div>
-                  <div style={{ width: '205px', textAlign: 'right', color: '#dc2626', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
-                  <div style={{ width: '105px', textAlign: 'right', color: '#dc2626', fontWeight: 800 }}>{kpis.porcentajeFaltanteExcedente}%</div>
-                </div>
-              ) : null}
-
               {/* TOTAL VENTAS */}
               <div style={{ display: 'flex', alignItems: 'center', padding: '18px 16px', fontSize: '22px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a' }}>
                 <div style={{ width: '56px', flexShrink: 0 }} />
@@ -1651,15 +1620,12 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            {/* SECCIÓN DE GRÁFICO: DISTRIBUCIÓN POR SEMANA */}
-            <div style={{ marginTop: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ backgroundColor: '#f1f5f9', padding: '13px 16px', fontSize: '16px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                CUMPLIMIENTO DE LA META POR SEMANA
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '22px', padding: '22px 24px' }}>
-                {/* PIE SVG */}
-                <div style={{ flexShrink: 0, position: 'relative', width: '300px', height: '300px' }}>
-                  <svg viewBox="0 0 220 220" width="300" height="300" style={{ display: 'block' }}>
+            {/* SECCIÓN FINAL: DONUT + FALTANTE/EXCEDENTE DESTACADO (sin título ni meta repetida) */}
+            <div style={{ marginTop: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '34px', padding: '30px 34px' }}>
+                {/* DONUT DE DISTRIBUCIÓN POR SEMANA */}
+                <div style={{ flexShrink: 0, position: 'relative', width: '330px', height: '330px' }}>
+                  <svg viewBox="0 0 220 220" width="330" height="330" style={{ display: 'block' }}>
                     {(segmentosMeta?.segs || []).length === 1 ? (
                       <circle cx="110" cy="110" r="95" fill={segmentosMeta!.segs[0].color} stroke="#ffffff" strokeWidth="2" />
                     ) : (
@@ -1667,28 +1633,45 @@ export const Dashboard = () => {
                         <path key={`pie-${seg.id}`} d={seg.path} fill={seg.color} stroke="#ffffff" strokeWidth="2" />
                       ))
                     )}
-                    {/* centro tipo donut sutil para look profesional */}
-                    <circle cx="110" cy="110" r="46" fill="#ffffff" />
-                    <text x="110" y="101" textAnchor="middle" fontSize="13" fontWeight="700" fill="#94a3b8">TOTAL</text>
-                    <text x="110" y="126" textAnchor="middle" fontSize="20" fontWeight="900" fill={colorCumplimiento(kpis.porcentajeGlobal)}>{kpis.porcentajeGlobal.toFixed(0)}%</text>
+                    <circle cx="110" cy="110" r="52" fill="#ffffff" />
+                    <text x="110" y="99" textAnchor="middle" fontSize="14" fontWeight="700" fill="#94a3b8">CUMPLIDO</text>
+                    <text x="110" y="130" textAnchor="middle" fontSize="27" fontWeight="900" fill={colorCumplimiento(kpis.porcentajeGlobal)}>{kpis.porcentajeGlobal.toFixed(0)}%</text>
                   </svg>
                 </div>
 
-                {/* LEYENDA */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {(segmentosMeta?.leyenda || []).map(seg => (
-                    <div key={`leg-img-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ width: '19px', height: '19px', borderRadius: '5px', backgroundColor: seg.color, flexShrink: 0 }} />
-                        <span style={{ fontSize: '19px', color: '#475569', fontWeight: 700 }}>{seg.tipo === 'faltante' ? 'Faltante' : seg.tipo === 'sobrante' ? 'Sobrante' : `Semana ${seg.idx}`}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                        <span style={{ fontSize: '19px', color: '#0f172a', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(seg.valor)}</span>
-                        <span style={{ fontSize: '19px', color: seg.color, fontWeight: 800, minWidth: '68px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
-                      </div>
+                {/* PANEL DESTACADO: FALTANTE POR CUMPLIR o EXCEDENTE */}
+                {analisisOperaciones?.excedenteObj ? (
+                  <div style={{ flex: 1, minWidth: 0, backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '34px 26px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '10px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={22} /></span>
+                      <span style={{ fontSize: '22px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>EXCEDENTE</span>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ fontSize: '54px', color: '#15803d', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                      {miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}
+                    </div>
+                    <div style={{ fontSize: '30px', color: '#16a34a', fontWeight: 900, marginTop: '8px' }}>
+                      +{analisisOperaciones.excedenteObj.porcentaje.toFixed(0)}% sobre la meta
+                    </div>
+                  </div>
+                ) : kpis.faltanteTotal > 0 ? (
+                  <div style={{ flex: 1, minWidth: 0, backgroundColor: 'rgba(239,68,68,0.08)', border: '2px solid #fca5a5', borderRadius: '14px', padding: '34px 26px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '10px', backgroundColor: '#ef4444', color: '#fff', flexShrink: 0 }}><AlertTriangle size={22} /></span>
+                      <span style={{ fontSize: '22px', color: '#dc2626', fontWeight: 900, letterSpacing: '1px' }}>FALTANTE POR CUMPLIR</span>
+                    </div>
+                    <div style={{ fontSize: '54px', color: '#dc2626', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                      {miFormatearMoneda(kpis.faltanteTotal)}
+                    </div>
+                    <div style={{ fontSize: '30px', color: '#ef4444', fontWeight: 900, marginTop: '8px' }}>
+                      {kpis.porcentajeFaltanteExcedente}% de la meta
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ flex: 1, minWidth: 0, backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '40px 26px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '22px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>✓ META ALCANZADA</div>
+                    <div style={{ fontSize: '54px', color: '#15803d', fontWeight: 900, marginTop: '12px' }}>100%</div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
