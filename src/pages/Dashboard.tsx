@@ -132,6 +132,24 @@ export const Dashboard = () => {
 
   // Color de la barra de avance hacia la meta anual
   const colorAvanceMeta = resumenMetaAnual.pct >= 100 ? '#22c55e' : resumenMetaAnual.pct >= 70 ? '#1d8cf8' : resumenMetaAnual.pct >= 40 ? '#ffbc11' : '#ef4444';
+
+  // Desglose de la meta anual por taller (solo cuando el filtro está en 'Todos')
+  const desgloseMetaAnual = useMemo(() => {
+    const ano = filtroAno !== 'Todos' ? filtroAno : String(new Date().getFullYear());
+    return [...talleres]
+      .sort((a, b) => (a.orden || 0) - (b.orden || 0))
+      .map(t => {
+        const regs = registros.filter(r => r.ano.toString() === ano && r.taller === t.nombre);
+        const establecida = obtenerMetaAnual('ventas', ano, t.nombre);
+        const sumaMensual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
+        const meta = establecida > 0 ? establecida : sumaMensual;
+        const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
+        const pct = meta > 0 ? (logrado / meta) * 100 : 0;
+        return { nombre: t.nombre, meta, logrado, pct, esEstablecida: establecida > 0, tieneDatos: regs.length > 0 || establecida > 0 };
+      })
+      .filter(x => x.tieneDatos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registros, talleres, filtroAno, metasAnuales]);
   const talleresDisponibles = useMemo(() => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)).map(t => t.nombre), [talleres]);
   const tallerActivo = useMemo(() => filtroTaller === 'Todos' ? null : talleres.find(t => t.nombre === filtroTaller) || null, [filtroTaller, talleres]);
 
@@ -1017,6 +1035,108 @@ export const Dashboard = () => {
           <div className="filter-group"><label>Taller</label><select value={filtroTaller} onChange={(e) => setFiltroTaller(e.target.value)}><option value="Todos">Todos los talleres</option>{talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
         </div>
 
+        {/* META ANUAL DEL AÑO: meta, alcanzada y barra de avance */}
+        <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
+          <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
+            META ANUAL {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'CONSOLIDADO GLOBAL' : filtroTaller.toUpperCase()}
+          </div>
+          <div style={{ padding: '1.5rem' }}>
+
+            {/* LOS DOS MONTOS */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid #ffbc11' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+              {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+              {filtroTaller === 'Todos' ? 'Suma de la meta de todos los talleres' : 'Meta anual del taller'}
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid var(--primary)' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual alcanzada</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+              {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+              {filtroTaller === 'Todos' ? 'Suma de lo logrado por cada taller en el año' : 'Logrado por el taller en el año'}
+            </div>
+          </div>
+            </div>
+
+            {/* BARRA DE AVANCE HACIA LA META */}
+            <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Porcentaje de meta alcanzada</span>
+            <span style={{ fontSize: '1.75rem', fontWeight: 900, color: colorAvanceMeta, whiteSpace: 'nowrap', lineHeight: 1 }}>
+              {resumenMetaAnual.tieneDatos ? `${resumenMetaAnual.pct.toFixed(2)}%` : '—'}
+            </span>
+          </div>
+          <div style={{ position: 'relative', width: '100%', height: '26px', backgroundColor: 'var(--bg-highlight)', borderRadius: '13px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <div style={{
+              width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', borderRadius: '13px',
+              background: `linear-gradient(90deg, ${colorAvanceMeta}bb 0%, ${colorAvanceMeta} 100%)`,
+              transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+              boxShadow: `0 0 14px ${colorAvanceMeta}66`
+            }} />
+            {/* Marcas de referencia: 25 / 50 / 75 % */}
+            {[25, 50, 75].map(marca => (
+              <div key={`marca-${marca}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${marca}%`, width: '1px', backgroundColor: 'var(--border)', opacity: 0.7 }} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>Meta 100%</span>
+          </div>
+            </div>
+          </div>
+          {/* DESGLOSE POR TALLER (solo en consolidado global) */}
+          {filtroTaller === 'Todos' && desgloseMetaAnual.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--border)', overflowX: 'auto' }}>
+              <table className="table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Taller</th>
+                    <th style={{ textAlign: 'right' }}>Meta anual</th>
+                    <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
+                    <th style={{ textAlign: 'center', minWidth: '220px' }}>Porcentaje de meta alcanzada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {desgloseMetaAnual.map(d => {
+                    const c = d.pct >= 100 ? '#22c55e' : d.pct >= 70 ? '#1d8cf8' : d.pct >= 40 ? '#ffbc11' : '#ef4444';
+                    return (
+                      <tr key={`dma-${d.nombre}`}>
+                        <td>
+                          <strong style={{ color: 'var(--text-main)' }}>{d.nombre}</strong>
+                          {!d.esEstablecida && <small style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.66rem' }}>Sin meta anual establecida</small>}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{d.meta > 0 ? miFormatearMoneda(d.meta) : '—'}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.logrado)}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                            <div style={{ flex: 1, height: '12px', backgroundColor: 'var(--bg-highlight)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                              <div style={{ width: `${Math.min(d.pct, 100)}%`, height: '100%', borderRadius: '6px', background: `linear-gradient(90deg, ${c}bb 0%, ${c} 100%)`, transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                            </div>
+                            <span style={{ fontWeight: 900, color: c, whiteSpace: 'nowrap', fontSize: '0.9rem', minWidth: '68px', textAlign: 'right' }}>{d.pct.toFixed(2)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+            {filtroTaller === 'Todos'
+              ? 'Consolidado global: la meta anual es la suma de las metas de todos los talleres y lo alcanzado es la suma de lo logrado por cada uno. Selecciona un taller en el filtro para ver solo sus metas.'
+              : resumenMetaAnual.esEstablecida
+                ? 'Meta anual establecida para este taller en el catálogo de Registros. La barra avanza conforme las ventas se acercan a la meta.'
+                : 'Este taller no tiene meta anual establecida: se usa la suma de sus metas mensuales. Puedes definirla en Registros → Meta anual por taller.'}
+          </p>
+        </div>
+
         {!filtrosCompletos ? (
           <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '2rem' }}>
              <Filter size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
@@ -1157,67 +1277,6 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            {/* META ANUAL DEL AÑO: meta, alcanzada y barra de avance */}
-            <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
-              <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
-                META ANUAL {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'CONSOLIDADO GLOBAL' : filtroTaller.toUpperCase()}
-              </div>
-              <div style={{ padding: '1.5rem' }}>
-
-                {/* LOS DOS MONTOS */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
-                  <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid #ffbc11' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual</div>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>
-                      {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                      {filtroTaller === 'Todos' ? 'Suma de la meta de todos los talleres' : 'Meta anual del taller'}
-                    </div>
-                  </div>
-
-                  <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid var(--primary)' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual alcanzada</div>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
-                      {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                      {filtroTaller === 'Todos' ? 'Suma de lo logrado por cada taller en el año' : 'Logrado por el taller en el año'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* BARRA DE AVANCE HACIA LA META */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Porcentaje de meta alcanzada</span>
-                    <span style={{ fontSize: '1.75rem', fontWeight: 900, color: colorAvanceMeta, whiteSpace: 'nowrap', lineHeight: 1 }}>
-                      {resumenMetaAnual.tieneDatos ? `${resumenMetaAnual.pct.toFixed(2)}%` : '—'}
-                    </span>
-                  </div>
-                  <div style={{ position: 'relative', width: '100%', height: '26px', backgroundColor: 'var(--bg-highlight)', borderRadius: '13px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <div style={{
-                      width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', borderRadius: '13px',
-                      background: `linear-gradient(90deg, ${colorAvanceMeta}bb 0%, ${colorAvanceMeta} 100%)`,
-                      transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
-                      boxShadow: `0 0 14px ${colorAvanceMeta}66`
-                    }} />
-                    {/* Marcas de referencia: 25 / 50 / 75 % */}
-                    {[25, 50, 75].map(marca => (
-                      <div key={`marca-${marca}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${marca}%`, width: '1px', backgroundColor: 'var(--border)', opacity: 0.7 }} />
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>Meta 100%</span>
-                  </div>
-                </div>
-              </div>
-              <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-                {resumenMetaAnual.esEstablecida
-                  ? 'Meta anual establecida en el catálogo de Registros. La barra avanza conforme las ventas se acercan a la meta.'
-                  : 'Sin meta anual establecida: se usa la suma de las metas mensuales. Puedes definirla en Registros → Meta anual por taller.'}
-              </p>
-            </div>
 
             {/* SEGUNDA GRILLA DE TABLA Y GRAFICA MENSUAL (FULL WIDTH EN WEB) */}
             <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
