@@ -1632,53 +1632,55 @@ export const Dashboard = () => {
                 </div>
 
                 {/* COLUMNA DERECHA: TOTAL VENTAS (verde) + FALTANTE POR CUMPLIR (rojo) */}
+                {/* El porcentaje va como badge sólido en la esquina superior derecha de cada tarjeta */}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                   {/* TOTAL VENTAS */}
-                  <div style={{ backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '24px 26px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px' }}>
+                  <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
+                    <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: '0 3px 10px rgba(22,163,74,0.45)', whiteSpace: 'nowrap' }}>
+                      {kpis.porcentajeGlobal.toFixed(0)}%
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px', paddingRight: '86px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={21} /></span>
                       <span style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>TOTAL VENTAS</span>
                     </div>
-                    <div style={{ fontSize: '48px', color: '#15803d', fontWeight: 900, marginTop: '10px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                    <div style={{ fontSize: '50px', color: '#15803d', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
                       {miFormatearMoneda(kpis.logradoTotal)}
-                    </div>
-                    <div style={{ fontSize: '27px', color: '#16a34a', fontWeight: 900, marginTop: '6px' }}>
-                      {kpis.porcentajeGlobal.toFixed(0)}% de la meta
                     </div>
                   </div>
 
                   {/* FALTANTE POR CUMPLIR / EXCEDENTE / META ALCANZADA */}
                   {analisisOperaciones?.excedenteObj ? (
-                    <div style={{ backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '24px 26px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px' }}>
+                    <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: '0 3px 10px rgba(22,163,74,0.45)', whiteSpace: 'nowrap' }}>
+                        +{analisisOperaciones.excedenteObj.porcentaje.toFixed(0)}%
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px', paddingRight: '86px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={21} /></span>
                         <span style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>EXCEDENTE</span>
                       </div>
-                      <div style={{ fontSize: '48px', color: '#15803d', fontWeight: 900, marginTop: '10px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                      <div style={{ fontSize: '50px', color: '#15803d', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
                         {miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}
-                      </div>
-                      <div style={{ fontSize: '27px', color: '#16a34a', fontWeight: 900, marginTop: '6px' }}>
-                        +{analisisOperaciones.excedenteObj.porcentaje.toFixed(0)}% sobre la meta
                       </div>
                     </div>
                   ) : kpis.faltanteTotal > 0 ? (
-                    <div style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '2px solid #fca5a5', borderRadius: '14px', padding: '24px 26px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px' }}>
+                    <div style={{ position: 'relative', backgroundColor: 'rgba(239,68,68,0.08)', border: '2px solid #fca5a5', borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: '0 3px 10px rgba(239,68,68,0.45)', whiteSpace: 'nowrap' }}>
+                        {kpis.porcentajeFaltanteExcedente}%
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px', paddingRight: '86px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#ef4444', color: '#fff', flexShrink: 0 }}><AlertTriangle size={21} /></span>
                         <span style={{ fontSize: '21px', color: '#dc2626', fontWeight: 900, letterSpacing: '1px' }}>FALTANTE POR CUMPLIR</span>
                       </div>
-                      <div style={{ fontSize: '48px', color: '#dc2626', fontWeight: 900, marginTop: '10px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                      <div style={{ fontSize: '50px', color: '#dc2626', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
                         {miFormatearMoneda(kpis.faltanteTotal)}
-                      </div>
-                      <div style={{ fontSize: '27px', color: '#ef4444', fontWeight: 900, marginTop: '6px' }}>
-                        {kpis.porcentajeFaltanteExcedente}% de la meta
                       </div>
                     </div>
                   ) : (
-                    <div style={{ backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '28px 26px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>✓ META ALCANZADA</div>
-                      <div style={{ fontSize: '48px', color: '#15803d', fontWeight: 900, marginTop: '10px' }}>100%</div>
+                    <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '28px 26px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', boxShadow: '0 3px 10px rgba(22,163,74,0.45)' }}>100%</div>
+                      <div style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px', paddingRight: '86px' }}>✓ META ALCANZADA</div>
+                      <div style={{ fontSize: '50px', color: '#15803d', fontWeight: 900, marginTop: '14px' }}>Meta cumplida</div>
                     </div>
                   )}
                 </div>
@@ -1771,61 +1773,30 @@ export const Dashboard = () => {
                   <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '11px 18px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
                     <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>REF</div>
                     <div style={{ flex: 1 }}>PERIODO</div>
-                    <div style={{ width: '160px', textAlign: 'right' }}>MONTO</div>
-                    <div style={{ width: '90px', textAlign: 'right' }}>% META</div>
+                    <div style={{ width: '168px', textAlign: 'right' }}>MONTO</div>
+                    <div style={{ width: '92px', textAlign: 'right' }}>% META</div>
                   </div>
 
                   {d.filas.map((f: any, i: number) => (
-                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '11px 18px', fontSize: '14px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '13px 18px', fontSize: '17px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
                       <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', backgroundColor: f.color, color: '#fff', fontSize: '12px', fontWeight: 800 }}>{f.idx}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '26px', height: '26px', borderRadius: '7px', backgroundColor: f.color, color: '#fff', fontSize: '13px', fontWeight: 800 }}>{f.idx}</span>
                       </div>
-                      <div style={{ flex: 1, color: '#334155', fontWeight: 600 }}>{f.periodo}</div>
-                      <div style={{ width: '160px', textAlign: 'right', color: '#0f172a', fontWeight: 700, whiteSpace: 'nowrap' }}>{miFormatearMoneda(f.vendido)}</div>
-                      <div style={{ width: '90px', textAlign: 'right', color: f.color, fontWeight: 800 }}>{f.pctMeta.toFixed(0)}%</div>
+                      <div style={{ flex: 1, color: '#334155', fontWeight: 600, fontSize: '14px' }}>{f.periodo}</div>
+                      <div style={{ width: '168px', textAlign: 'right', color: '#0f172a', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(f.vendido)}</div>
+                      <div style={{ width: '92px', textAlign: 'right', color: f.color, fontWeight: 800 }}>{f.pctMeta.toFixed(0)}%</div>
                     </div>
                   ))}
 
-                  {/* EXCEDENTE / FALTANTE */}
-                  {d.excedenteObj ? (
-                    <div style={{ display: 'flex', alignItems: 'center', padding: '12px 18px', fontSize: '14px', backgroundColor: 'rgba(22,163,74,0.08)', borderTop: '1px solid #dcfce7' }}>
-                      <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#16a34a', color: '#fff' }}><TrendingUp size={13} /></span>
-                      </div>
-                      <div style={{ flex: 1, color: '#15803d', fontWeight: 800 }}>SOBRANTE</div>
-                      <div style={{ width: '160px', textAlign: 'right', color: '#15803d', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.excedenteObj.valor)}</div>
-                      <div style={{ width: '90px', textAlign: 'right', color: '#15803d', fontWeight: 800 }}>+{d.excedenteObj.porcentaje.toFixed(0)}%</div>
-                    </div>
-                  ) : d.kpis.faltanteTotal > 0 ? (
-                    <div style={{ display: 'flex', alignItems: 'center', padding: '12px 18px', fontSize: '14px', backgroundColor: 'rgba(239,68,68,0.06)', borderTop: '1px solid #fee2e2' }}>
-                      <div style={{ width: '48px', textAlign: 'center', flexShrink: 0 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', backgroundColor: '#ef4444', color: '#fff' }}><AlertTriangle size={13} /></span>
-                      </div>
-                      <div style={{ flex: 1, color: '#dc2626', fontWeight: 800 }}>FALTANTE POR CUMPLIR</div>
-                      <div style={{ width: '160px', textAlign: 'right', color: '#dc2626', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.kpis.faltanteTotal)}</div>
-                      <div style={{ width: '90px', textAlign: 'right', color: '#dc2626', fontWeight: 800 }}>{d.kpis.porcentajeFaltanteExcedente}%</div>
-                    </div>
-                  ) : null}
-
-                  {/* TOTAL VENTAS (anclado al fondo de la tarjeta) */}
-                  <div style={{ display: 'flex', alignItems: 'center', padding: '15px 18px', fontSize: '15px', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderTop: '2px solid #16a34a', marginTop: 'auto' }}>
-                    <div style={{ width: '48px', flexShrink: 0 }} />
-                    <div style={{ flex: 1, color: '#ffffff', fontWeight: 900, letterSpacing: '0.5px' }}>TOTAL VENTAS</div>
-                    <div style={{ width: '160px', textAlign: 'right', color: '#22c55e', fontWeight: 900, fontSize: '17px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.kpis.logradoTotal)}</div>
-                    <div style={{ width: '90px', textAlign: 'right', color: '#22c55e', fontWeight: 900 }}>{d.kpis.porcentajeGlobal.toFixed(0)}%</div>
-                  </div>
                 </div>
               </div>
 
-              {/* DERECHA: ANILLO DE CUMPLIMIENTO (dona arriba, leyenda a todo el ancho abajo) */}
-              <div style={{ flex: 0.92, border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ backgroundColor: '#f1f5f9', padding: '10px 16px', fontSize: '12px', fontWeight: 800, color: '#334155', letterSpacing: '1px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                  CUMPLIMIENTO DE LA META POR SEMANA
-                </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '16px 20px', minHeight: 0 }}>
+              {/* DERECHA: DONA DE CUMPLIMIENTO + TOTAL VENTAS (verde) Y FALTANTE (rojo) */}
+              <div style={{ flex: 0.92, border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0, backgroundColor: '#ffffff' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '20px 22px', minHeight: 0 }}>
                   {/* DONA */}
-                  <div style={{ flexShrink: 0, width: '180px', height: '180px' }}>
-                    <svg viewBox="0 0 220 220" width="180" height="180" style={{ display: 'block' }}>
+                  <div style={{ flexShrink: 0, width: '208px', height: '208px' }}>
+                    <svg viewBox="0 0 220 220" width="208" height="208" style={{ display: 'block' }}>
                       {(d.segmentosMeta.segs || []).length === 1 ? (
                         <circle cx="110" cy="110" r="95" fill={d.segmentosMeta.segs[0].color} stroke="#ffffff" strokeWidth="2" />
                       ) : (
@@ -1833,25 +1804,63 @@ export const Dashboard = () => {
                           <path key={`pie-${t.nombre}-${seg.id}`} d={seg.path} fill={seg.color} stroke="#ffffff" strokeWidth="2" />
                         ))
                       )}
-                      <circle cx="110" cy="110" r="46" fill="#ffffff" />
-                      <text x="110" y="104" textAnchor="middle" fontSize="11" fontWeight="700" fill="#94a3b8">TOTAL</text>
-                      <text x="110" y="122" textAnchor="middle" fontSize="13" fontWeight="900" fill={colorCumplimiento(d.kpis.porcentajeGlobal)}>{d.kpis.porcentajeGlobal.toFixed(0)}%</text>
+                      <circle cx="110" cy="110" r="52" fill="#ffffff" />
+                      <text x="110" y="101" textAnchor="middle" fontSize="12" fontWeight="700" fill="#94a3b8">CUMPLIDO</text>
+                      <text x="110" y="127" textAnchor="middle" fontSize="23" fontWeight="900" fill={colorCumplimiento(d.kpis.porcentajeGlobal)}>{d.kpis.porcentajeGlobal.toFixed(0)}%</text>
                     </svg>
                   </div>
-                  {/* LEYENDA A TODO EL ANCHO */}
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                    {(d.segmentosMeta.leyenda || []).map((seg: any) => (
-                      <div key={`leg-${t.nombre}-${seg.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 14px', borderRadius: '8px', backgroundColor: '#f8fafc', border: '1px solid #eef2f6' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                          <span style={{ width: '14px', height: '14px', borderRadius: '4px', backgroundColor: seg.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', color: '#475569', fontWeight: 700, whiteSpace: 'nowrap' }}>{seg.tipo === 'faltante' ? 'Faltante' : seg.tipo === 'sobrante' ? 'Sobrante' : `Semana ${seg.idx}`}</span>
+
+                  {/* TARJETAS: TOTAL VENTAS Y FALTANTE / EXCEDENTE */}
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '11px' }}>
+
+                    {/* TOTAL VENTAS */}
+                    <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '11px', padding: '15px 16px 14px 16px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '9px', right: '10px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '15px', fontWeight: 900, padding: '3px 10px', borderRadius: '7px', whiteSpace: 'nowrap' }}>
+                        {d.kpis.porcentajeGlobal.toFixed(0)}%
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', paddingRight: '54px' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '7px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={14} /></span>
+                        <span style={{ fontSize: '13px', color: '#15803d', fontWeight: 900, letterSpacing: '0.8px' }}>TOTAL VENTAS</span>
+                      </div>
+                      <div style={{ fontSize: '29px', color: '#15803d', fontWeight: 900, marginTop: '8px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                        {miFormatearMoneda(d.kpis.logradoTotal)}
+                      </div>
+                    </div>
+
+                    {/* FALTANTE / EXCEDENTE / META ALCANZADA */}
+                    {d.excedenteObj ? (
+                      <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '11px', padding: '15px 16px 14px 16px', textAlign: 'center' }}>
+                        <div style={{ position: 'absolute', top: '9px', right: '10px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '15px', fontWeight: 900, padding: '3px 10px', borderRadius: '7px', whiteSpace: 'nowrap' }}>
+                          +{d.excedenteObj.porcentaje.toFixed(0)}%
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>{miFormatearMoneda(seg.valor)}</span>
-                          <span style={{ fontSize: '13px', color: seg.color, fontWeight: 800, minWidth: '52px', textAlign: 'right' }}>{seg.pct.toFixed(1)}%</span>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', paddingRight: '54px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '7px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={14} /></span>
+                          <span style={{ fontSize: '13px', color: '#15803d', fontWeight: 900, letterSpacing: '0.8px' }}>EXCEDENTE</span>
+                        </div>
+                        <div style={{ fontSize: '29px', color: '#15803d', fontWeight: 900, marginTop: '8px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                          {miFormatearMoneda(d.excedenteObj.valor)}
                         </div>
                       </div>
-                    ))}
+                    ) : d.kpis.faltanteTotal > 0 ? (
+                      <div style={{ position: 'relative', backgroundColor: 'rgba(239,68,68,0.08)', border: '2px solid #fca5a5', borderRadius: '11px', padding: '15px 16px 14px 16px', textAlign: 'center' }}>
+                        <div style={{ position: 'absolute', top: '9px', right: '10px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '15px', fontWeight: 900, padding: '3px 10px', borderRadius: '7px', whiteSpace: 'nowrap' }}>
+                          {d.kpis.porcentajeFaltanteExcedente}%
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', paddingRight: '54px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '7px', backgroundColor: '#ef4444', color: '#fff', flexShrink: 0 }}><AlertTriangle size={14} /></span>
+                          <span style={{ fontSize: '13px', color: '#dc2626', fontWeight: 900, letterSpacing: '0.8px' }}>FALTANTE POR CUMPLIR</span>
+                        </div>
+                        <div style={{ fontSize: '29px', color: '#dc2626', fontWeight: 900, marginTop: '8px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                          {miFormatearMoneda(d.kpis.faltanteTotal)}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '11px', padding: '17px 16px', textAlign: 'center' }}>
+                        <div style={{ position: 'absolute', top: '9px', right: '10px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '15px', fontWeight: 900, padding: '3px 10px', borderRadius: '7px' }}>100%</div>
+                        <div style={{ fontSize: '13px', color: '#15803d', fontWeight: 900, letterSpacing: '0.8px', paddingRight: '54px' }}>✓ META ALCANZADA</div>
+                        <div style={{ fontSize: '26px', color: '#15803d', fontWeight: 900, marginTop: '8px' }}>Meta cumplida</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
