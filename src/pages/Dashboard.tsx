@@ -107,17 +107,21 @@ export const Dashboard = () => {
   // Listas únicas para selectores
   const anosDisponibles = useMemo(() => Array.from(new Set(registros.map(r => r.ano.toString()))).sort(), [registros]);
 
-  // --- META ANUAL DEL AÑO (establecida en el catálogo, o suma de metas mensuales) ---
+  // --- META ANUAL DEL AÑO: suma de las metas mensuales del año ---
+  // Coincide con la fila Total del Reporte Mensual Consolidado. La meta anual del
+  // catálogo se conserva solo como referencia informativa (esEstablecida).
   const resumenMetaAnual = useMemo(() => {
     const ano = filtroAno !== 'Todos' ? filtroAno : String(new Date().getFullYear());
     const regs = registros.filter(r =>
       r.ano.toString() === ano && (filtroTaller === 'Todos' || r.taller === filtroTaller)
     );
+    // La meta anual es la SUMA DE LAS METAS MENSUALES del año, para que
+    // coincida exactamente con la fila Total del Reporte Mensual Consolidado.
     const sumaMensual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
     const establecida = filtroTaller === 'Todos'
       ? totalMetaAnualDelAno('ventas', ano)
       : obtenerMetaAnual('ventas', ano, filtroTaller);
-    const metaAnual = establecida > 0 ? establecida : sumaMensual;
+    const metaAnual = sumaMensual;
     const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
     const faltante = Math.max(metaAnual - logrado, 0);
     const pct = metaAnual > 0 ? (logrado / metaAnual) * 100 : 0;
@@ -142,7 +146,7 @@ export const Dashboard = () => {
         const regs = registros.filter(r => r.ano.toString() === ano && r.taller === t.nombre);
         const establecida = obtenerMetaAnual('ventas', ano, t.nombre);
         const sumaMensual = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
-        const meta = establecida > 0 ? establecida : sumaMensual;
+        const meta = sumaMensual; // suma de las metas mensuales del año
         const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
         const pct = meta > 0 ? (logrado / meta) * 100 : 0;
         return { nombre: t.nombre, meta, logrado, pct, esEstablecida: establecida > 0, tieneDatos: regs.length > 0 || establecida > 0 };
@@ -150,6 +154,15 @@ export const Dashboard = () => {
       .filter(x => x.tieneDatos);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registros, talleres, filtroAno, metasAnuales]);
+
+  // Totales del desglose (todos los talleres juntos)
+  const totalesDesglose = useMemo(() => {
+    const meta = desgloseMetaAnual.reduce((a, d) => a + d.meta, 0);
+    const logrado = desgloseMetaAnual.reduce((a, d) => a + d.logrado, 0);
+    return { meta, logrado, pct: meta > 0 ? (logrado / meta) * 100 : 0 };
+  }, [desgloseMetaAnual]);
+
+  const colorTotalDesglose = totalesDesglose.pct >= 100 ? '#22c55e' : totalesDesglose.pct >= 70 ? '#1d8cf8' : totalesDesglose.pct >= 40 ? '#ffbc11' : '#ef4444';
   const talleresDisponibles = useMemo(() => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)).map(t => t.nombre), [talleres]);
   const tallerActivo = useMemo(() => filtroTaller === 'Todos' ? null : talleres.find(t => t.nombre === filtroTaller) || null, [filtroTaller, talleres]);
 
@@ -1035,107 +1048,6 @@ export const Dashboard = () => {
           <div className="filter-group"><label>Taller</label><select value={filtroTaller} onChange={(e) => setFiltroTaller(e.target.value)}><option value="Todos">Todos los talleres</option>{talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
         </div>
 
-        {/* META ANUAL DEL AÑO: meta, alcanzada y barra de avance */}
-        <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
-          <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
-            META ANUAL {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'CONSOLIDADO GLOBAL' : filtroTaller.toUpperCase()}
-          </div>
-          <div style={{ padding: '1.5rem' }}>
-
-            {/* LOS DOS MONTOS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
-          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid #ffbc11' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>
-              {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-              {filtroTaller === 'Todos' ? 'Suma de la meta de todos los talleres' : 'Meta anual del taller'}
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid var(--primary)' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual alcanzada</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
-              {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
-            </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-              {filtroTaller === 'Todos' ? 'Suma de lo logrado por cada taller en el año' : 'Logrado por el taller en el año'}
-            </div>
-          </div>
-            </div>
-
-            {/* BARRA DE AVANCE HACIA LA META */}
-            <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Porcentaje de meta alcanzada</span>
-            <span style={{ fontSize: '1.75rem', fontWeight: 900, color: colorAvanceMeta, whiteSpace: 'nowrap', lineHeight: 1 }}>
-              {resumenMetaAnual.tieneDatos ? `${resumenMetaAnual.pct.toFixed(2)}%` : '—'}
-            </span>
-          </div>
-          <div style={{ position: 'relative', width: '100%', height: '26px', backgroundColor: 'var(--bg-highlight)', borderRadius: '13px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-            <div style={{
-              width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', borderRadius: '13px',
-              background: `linear-gradient(90deg, ${colorAvanceMeta}bb 0%, ${colorAvanceMeta} 100%)`,
-              transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
-              boxShadow: `0 0 14px ${colorAvanceMeta}66`
-            }} />
-            {/* Marcas de referencia: 25 / 50 / 75 % */}
-            {[25, 50, 75].map(marca => (
-              <div key={`marca-${marca}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${marca}%`, width: '1px', backgroundColor: 'var(--border)', opacity: 0.7 }} />
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-            <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>Meta 100%</span>
-          </div>
-            </div>
-          </div>
-          {/* DESGLOSE POR TALLER (solo en consolidado global) */}
-          {filtroTaller === 'Todos' && desgloseMetaAnual.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--border)', overflowX: 'auto' }}>
-              <table className="table" style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th>Taller</th>
-                    <th style={{ textAlign: 'right' }}>Meta anual</th>
-                    <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
-                    <th style={{ textAlign: 'center', minWidth: '220px' }}>Porcentaje de meta alcanzada</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {desgloseMetaAnual.map(d => {
-                    const c = d.pct >= 100 ? '#22c55e' : d.pct >= 70 ? '#1d8cf8' : d.pct >= 40 ? '#ffbc11' : '#ef4444';
-                    return (
-                      <tr key={`dma-${d.nombre}`}>
-                        <td>
-                          <strong style={{ color: 'var(--text-main)' }}>{d.nombre}</strong>
-                          {!d.esEstablecida && <small style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.66rem' }}>Sin meta anual establecida</small>}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{d.meta > 0 ? miFormatearMoneda(d.meta) : '—'}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.logrado)}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
-                            <div style={{ flex: 1, height: '12px', backgroundColor: 'var(--bg-highlight)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                              <div style={{ width: `${Math.min(d.pct, 100)}%`, height: '100%', borderRadius: '6px', background: `linear-gradient(90deg, ${c}bb 0%, ${c} 100%)`, transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)' }} />
-                            </div>
-                            <span style={{ fontWeight: 900, color: c, whiteSpace: 'nowrap', fontSize: '0.9rem', minWidth: '68px', textAlign: 'right' }}>{d.pct.toFixed(2)}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-            {filtroTaller === 'Todos'
-              ? 'Consolidado global: la meta anual es la suma de las metas de todos los talleres y lo alcanzado es la suma de lo logrado por cada uno. Selecciona un taller en el filtro para ver solo sus metas.'
-              : resumenMetaAnual.esEstablecida
-                ? 'Meta anual establecida para este taller en el catálogo de Registros. La barra avanza conforme las ventas se acercan a la meta.'
-                : 'Este taller no tiene meta anual establecida: se usa la suma de sus metas mensuales. Puedes definirla en Registros → Meta anual por taller.'}
-          </p>
-        </div>
 
         {!filtrosCompletos ? (
           <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '2rem' }}>
@@ -1278,6 +1190,94 @@ export const Dashboard = () => {
             </div>
 
 
+            {/* META ANUAL: dentro del apartado del Reporte Mensual Consolidado */}
+            <div className="card" style={{ marginTop: '1.5rem', borderTop: '3px solid #ffbc11' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>
+                  Meta Anual {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'Todos los talleres' : filtroTaller}
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Suma de las metas mensuales del año</span>
+              </div>
+
+              {/* MONTOS */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', marginBottom: '1.1rem' }}>
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ffbc11' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Meta anual</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+                    {resumenMetaAnual.metaAnual > 0 ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid var(--primary)' }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Meta anual alcanzada</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                    {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* BARRA DE AVANCE (compacta) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', whiteSpace: 'nowrap' }}>Porcentaje de meta alcanzada</span>
+                <div style={{ flex: 1, minWidth: '160px', height: '12px', backgroundColor: 'var(--bg-highlight)', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <div style={{ width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', borderRadius: '6px', background: `linear-gradient(90deg, ${colorAvanceMeta}bb 0%, ${colorAvanceMeta} 100%)`, transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                </div>
+                <span style={{ fontSize: '1.15rem', fontWeight: 900, color: colorAvanceMeta, whiteSpace: 'nowrap' }}>
+                  {resumenMetaAnual.tieneDatos ? `${resumenMetaAnual.pct.toFixed(2)}%` : '—'}
+                </span>
+              </div>
+
+              {/* DESGLOSE POR TALLER (siempre visible) */}
+              {desgloseMetaAnual.length > 0 && (
+                <div style={{ marginTop: '1.25rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem', overflowX: 'auto' }}>
+                  <table className="table" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th>Taller</th>
+                        <th style={{ textAlign: 'right' }}>Meta anual</th>
+                        <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
+                        <th style={{ textAlign: 'center', minWidth: '210px' }}>Porcentaje de meta alcanzada</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {desgloseMetaAnual.map(d => {
+                        const c = d.pct >= 100 ? '#22c55e' : d.pct >= 70 ? '#1d8cf8' : d.pct >= 40 ? '#ffbc11' : '#ef4444';
+                        const esActual = filtroTaller !== 'Todos' && d.nombre === filtroTaller;
+                        return (
+                          <tr key={`dma-${d.nombre}`} style={esActual ? { backgroundColor: 'var(--bg-highlight)' } : undefined}>
+                            <td><strong style={{ color: esActual ? 'var(--primary)' : 'var(--text-main)' }}>{d.nombre}</strong></td>
+                            <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{d.meta > 0 ? miFormatearMoneda(d.meta) : '—'}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(d.logrado)}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                                <div style={{ flex: 1, height: '10px', backgroundColor: 'var(--bg-highlight)', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                                  <div style={{ width: `${Math.min(d.pct, 100)}%`, height: '100%', borderRadius: '5px', background: `linear-gradient(90deg, ${c}bb 0%, ${c} 100%)`, transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                                </div>
+                                <span style={{ fontWeight: 900, color: c, whiteSpace: 'nowrap', fontSize: '0.85rem', minWidth: '64px', textAlign: 'right' }}>{d.pct.toFixed(2)}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
+                        <td style={{ padding: '0.9rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>Total todos los talleres</strong></td>
+                        <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totalesDesglose.meta)}</td>
+                        <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totalesDesglose.logrado)}</td>
+                        <td style={{ textAlign: 'center', padding: '0.9rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                            <div style={{ flex: 1, height: '10px', backgroundColor: 'var(--bg-body)', borderRadius: '5px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                              <div style={{ width: `${Math.min(totalesDesglose.pct, 100)}%`, height: '100%', borderRadius: '5px', background: `linear-gradient(90deg, ${colorTotalDesglose}bb 0%, ${colorTotalDesglose} 100%)`, transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)' }} />
+                            </div>
+                            <span style={{ fontWeight: 900, color: colorTotalDesglose, whiteSpace: 'nowrap', fontSize: '0.9rem', minWidth: '64px', textAlign: 'right' }}>{totalesDesglose.pct.toFixed(2)}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
             {/* SEGUNDA GRILLA DE TABLA Y GRAFICA MENSUAL (FULL WIDTH EN WEB) */}
             <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
