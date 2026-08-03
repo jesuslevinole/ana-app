@@ -2,6 +2,7 @@ import { useState, useMemo, useContext, useRef, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
+import { useSemanasEditadas } from '../hooks/useSemanasEditadas';
 import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText } from 'lucide-react';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -25,8 +26,6 @@ const miFormatearMoneda = (valor: number) => {
   }).format(valor).replace('$', '$\u00A0');
 };
 
-// Clave de almacenamiento local para las semanas editadas manualmente
-const STORAGE_SEMANAS = 'roelca_semanas_editadas_v1';
 
 export const Dashboard = () => {
   const contexto = useContext(AppContext);
@@ -83,15 +82,10 @@ export const Dashboard = () => {
     setAccionPDF(null);
   };
 
-  // --- CAMBIO 3: Semanas editables y persistentes (por Año + Taller + Mes) ---
-  const [semanasEditadas, setSemanasEditadas] = useState<Record<string, number>>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_SEMANAS);
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  });
+  // --- Semanas editables y persistentes (por Año + Taller + Mes) ---
+  // Se guardan en Firestore (config/semanasEditadas) para que la edición se
+  // conserve y se comparta entre usuarios y equipos, no solo en este navegador.
+  const { semanasEditadas, guardarSemanas: persistirSemanas } = useSemanasEditadas();
 
   const claveSemana = (mes: string) => `${filtroAno}__${filtroTaller}__${mes}`;
 
@@ -101,15 +95,7 @@ export const Dashboard = () => {
   };
 
   const guardarSemanas = (mes: string, valor: number) => {
-    setSemanasEditadas(prev => {
-      const next = { ...prev, [claveSemana(mes)]: valor };
-      try {
-        localStorage.setItem(STORAGE_SEMANAS, JSON.stringify(next));
-      } catch {
-        // almacenamiento no disponible: se mantiene en memoria durante la sesión
-      }
-      return next;
-    });
+    persistirSemanas(claveSemana(mes), valor);
   };
 
   // Fecha actual para el reporte PDF (Forzada a MM/DD/YYYY local)
@@ -143,6 +129,9 @@ export const Dashboard = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registros, filtroAno, filtroTaller, metasAnuales]);
+
+  // Color de la barra de avance hacia la meta anual
+  const colorAvanceMeta = resumenMetaAnual.pct >= 100 ? '#22c55e' : resumenMetaAnual.pct >= 70 ? '#1d8cf8' : resumenMetaAnual.pct >= 40 ? '#ffbc11' : '#ef4444';
   const talleresDisponibles = useMemo(() => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)).map(t => t.nombre), [talleres]);
   const tallerActivo = useMemo(() => filtroTaller === 'Todos' ? null : talleres.find(t => t.nombre === filtroTaller) || null, [filtroTaller, talleres]);
 
@@ -1168,72 +1157,65 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            {/* META ANUAL POR AÑO: entre las gráficas y el reporte mensual */}
+            {/* META ANUAL DEL AÑO: meta, alcanzada y barra de avance */}
             <div className="card" style={{ marginTop: '1.5rem', padding: 0, overflow: 'hidden' }}>
               <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
                 META ANUAL {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'CONSOLIDADO GLOBAL' : filtroTaller.toUpperCase()}
               </div>
-              <div style={{ overflowX: 'auto' }}>
-                <table className="table" style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <th>Año</th>
-                      <th style={{ textAlign: 'right' }}>
-                        Meta anual
-                        <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
-                          {resumenMetaAnual.esEstablecida ? '(meta establecida)' : '(meta agregada desde registros)'}
-                        </small>
-                      </th>
-                      <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
-                      <th style={{ textAlign: 'right' }}>Meta anual faltante</th>
-                      <th style={{ textAlign: 'center', minWidth: '170px' }}>Porcentaje alcanzado</th>
-                      <th style={{ textAlign: 'center', minWidth: '170px' }}>Porcentaje faltante</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td><strong style={{ color: 'var(--text-main)', fontSize: '1rem' }}>{resumenMetaAnual.ano}</strong></td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>
-                        {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
-                      </td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
-                        {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
-                      </td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: resumenMetaAnual.tieneDatos && resumenMetaAnual.faltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap' }}>
-                        {!resumenMetaAnual.tieneDatos ? '—' : resumenMetaAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenMetaAnual.faltante)}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {!resumenMetaAnual.tieneDatos ? '—' : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
-                            <div style={{ flex: 1, maxWidth: '90px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', backgroundColor: resumenMetaAnual.pct >= 100 ? 'var(--success)' : resumenMetaAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
-                            </div>
-                            <span style={{ fontWeight: 800, color: resumenMetaAnual.pct >= 100 ? 'var(--success)' : resumenMetaAnual.pct >= 70 ? 'var(--primary)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
-                              {resumenMetaAnual.pct.toFixed(2)}%
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        {!resumenMetaAnual.tieneDatos ? '—' : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
-                            <div style={{ flex: 1, maxWidth: '90px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
-                              <div style={{ width: `${Math.min(resumenMetaAnual.pctFaltante, 100)}%`, height: '100%', backgroundColor: resumenMetaAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', borderRadius: '4px', transition: 'width 0.4s' }} />
-                            </div>
-                            <span style={{ fontWeight: 800, color: resumenMetaAnual.pctFaltante === 0 ? 'var(--success)' : 'var(--danger)', whiteSpace: 'nowrap', fontSize: '0.85rem' }}>
-                              {resumenMetaAnual.pctFaltante.toFixed(2)}%
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div style={{ padding: '1.5rem' }}>
+
+                {/* LOS DOS MONTOS */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                  <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid #ffbc11' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>
+                      {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                      {filtroTaller === 'Todos' ? 'Suma de la meta de todos los talleres' : 'Meta anual del taller'}
+                    </div>
+                  </div>
+
+                  <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '1rem 1.25rem', borderBottom: '3px solid var(--primary)' }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.4rem' }}>Meta anual alcanzada</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                      {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                      {filtroTaller === 'Todos' ? 'Suma de lo logrado por cada taller en el año' : 'Logrado por el taller en el año'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* BARRA DE AVANCE HACIA LA META */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Porcentaje de meta alcanzada</span>
+                    <span style={{ fontSize: '1.75rem', fontWeight: 900, color: colorAvanceMeta, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                      {resumenMetaAnual.tieneDatos ? `${resumenMetaAnual.pct.toFixed(2)}%` : '—'}
+                    </span>
+                  </div>
+                  <div style={{ position: 'relative', width: '100%', height: '26px', backgroundColor: 'var(--bg-highlight)', borderRadius: '13px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <div style={{
+                      width: `${Math.min(resumenMetaAnual.pct, 100)}%`, height: '100%', borderRadius: '13px',
+                      background: `linear-gradient(90deg, ${colorAvanceMeta}bb 0%, ${colorAvanceMeta} 100%)`,
+                      transition: 'width 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
+                      boxShadow: `0 0 14px ${colorAvanceMeta}66`
+                    }} />
+                    {/* Marcas de referencia: 25 / 50 / 75 % */}
+                    {[25, 50, 75].map(marca => (
+                      <div key={`marca-${marca}`} style={{ position: 'absolute', top: 0, bottom: 0, left: `${marca}%`, width: '1px', backgroundColor: 'var(--border)', opacity: 0.7 }} />
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>Meta 100%</span>
+                  </div>
+                </div>
               </div>
               <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
                 {resumenMetaAnual.esEstablecida
-                  ? 'Meta anual establecida en el catálogo de Registros. "Faltante" es lo que resta por lograr y "% Alcanzado" el avance hasta el momento.'
-                  : 'Este taller no tiene meta anual establecida: se muestra la suma de sus metas mensuales. Puedes definirla en Registros → Meta anual por taller.'}
+                  ? 'Meta anual establecida en el catálogo de Registros. La barra avanza conforme las ventas se acercan a la meta.'
+                  : 'Sin meta anual establecida: se usa la suma de las metas mensuales. Puedes definirla en Registros → Meta anual por taller.'}
               </p>
             </div>
 
@@ -1247,21 +1229,26 @@ export const Dashboard = () => {
               <table className="table" style={{ width: '100%' }}>
                 <thead><tr><th style={{ textAlign: 'center' }}>Semanas</th><th>Mes</th><th style={{ textAlign: 'right' }}>Meta</th><th style={{ textAlign: 'right' }}>Ventas</th><th style={{ textAlign: 'center' }}>%</th><th style={{ textAlign: 'right' }}>Diferencia</th><th style={{ textAlign: 'center' }}>Estado</th></tr></thead>
                 <tbody>
-                  {reporteMensual.datosPorMes.map(fila => (
-                    <tr key={fila.mes}>
+                  {reporteMensual.datosPorMes.map(fila => {
+                    // Los meses de 5 semanas se resaltan en amarillo
+                    const semanasFila = getSemanas(fila.mes, fila.numSemanas);
+                    const esCinco = semanasFila >= 5;
+                    return (
+                    <tr key={fila.mes} style={esCinco ? { backgroundColor: 'rgba(247, 231, 51, 0.13)', borderLeft: '3px solid #F7E733' } : undefined}>
                       <td style={{ textAlign: 'center' }}>
                         <input
                           type="number"
                           min={0}
-                          value={getSemanas(fila.mes, fila.numSemanas)}
+                          value={semanasFila}
                           onChange={(e) => {
                             const v = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
                             guardarSemanas(fila.mes, isNaN(v) ? 0 : Math.max(0, v));
                           }}
-                          style={{ width: '56px', textAlign: 'center', backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.3rem', fontSize: '0.85rem', fontWeight: 700, outline: 'none' }}
+                          title="Semanas del mes. El valor se guarda automáticamente y se comparte con todos los usuarios."
+                          style={{ width: '56px', textAlign: 'center', backgroundColor: esCinco ? 'rgba(247, 231, 51, 0.22)' : 'var(--bg-body)', color: esCinco ? '#F7E733' : 'var(--text-main)', border: `1px solid ${esCinco ? '#F7E733' : 'var(--border)'}`, borderRadius: '6px', padding: '0.3rem', fontSize: '0.85rem', fontWeight: 800, outline: 'none' }}
                         />
                       </td>
-                      <td><strong>{fila.mes}</strong></td>
+                      <td><strong style={esCinco ? { color: '#F7E733' } : undefined}>{fila.mes}</strong>{esCinco && <span style={{ marginLeft: '0.5rem', fontSize: '0.6rem', fontWeight: 800, color: '#F7E733', border: '1px solid #F7E733', borderRadius: '10px', padding: '2px 6px', letterSpacing: '0.5px' }}>5 SEM</span>}</td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{fila.meta > 0 ? miFormatearMoneda(fila.meta) : '-'}</td>
                       <td style={{ textAlign: 'right', fontWeight: fila.ventas > 0 ? 600 : 400, color: fila.ventas > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{fila.ventas > 0 ? miFormatearMoneda(fila.ventas) : '-'}</td>
                       <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>{fila.pctVentas.toFixed(2)}%</span>}</td>
@@ -1272,7 +1259,8 @@ export const Dashboard = () => {
                         </span>}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
                 {/* LÓGICA DE EXCEDENTE EN EL FOOTER DE LA TABLA */}
                 <tfoot>
