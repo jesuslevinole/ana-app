@@ -172,8 +172,8 @@ export const Dashboard = () => {
       <svg viewBox={`0 0 ${W} ${H}`} width="420" height="300" style={{ display: 'block', maxWidth: '100%' }}>
         {/* TRAMO ALCANZADO (verde) */}
         {pct > 0 && <path d={sector(0, pct)} fill="#16a34a" />}
-        {/* TRAMO FALTANTE (negro) */}
-        {pct < 100 && <path d={sector(pct, 100)} fill="#0b0d12" stroke="#2a2f3a" strokeWidth="1" />}
+        {/* TRAMO FALTANTE (rojo) */}
+        {pct < 100 && <path d={sector(pct, 100)} fill="#dc2626" />}
 
         {/* Marcas cada 5%: mayores en 0/25/50/75/100 */}
         {Array.from({ length: 21 }).map((_, i) => {
@@ -182,11 +182,10 @@ export const Dashboard = () => {
           const esMayor = p % 25 === 0;
           const a = punto(ang, rExt - 4);
           const b = punto(ang, esMayor ? rInt + 4 : rExt - 17);
-          const sobreVerde = p <= pct;
           return (
             <line key={`tick-${p}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-              stroke={sobreVerde ? '#ffffff' : '#6b7280'}
-              strokeOpacity={esMayor ? 0.9 : 0.5}
+              stroke="#ffffff"
+              strokeOpacity={esMayor ? 0.9 : 0.45}
               strokeWidth={esMayor ? 3 : 1.4} />
           );
         })}
