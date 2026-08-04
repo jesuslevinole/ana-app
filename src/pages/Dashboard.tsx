@@ -87,7 +87,9 @@ export const Dashboard = () => {
   // conserve y se comparta entre usuarios y equipos, no solo en este navegador.
   const { semanasEditadas, guardarSemanas: persistirSemanas } = useSemanasEditadas();
 
-  const claveSemana = (mes: string) => `${filtroAno}__${filtroTaller}__${mes}`;
+  // Las semanas del mes son iguales para TODOS los talleres: la clave depende
+  // solo del año y del mes, no del taller. Así se captura una sola vez.
+  const claveSemana = (mes: string) => `${filtroAno}__${mes}`;
 
   const getSemanas = (mes: string, computado: number) => {
     const k = claveSemana(mes);
@@ -313,7 +315,7 @@ export const Dashboard = () => {
   // Total de semanas mostrado considerando las ediciones manuales
   const totalSemanasMostrado = useMemo(() => {
     return reporteMensual.datosPorMes.reduce((acc, m) => acc + getSemanas(m.mes, m.numSemanas), 0);
-  }, [reporteMensual, semanasEditadas, filtroAno, filtroTaller]);
+  }, [reporteMensual, semanasEditadas, filtroAno]);
 
   // Análisis de Datos para el Gráfico Mensual
   const datosGraficoMensual = useMemo(() => {
@@ -362,39 +364,41 @@ export const Dashboard = () => {
             {operaciones.map((op, index) => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
               
-              // Radio de arranque de la guía: justo al borde del anillo
-              const rBase = is3D ? 128 : 125;
-              // Radio de la tarjeta: se alterna para escalonarlas y evitar choques
-              const rCard = (is3D ? 205 : 178) + (index % 2 === 0 ? 0 : 34);
+              // 1) PUNTO BASE: cae exactamente sobre el borde del anillo, para que
+              //    el círculo y la línea guía lo toquen (radio real del anillo).
+              const rAnillo = is3D ? 125 : 120;
 
-              // En 3D el eje Y se aplasta a la mitad; se compensa alargando el
-              // radio vertical para que las tarjetas no queden sobre el anillo.
-              const compensaY = is3D ? 1.75 : 1;
-
-              let xBase = Math.cos(rad) * rBase;
-              let yBase = Math.sin(rad) * rBase * compensaY;
-              let xCard = Math.cos(rad) * rCard;
-              let yCard = Math.sin(rad) * rCard * compensaY;
+              let xBase = Math.cos(rad) * rAnillo;
+              let yBase = Math.sin(rad) * rAnillo;
 
               if (is3D) {
                 const angle15 = 15 * (Math.PI / 180);
                 const cos15 = Math.cos(angle15);
                 const sin15 = Math.sin(angle15);
-
                 const apply3D = (x: number, y: number) => {
                   const xRot = x * cos15 - y * sin15;
                   const yRot = x * sin15 + y * cos15;
-                  return {
-                    x: xRot,
-                    y: (yRot * 0.5) + 15
-                  };
+                  return { x: xRot, y: (yRot * 0.5) + 15 };
                 };
-                
                 const base3d = apply3D(xBase, yBase);
-                const card3d = apply3D(xCard, yCard);
                 xBase = base3d.x; yBase = base3d.y;
-                xCard = card3d.x; yCard = card3d.y;
               }
+
+              // 2) TARJETA: se coloca alejándose en línea recta desde el centro
+              //    hacia el punto base, a una distancia fija MÁS ALLÁ del anillo.
+              //    Así la viñeta guarda su holgura y la línea siempre queda radial.
+              const cxProy = 0;
+              const cyProy = is3D ? 15 : 0; // centro del anillo ya proyectado
+              const dx = xBase - cxProy;
+              const dy = yBase - cyProy;
+              const distBase = Math.hypot(dx, dy) || 1;
+              // Separación de la viñeta respecto al borde del anillo (alternada
+              // para escalonar las tarjetas y que no choquen entre sí)
+              const separacion = 92 + (index % 2 === 0 ? 0 : 42);
+              const distCard = distBase + separacion;
+
+              const xCard = cxProy + (dx / distBase) * distCard;
+              const yCard = cyProy + (dy / distBase) * distCard;
 
               const isHovered = hoveredOp === op.id;
               const isDimmed = hoveredOp !== null && !isHovered;
@@ -495,38 +499,41 @@ export const Dashboard = () => {
             {operaciones.map((op, index) => {
               const rad = (op.midAngle - 90) * (Math.PI / 180);
               
-              // Radio de arranque de la guía: justo al borde del anillo
-              const rBase = is3DMensual ? 128 : 125;
-              // Radio de la tarjeta: se alterna para escalonarlas y evitar choques
-              const rCard = (is3DMensual ? 205 : 178) + (index % 2 === 0 ? 0 : 34);
+              // 1) PUNTO BASE: cae exactamente sobre el borde del anillo, para que
+              //    el círculo y la línea guía lo toquen (radio real del anillo).
+              const rAnillo = is3DMensual ? 125 : 120;
 
-              // En 3D el eje Y se aplasta a la mitad; se compensa alargando el
-              // radio vertical para que las tarjetas no queden sobre el anillo.
-              const compensaY = is3DMensual ? 1.75 : 1;
-
-              let xBase = Math.cos(rad) * rBase;
-              let yBase = Math.sin(rad) * rBase * compensaY;
-              let xCard = Math.cos(rad) * rCard;
-              let yCard = Math.sin(rad) * rCard * compensaY;
+              let xBase = Math.cos(rad) * rAnillo;
+              let yBase = Math.sin(rad) * rAnillo;
 
               if (is3DMensual) {
                 const angle15 = 15 * (Math.PI / 180);
                 const cos15 = Math.cos(angle15);
                 const sin15 = Math.sin(angle15);
-
                 const apply3D = (x: number, y: number) => {
                   const xRot = x * cos15 - y * sin15;
                   const yRot = x * sin15 + y * cos15;
-                  return {
-                    x: xRot,
-                    y: (yRot * 0.5) + 15
-                  };
+                  return { x: xRot, y: (yRot * 0.5) + 15 };
                 };
                 const base3d = apply3D(xBase, yBase);
-                const card3d = apply3D(xCard, yCard);
                 xBase = base3d.x; yBase = base3d.y;
-                xCard = card3d.x; yCard = card3d.y;
               }
+
+              // 2) TARJETA: se coloca alejándose en línea recta desde el centro
+              //    hacia el punto base, a una distancia fija MÁS ALLÁ del anillo.
+              //    Así la viñeta guarda su holgura y la línea siempre queda radial.
+              const cxProy = 0;
+              const cyProy = is3DMensual ? 15 : 0; // centro del anillo ya proyectado
+              const dx = xBase - cxProy;
+              const dy = yBase - cyProy;
+              const distBase = Math.hypot(dx, dy) || 1;
+              // Separación de la viñeta respecto al borde del anillo (alternada
+              // para escalonar las tarjetas y que no choquen entre sí)
+              const separacion = 92 + (index % 2 === 0 ? 0 : 42);
+              const distCard = distBase + separacion;
+
+              const xCard = cxProy + (dx / distBase) * distCard;
+              const yCard = cyProy + (dy / distBase) * distCard;
 
               const isHovered = hoveredMes === op.id;
               const isDimmed = hoveredMes !== null && !isHovered;
@@ -1312,7 +1319,7 @@ export const Dashboard = () => {
                             const v = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
                             guardarSemanas(fila.mes, isNaN(v) ? 0 : Math.max(0, v));
                           }}
-                          title="Semanas del mes. El valor se guarda automáticamente y se comparte con todos los usuarios."
+                          title="Semanas del mes. Es igual para todos los talleres: se captura una sola vez y se comparte con todos los usuarios."
                           style={{ width: '56px', textAlign: 'center', backgroundColor: esCinco ? 'rgba(247, 231, 51, 0.22)' : 'var(--bg-body)', color: esCinco ? '#F7E733' : 'var(--text-main)', border: `1px solid ${esCinco ? '#F7E733' : 'var(--border)'}`, borderRadius: '6px', padding: '0.3rem', fontSize: '0.85rem', fontWeight: 800, outline: 'none' }}
                         />
                       </td>
