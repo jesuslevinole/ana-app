@@ -109,11 +109,11 @@ export const ReporteAnualGeneral = () => {
   // ---------------------------------------------------------------------
   //  GRÁFICA DE RELOJ (GAUGE): alcanzado en verde, faltante en rojo
   // ---------------------------------------------------------------------
-  const renderGauge = (pctCrudo: number, ancho = 360, alto = 210) => {
+  const renderGauge = (pctCrudo: number) => {
     const pct = Math.max(0, Math.min(pctCrudo, 100)); // la aguja no pasa del 100%
-    const W = 360, H = 210;
-    const cx = W / 2, cy = 178;
-    const rExt = 140, rInt = 96;
+    const W = 420, H = 300;
+    const cx = W / 2, cy = 214;
+    const rExt = 160, rInt = 112;
 
     const punto = (angGrados: number, radio: number) => {
       const rad = (angGrados * Math.PI) / 180;
@@ -130,30 +130,40 @@ export const ReporteAnualGeneral = () => {
     };
 
     const anguloAguja = 180 - (pct / 100) * 180;
-    const puntaAguja = punto(anguloAguja, rExt - 16);
+    const puntaAguja = punto(anguloAguja, rExt - 8);
 
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} width={ancho} height={alto} style={{ display: 'block', maxWidth: '100%' }}>
-        {pct > 0 && <path d={sector(0, pct)} fill="#22c55e" />}
-        {pct < 100 && <path d={sector(pct, 100)} fill="#ef4444" fillOpacity="0.85" />}
+      <svg viewBox={`0 0 ${W} ${H}`} width="420" height="300" style={{ display: 'block', maxWidth: '100%' }}>
+        {/* TRAMO ALCANZADO (verde) */}
+        {pct > 0 && <path d={sector(0, pct)} fill="#16a34a" />}
+        {/* TRAMO FALTANTE (negro) */}
+        {pct < 100 && <path d={sector(pct, 100)} fill="#0b0d12" stroke="#2a2f3a" strokeWidth="1" />}
 
         {Array.from({ length: 21 }).map((_, i) => {
           const p = i * 5;
           const ang = 180 - (p / 100) * 180;
           const esMayor = p % 25 === 0;
-          const a = punto(ang, rExt - 3);
-          const b = punto(ang, esMayor ? rInt + 3 : rExt - 14);
-          return <line key={`tick-${p}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#ffffff" strokeOpacity={esMayor ? 0.85 : 0.4} strokeWidth={esMayor ? 2.5 : 1.2} />;
+          const a = punto(ang, rExt - 4);
+          const b = punto(ang, esMayor ? rInt + 4 : rExt - 17);
+          const sobreVerde = p <= pct;
+          return (
+            <line key={`tick-${p}`} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+              stroke={sobreVerde ? '#ffffff' : '#6b7280'}
+              strokeOpacity={esMayor ? 0.9 : 0.5}
+              strokeWidth={esMayor ? 3 : 1.4} />
+          );
         })}
 
-        <text x={cx - rExt - 2} y={cy + 20} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--text-muted)">0%</text>
-        <text x={cx} y={cy - rExt - 12} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--text-muted)">50%</text>
-        <text x={cx + rExt + 2} y={cy + 20} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--text-muted)">100%</text>
+        <text x={cx - rExt - 4} y={cy + 20} textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--text-muted)">0%</text>
+        <text x={cx} y={cy - rExt - 14} textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--text-muted)">50%</text>
+        <text x={cx + rExt + 4} y={cy + 20} textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--text-muted)">100%</text>
 
-        <line x1={cx} y1={cy} x2={puntaAguja.x} y2={puntaAguja.y} stroke="var(--text-main)" strokeWidth="5" strokeLinecap="round" />
-        <circle cx={cx} cy={cy} r="13" fill="var(--bg-panel)" stroke="var(--text-main)" strokeWidth="4" />
+        <line x1={cx} y1={cy} x2={puntaAguja.x} y2={puntaAguja.y} stroke="#f1f5f9" strokeWidth="6" strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r="15" fill="var(--bg-panel)" stroke="#f1f5f9" strokeWidth="5" />
 
-        <text x={cx} y={cy - 34} textAnchor="middle" fontSize="38" fontWeight="900" fill={colorPorAvance(pctCrudo)}>{pctCrudo.toFixed(2)}%</text>
+        {/* PORCENTAJE: debajo de la aguja, en blanco */}
+        <text x={cx} y={cy + 58} textAnchor="middle" fontSize="42" fontWeight="900" fill="#ffffff">{pctCrudo.toFixed(2)}%</text>
+        <text x={cx} y={cy + 78} textAnchor="middle" fontSize="12" fontWeight="800" fill="var(--text-muted)" letterSpacing="1.5">ALCANCE ACTUAL</text>
       </svg>
     );
   };
@@ -208,7 +218,6 @@ export const ReporteAnualGeneral = () => {
               <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>
                 Resumen General {ano} &nbsp;·&nbsp; Todos los talleres
               </h3>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Suma de las metas mensuales del año</span>
             </div>
 
             {/* TRES TARJETAS */}
@@ -229,21 +238,42 @@ export const ReporteAnualGeneral = () => {
               </div>
             </div>
 
-            {/* GRÁFICA DE RELOJ */}
+            {/* GRÁFICA DE RELOJ: alcanzado en verde, faltante en negro */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1.5rem' }}>
-              {renderGauge(totales.pct)}
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px', marginTop: '0.35rem' }}>
-                Nivel actual de alcance
+              <div style={{ textAlign: 'center', marginBottom: '0.25rem' }}>
+                <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#ffbc11', letterSpacing: '2px' }}>
+                  NIVEL ACTUAL DE ALCANCE
+                </div>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', marginTop: '0.15rem' }}>
+                  DESEMPEÑO VS META
+                </div>
+                <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, transparent, var(--border), transparent)', marginTop: '0.6rem' }} />
               </div>
-              <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.9rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  <span style={{ width: '13px', height: '13px', borderRadius: '3px', backgroundColor: '#22c55e', display: 'inline-block' }} />
-                  Alcanzado {totales.pct.toFixed(2)}%
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontSize: '0.76rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  <span style={{ width: '13px', height: '13px', borderRadius: '3px', backgroundColor: '#ef4444', display: 'inline-block' }} />
-                  Faltante {Math.max(100 - totales.pct, 0).toFixed(2)}%
-                </span>
+
+              {renderGauge(totales.pct)}
+
+              <div style={{ display: 'flex', alignItems: 'stretch', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginTop: '0.5rem', backgroundColor: 'var(--bg-body)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.4rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', backgroundColor: 'rgba(21,128,61,0.18)', border: '2px solid #15803d', flexShrink: 0 }}>
+                    <Target size={19} color="#15803d" />
+                  </span>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1px' }}>ALCANZADO</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#15803d', lineHeight: 1.1 }}>{totales.pct.toFixed(2)}%</div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>DEL OBJETIVO</div>
+                  </div>
+                </div>
+                <div style={{ width: '1px', backgroundColor: 'var(--border)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.4rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', backgroundColor: 'rgba(153,27,27,0.18)', border: '2px solid #991b1b', flexShrink: 0 }}>
+                    <TrendingUp size={19} color="#991b1b" />
+                  </span>
+                  <div>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1px' }}>FALTANTE</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#991b1b', lineHeight: 1.1 }}>{Math.max(100 - totales.pct, 0).toFixed(2)}%</div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>PARA LLEGAR AL 100%</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
