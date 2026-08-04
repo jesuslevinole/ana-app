@@ -3,7 +3,7 @@ import { AppContext } from '../../context/AppContext';
 import {
   Calendar, PieChart, FileText, Menu, ChevronLeft, ChevronRight,
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
-  ClipboardList, LineChart, Sun, Moon, CalendarRange
+  ClipboardList, LineChart, Sun, Moon, CalendarRange, FileBarChart
 } from 'lucide-react';
 
 type ItemNav = {
@@ -51,6 +51,14 @@ const GRUPOS: GrupoNav[] = [
       { vista: 'inspeccionesDashboard', label: 'Dashboard', icon: LineChart },
       { vista: 'inspeccionesComparacion', label: 'Comparación', icon: GitCompare },
       { vista: 'inspeccionesComparacionMeses', label: 'Comparación de Meses', icon: CalendarRange },
+    ],
+  },
+  {
+    id: 'reportes',
+    label: 'Reportes',
+    icon: FileBarChart,
+    items: [
+      { vista: 'reporteAnualGeneral', label: 'Reporte Anual General', icon: FileBarChart },
     ],
   },
   {

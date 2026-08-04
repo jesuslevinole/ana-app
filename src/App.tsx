@@ -11,6 +11,7 @@ import { InspeccionesRegistro } from './pages/InspeccionesRegistro';
 import { InspeccionesDashboard } from './pages/InspeccionesDashboard';
 import { InspeccionesComparacion } from './pages/InspeccionesComparacion';
 import { InspeccionesComparacionMeses } from './pages/InspeccionesComparacionMeses';
+import { ReporteAnualGeneral } from './pages/ReporteAnualGeneral';
 import { Marketing } from './pages/Marketing';
 import "./index.css";
 
@@ -34,6 +35,7 @@ const EnrutadorVistas = () => {
       {vista === 'inspeccionesDashboard' && <InspeccionesDashboard />}
       {vista === 'inspeccionesComparacion' && <InspeccionesComparacion />}
       {vista === 'inspeccionesComparacionMeses' && <InspeccionesComparacionMeses />}
+      {vista === 'reporteAnualGeneral' && <ReporteAnualGeneral />}
       {vista === 'marketing' && <Marketing />}
     </Layout>
   );
