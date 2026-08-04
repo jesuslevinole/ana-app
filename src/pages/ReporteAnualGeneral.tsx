@@ -135,9 +135,9 @@ export const ReporteAnualGeneral = () => {
     return (
       <svg viewBox={`0 0 ${W} ${H}`} width="420" height="300" style={{ display: 'block', maxWidth: '100%' }}>
         {/* TRAMO ALCANZADO (verde) */}
-        {pct > 0 && <path d={sector(0, pct)} fill="#16a34a" />}
+        {pct > 0 && <path d={sector(0, pct)} fill="#16a34a" style={{ fill: '#16a34a' }} />}
         {/* TRAMO FALTANTE (rojo) */}
-        {pct < 100 && <path d={sector(pct, 100)} fill="#dc2626" />}
+        {pct < 100 && <path d={sector(pct, 100)} fill="#dc2626" style={{ fill: '#dc2626' }} />}
 
         {Array.from({ length: 21 }).map((_, i) => {
           const p = i * 5;
