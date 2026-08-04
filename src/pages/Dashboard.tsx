@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { useSemanasEditadas } from '../hooks/useSemanasEditadas';
-import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText } from 'lucide-react';
+import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
@@ -1257,26 +1257,39 @@ export const Dashboard = () => {
                 </h3>
               </div>
 
-              {/* TRES TARJETAS: META (dorado) · ALCANZADA (verde) · FALTANTE (rojo) */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
-                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ffbc11' }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Meta anual</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>
-                    {resumenMetaAnual.metaAnual > 0 ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
+              {/* TRES TARJETAS: META (azul) · ALCANZADA (verde) · FALTANTE (rojo) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #1d8cf8', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#1d8cf8', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #1d8cf855' }}>
+                    <Target size={22} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1d8cf8', whiteSpace: 'nowrap' }}>
+                      {resumenMetaAnual.metaAnual > 0 ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
+                    </div>
                   </div>
                 </div>
-
-                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #22c55e' }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Meta anual alcanzada</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>
-                    {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #22c55e', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#22c55e', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #22c55e55' }}>
+                    <CheckCircle2 size={22} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual alcanzada</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>
+                      {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
+                    </div>
                   </div>
                 </div>
-
-                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ef4444' }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Faltante por alcanzar</div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: resumenMetaAnual.faltante === 0 && resumenMetaAnual.tieneDatos ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
-                    {!resumenMetaAnual.tieneDatos ? '—' : resumenMetaAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenMetaAnual.faltante)}
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ef4444', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#ef4444', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #ef444455' }}>
+                    <AlertCircle size={22} />
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Faltante por alcanzar</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: resumenMetaAnual.faltante === 0 && resumenMetaAnual.tieneDatos ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
+                      {!resumenMetaAnual.tieneDatos ? '—' : resumenMetaAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenMetaAnual.faltante)}
+                    </div>
                   </div>
                 </div>
               </div>

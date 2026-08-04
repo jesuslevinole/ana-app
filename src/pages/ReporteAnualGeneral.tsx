@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
-import { FileBarChart, Filter, TrendingUp, TrendingDown, Target, ClipboardCheck } from 'lucide-react';
+import { FileBarChart, Filter, TrendingUp, TrendingDown, Target, ClipboardCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 
 // =========================================================================
 //  REPORTE ANUAL GENERAL
@@ -220,20 +220,39 @@ export const ReporteAnualGeneral = () => {
               </h3>
             </div>
 
-            {/* TRES TARJETAS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
-              <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ffbc11' }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Meta anual</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totales.meta)}</div>
+            {/* TRES TARJETAS: META (azul) · ALCANZADA (verde) · FALTANTE (rojo) */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #1d8cf8', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#1d8cf8', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #1d8cf855' }}>
+                  <Target size={22} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1d8cf8', whiteSpace: 'nowrap' }}>
+                    {miFormatearMoneda(totales.meta)}
+                  </div>
+                </div>
               </div>
-              <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #22c55e' }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Meta anual alcanzada</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totales.logrado)}</div>
+              <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #22c55e', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#22c55e', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #22c55e55' }}>
+                  <CheckCircle2 size={22} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual alcanzada</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>
+                    {miFormatearMoneda(totales.logrado)}
+                  </div>
+                </div>
               </div>
-              <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ef4444' }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.35rem' }}>Faltante por alcanzar</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 900, color: totales.faltante === 0 ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
-                  {totales.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(totales.faltante)}
+              <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ef4444', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#ef4444', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #ef444455' }}>
+                  <AlertCircle size={22} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Faltante por alcanzar</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 900, color: totales.faltante === 0 ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
+                    {totales.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(totales.faltante)}
+                  </div>
                 </div>
               </div>
             </div>
