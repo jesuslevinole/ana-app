@@ -205,7 +205,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
       <main className="main-content">
         <header style={{ padding: '1rem', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', display: 'none' }} className="md-block">
-          <button className="btn btn-outline" style={{padding: '0.4rem'}} onClick={() => setMenuAbierto(!menuAbierto)}><Menu size={24}/></button>
+          <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setMenuAbierto(!menuAbierto)}><Menu size={24} /></button>
         </header>
         <div className="content-area">{children}</div>
       </main>

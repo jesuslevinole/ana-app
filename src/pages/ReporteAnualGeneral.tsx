@@ -23,8 +23,6 @@ const miFormatearMoneda = (valor: number) =>
     maximumFractionDigits: 2
   }).format(valor || 0).replace('$', '$\u00A0');
 
-const fmtNum = (n: number) => (n || 0).toLocaleString('en-US');
-
 const colorPorAvance = (pct: number) =>
   pct >= 100 ? '#22c55e' : pct >= 70 ? '#22c55e' : pct >= 40 ? '#ffbc11' : '#ef4444';
 
