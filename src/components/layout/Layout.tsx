@@ -59,6 +59,7 @@ const GRUPOS: GrupoNav[] = [
     icon: FileBarChart,
     items: [
       { vista: 'reporteAnualGeneral', label: 'Reporte Anual General', icon: FileBarChart },
+      { vista: 'reporteAnualInspecciones', label: 'Reporte Anual Inspecciones', icon: ClipboardCheck },
     ],
   },
   {

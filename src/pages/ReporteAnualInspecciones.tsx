@@ -1,8 +1,9 @@
 import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useInspecciones } from '../hooks/useInspecciones';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
-import { FileBarChart, Filter, TrendingUp, TrendingDown, Target, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, Filter, TrendingUp, TrendingDown, Target, CheckCircle2, AlertCircle } from 'lucide-react';
 
 // =========================================================================
 //  REPORTE ANUAL GENERAL
@@ -15,33 +16,26 @@ import { FileBarChart, Filter, TrendingUp, TrendingDown, Target, CheckCircle2, A
 //  que coincida siempre con el Reporte Mensual Consolidado del Dashboard.
 // =========================================================================
 
-const miFormatearMoneda = (valor: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(valor || 0).replace('$', '$\u00A0');
-
 const fmtNum = (n: number) => (n || 0).toLocaleString('en-US');
 
 const colorPorAvance = (pct: number) =>
   pct >= 100 ? '#22c55e' : pct >= 70 ? '#22c55e' : pct >= 40 ? '#ffbc11' : '#ef4444';
 
-export const ReporteAnualGeneral = () => {
+export const ReporteAnualInspecciones = () => {
   const contexto = useContext(AppContext);
+  const { inspecciones } = useInspecciones();
   const { obtenerMetaAnual } = useMetasAnuales();
   if (!contexto) return null;
-  const { registros, talleres } = contexto;
+  const { talleres } = contexto;
 
   const anoActual = String(new Date().getFullYear());
   const [ano, setAno] = useState<string>(anoActual);
 
   const anosDisponibles = useMemo(() => {
-    const set = new Set<string>(registros.map(r => r.ano.toString()));
+    const set = new Set<string>(inspecciones.map(i => String(i.ano)));
     set.add(anoActual);
     return Array.from(set).sort();
-  }, [registros, anoActual]);
+  }, [inspecciones, anoActual]);
 
   const talleresOrdenados = useMemo(
     () => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)),
@@ -52,12 +46,12 @@ export const ReporteAnualGeneral = () => {
   const porTaller = useMemo(() => {
     return talleresOrdenados
       .map(t => {
-        const regs = registros.filter(r => r.ano.toString() === ano && r.taller === t.nombre);
-        const meta = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
-        const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
+        const regs = inspecciones.filter(i => i.taller === t.nombre && String(i.ano) === ano);
+        const meta = regs.reduce((acc, i) => acc + (typeof (i as any).meta === 'number' ? (i as any).meta : 0), 0);
+        const logrado = regs.reduce((acc, i) => acc + (i.cantidad || 0), 0);
         const faltante = Math.max(meta - logrado, 0);
         const pct = meta > 0 ? (logrado / meta) * 100 : 0;
-        const metaEstablecida = obtenerMetaAnual('ventas', ano, t.nombre);
+        const metaEstablecida = obtenerMetaAnual('inspecciones', ano, t.nombre);
         return {
           nombre: t.nombre,
           color: (t as any).color || '#1d8cf8',
@@ -67,7 +61,7 @@ export const ReporteAnualGeneral = () => {
         };
       })
       .filter(x => x.tieneDatos);
-  }, [talleresOrdenados, registros, ano, obtenerMetaAnual]);
+  }, [talleresOrdenados, inspecciones, ano, obtenerMetaAnual]);
 
   // --- TOTALES DEL AÑO ---
   const totales = useMemo(() => {
@@ -81,14 +75,14 @@ export const ReporteAnualGeneral = () => {
   // --- DESGLOSE MES A MES (consolidado de todos los talleres) ---
   const porMes = useMemo(() => {
     return MESES.map(mes => {
-      const regs = registros.filter(r => r.ano.toString() === ano && r.mes === mes);
-      const meta = regs.reduce((acc, r) => acc + (r.meta || 0), 0);
-      const logrado = regs.reduce((acc, r) => acc + (r.logrado || 0), 0);
+      const regs = inspecciones.filter(i => String(i.ano) === ano && i.mes === mes);
+      const meta = regs.reduce((acc, i) => acc + (typeof (i as any).meta === 'number' ? (i as any).meta : 0), 0);
+      const logrado = regs.reduce((acc, i) => acc + (i.cantidad || 0), 0);
       const dif = logrado - meta;
       const pct = meta > 0 ? (logrado / meta) * 100 : 0;
       return { mes, meta, logrado, dif, pct, tieneDatos: regs.length > 0 };
     });
-  }, [registros, ano]);
+  }, [inspecciones, ano]);
 
   const hayDatos = porTaller.length > 0;
 
@@ -171,10 +165,10 @@ export const ReporteAnualGeneral = () => {
       {/* ENCABEZADO */}
       <div className="page-header">
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <FileBarChart size={32} color="var(--primary)" />
+          <ClipboardCheck size={32} color="var(--primary)" />
           <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Reporte Anual General</h2>
-            <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Consolidado del año de todos los talleres</p>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Reporte Anual de Inspecciones</h2>
+            <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>Inspecciones del año consolidadas por taller</p>
           </div>
         </div>
       </div>
@@ -193,7 +187,7 @@ export const ReporteAnualGeneral = () => {
         <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
           <Filter size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
           <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Sin datos para {ano}</h3>
-          <p style={{ color: 'var(--text-muted)' }}>No hay registros de ventas capturados en este año.</p>
+          <p style={{ color: 'var(--text-muted)' }}>No hay inspecciones capturadas en este año.</p>
         </div>
       ) : (
         <>
@@ -214,7 +208,7 @@ export const ReporteAnualGeneral = () => {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1d8cf8', whiteSpace: 'nowrap' }}>
-                    {miFormatearMoneda(totales.meta)}
+                    {fmtNum(totales.meta)}
                   </div>
                 </div>
               </div>
@@ -223,9 +217,9 @@ export const ReporteAnualGeneral = () => {
                   <CheckCircle2 size={22} />
                 </span>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual alcanzada</div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Inspecciones realizadas</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>
-                    {miFormatearMoneda(totales.logrado)}
+                    {fmtNum(totales.logrado)}
                   </div>
                 </div>
               </div>
@@ -236,7 +230,7 @@ export const ReporteAnualGeneral = () => {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Faltante por alcanzar</div>
                   <div style={{ fontSize: '1.5rem', fontWeight: 900, color: totales.faltante === 0 ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
-                    {totales.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(totales.faltante)}
+                    {totales.faltante === 0 ? 'Meta alcanzada ✓' : fmtNum(totales.faltante)}
                   </div>
                 </div>
               </div>
@@ -285,7 +279,7 @@ export const ReporteAnualGeneral = () => {
           {/* DESGLOSE POR TALLER */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: '1.5rem' }}>
             <div className="report-header" style={{ borderTop: '3px solid var(--primary)' }}>
-              VENTAS POR TALLER &nbsp;·&nbsp; AÑO {ano}
+              INSPECCIONES POR TALLER &nbsp;·&nbsp; AÑO {ano}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table className="table" style={{ width: '100%', minWidth: '860px' }}>
@@ -294,7 +288,7 @@ export const ReporteAnualGeneral = () => {
                     <th>Taller</th>
                     <th style={{ textAlign: 'center' }}>Meses</th>
                     <th style={{ textAlign: 'right' }}>Meta anual</th>
-                    <th style={{ textAlign: 'right' }}>Alcanzado</th>
+                    <th style={{ textAlign: 'right' }}>Realizadas</th>
                     <th style={{ textAlign: 'right' }}>Faltante</th>
                     <th style={{ textAlign: 'center', minWidth: '210px' }}>Porcentaje de meta alcanzada</th>
                   </tr>
@@ -307,10 +301,10 @@ export const ReporteAnualGeneral = () => {
                         <strong style={{ color: 'var(--text-main)' }}>{t.nombre}</strong>
                       </td>
                       <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontWeight: 700 }}>{t.mesesRegistrados}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{miFormatearMoneda(t.meta)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>{miFormatearMoneda(t.logrado)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#ffbc11', whiteSpace: 'nowrap' }}>{fmtNum(t.meta)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>{fmtNum(t.logrado)}</td>
                       <td style={{ textAlign: 'right', fontWeight: 800, color: t.faltante === 0 ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
-                        {t.faltante === 0 ? 'Alcanzada ✓' : miFormatearMoneda(t.faltante)}
+                        {t.faltante === 0 ? 'Alcanzada ✓' : fmtNum(t.faltante)}
                       </td>
                       <td style={{ textAlign: 'center' }}>{barra(t.pct)}</td>
                     </tr>
@@ -320,10 +314,10 @@ export const ReporteAnualGeneral = () => {
                   <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
                     <td style={{ padding: '0.9rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>Total todos los talleres</strong></td>
                     <td style={{ textAlign: 'center' }} />
-                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totales.meta)}</td>
-                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totales.logrado)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>{fmtNum(totales.meta)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>{fmtNum(totales.logrado)}</td>
                     <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: totales.faltante === 0 ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
-                      {totales.faltante === 0 ? 'Alcanzada ✓' : miFormatearMoneda(totales.faltante)}
+                      {totales.faltante === 0 ? 'Alcanzada ✓' : fmtNum(totales.faltante)}
                     </td>
                     <td style={{ textAlign: 'center', padding: '0.9rem' }}>{barra(totales.pct)}</td>
                   </tr>
@@ -343,7 +337,7 @@ export const ReporteAnualGeneral = () => {
                   <tr>
                     <th>Mes</th>
                     <th style={{ textAlign: 'right' }}>Meta</th>
-                    <th style={{ textAlign: 'right' }}>Ventas</th>
+                    <th style={{ textAlign: 'right' }}>Realizadas</th>
                     <th style={{ textAlign: 'right' }}>Diferencia</th>
                     <th style={{ textAlign: 'center', minWidth: '200px' }}>% Cumplimiento</th>
                   </tr>
@@ -352,13 +346,13 @@ export const ReporteAnualGeneral = () => {
                   {porMes.map(m => (
                     <tr key={`pm-${m.mes}`} style={!m.tieneDatos ? { opacity: 0.45 } : undefined}>
                       <td><strong style={{ color: 'var(--text-main)' }}>{m.mes}</strong></td>
-                      <td style={{ textAlign: 'right', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{m.meta > 0 ? miFormatearMoneda(m.meta) : '—'}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>{m.logrado > 0 ? miFormatearMoneda(m.logrado) : '—'}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{m.meta > 0 ? fmtNum(m.meta) : '—'}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, color: '#22c55e', whiteSpace: 'nowrap' }}>{m.logrado > 0 ? fmtNum(m.logrado) : '—'}</td>
                       <td style={{ textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap', color: !m.tieneDatos || m.meta === 0 ? 'var(--text-muted)' : m.dif >= 0 ? '#22c55e' : '#ef4444' }}>
                         {!m.tieneDatos || m.meta === 0 ? '—' : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
                             {m.dif >= 0 ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
-                            {m.dif >= 0 ? '+' : '-'}{miFormatearMoneda(Math.abs(m.dif))}
+                            {m.dif >= 0 ? '+' : '-'}{fmtNum(Math.abs(m.dif))}
                           </span>
                         )}
                       </td>
@@ -369,10 +363,10 @@ export const ReporteAnualGeneral = () => {
                 <tfoot>
                   <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
                     <td style={{ padding: '0.9rem' }}><strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>Total {ano}</strong></td>
-                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totales.meta)}</td>
-                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>{miFormatearMoneda(totales.logrado)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#ffbc11', whiteSpace: 'nowrap' }}>{fmtNum(totales.meta)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>{fmtNum(totales.logrado)}</td>
                     <td style={{ textAlign: 'right', padding: '0.9rem', fontWeight: 900, whiteSpace: 'nowrap', color: totales.logrado - totales.meta >= 0 ? '#22c55e' : '#ef4444' }}>
-                      {totales.logrado - totales.meta >= 0 ? '+' : '-'}{miFormatearMoneda(Math.abs(totales.logrado - totales.meta))}
+                      {totales.logrado - totales.meta >= 0 ? '+' : '-'}{fmtNum(Math.abs(totales.logrado - totales.meta))}
                     </td>
                     <td style={{ textAlign: 'center', padding: '0.9rem' }}>{barra(totales.pct)}</td>
                   </tr>
@@ -385,7 +379,7 @@ export const ReporteAnualGeneral = () => {
           {/* NOTA */}
           <p style={{ marginTop: '1rem', fontSize: '0.72rem', color: 'var(--text-muted)', textAlign: 'center' }}>
             <Target size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-            La meta anual es la suma de las metas mensuales registradas del año, por lo que coincide con el Reporte Mensual Consolidado del Dashboard.
+            La meta anual es la suma de las metas mensuales registradas del año en el módulo de Inspecciones.
           </p>
         </>
       )}
