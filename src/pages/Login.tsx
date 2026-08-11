@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, PERMITIR_ACCESO_SIN_LOGIN } from '../context/AuthContext';
 import { useEtiquetas } from '../context/EtiquetasContext';
-import { Calendar, Mail, Lock, LogIn, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, Mail, Lock, LogIn, Eye, EyeOff, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
 
 // =========================================================================
 //  PANTALLA DE ACCESO
@@ -9,7 +9,7 @@ import { Calendar, Mail, Lock, LogIn, Eye, EyeOff, AlertCircle, CheckCircle2 } f
 // =========================================================================
 
 export const Login = () => {
-  const { iniciarSesion, recuperarPassword, errorAcceso } = useAuth();
+  const { iniciarSesion, recuperarPassword, errorAcceso, entrarSinLogin } = useAuth();
   const { t } = useEtiquetas();
 
   const [email, setEmail] = useState('');
@@ -179,6 +179,35 @@ export const Login = () => {
               {modoRecuperar ? 'Volver al inicio de sesión' : '¿Olvidaste tu contraseña?'}
             </button>
           </div>
+
+          {/* ACCESO TEMPORAL SIN INICIAR SESIÓN (modo desarrollo) */}
+          {PERMITIR_ACCESO_SIN_LOGIN && !modoRecuperar && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0 1rem' }}>
+                <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border, #2a2f45)' }} />
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>O BIEN</span>
+                <div style={{ flex: 1, height: '1px', backgroundColor: 'var(--border, #2a2f45)' }} />
+              </div>
+
+              <button
+                type="button"
+                onClick={entrarSinLogin}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: '0.5rem', padding: '0.7rem', borderRadius: '8px', cursor: 'pointer',
+                  backgroundColor: 'transparent', border: '1px dashed var(--text-muted, #94a3b8)',
+                  color: 'var(--text-muted, #94a3b8)', fontSize: '0.88rem', fontWeight: 700
+                }}
+              >
+                Entrar sin iniciar sesión <ArrowRight size={16} />
+              </button>
+
+              <p style={{ margin: '0.6rem 0 0', textAlign: 'center', fontSize: '0.68rem', color: 'var(--text-muted, #94a3b8)', lineHeight: 1.4 }}>
+                Acceso temporal con permisos de administrador.
+                <br />Desactívalo antes de publicar la app.
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

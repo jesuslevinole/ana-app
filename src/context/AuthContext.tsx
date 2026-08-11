@@ -24,6 +24,39 @@ import type { Usuario, Rol } from '../types';
 // Rol de administrador que se crea automáticamente la primera vez
 const ROL_ADMIN_ID = 'administrador';
 
+// =========================================================================
+//  ⚠️ ACCESO TEMPORAL SIN INICIAR SESIÓN (MODO DESARROLLO)
+//
+//  Permite entrar a la app con permisos de administrador sin autenticarse,
+//  para poder seguir trabajando mientras se configuran las cuentas.
+//
+//  PARA DESACTIVARLO EN PRODUCCIÓN: cambia esta constante a false.
+//  El botón desaparece de la pantalla de acceso y solo se podrá entrar
+//  con correo y contraseña.
+// =========================================================================
+export const PERMITIR_ACCESO_SIN_LOGIN = true;
+
+// Clave de sesión: mantiene el modo invitado si se recarga la página
+const CLAVE_INVITADO = 'acceso_sin_login_v1';
+
+// Perfil ficticio que se usa mientras se navega sin iniciar sesión
+const PERFIL_INVITADO: Usuario = {
+  id: 'invitado',
+  nombre: 'Invitado',
+  email: 'sin-sesion@local',
+  rolId: ROL_ADMIN_ID,
+  activo: true,
+};
+
+const ROL_INVITADO: Rol = {
+  id: ROL_ADMIN_ID,
+  nombre: 'Administrador (sin sesión)',
+  descripcion: 'Acceso temporal sin autenticación',
+  permisos: {},
+  esAdmin: true,
+  protegido: true,
+};
+
 export interface AuthContextType {
   usuarioAuth: User | null;
   perfil: Usuario | null;
@@ -34,6 +67,9 @@ export interface AuthContextType {
   iniciarSesion: (email: string, password: string) => Promise<boolean>;
   cerrarSesion: () => Promise<void>;
   recuperarPassword: (email: string) => Promise<boolean>;
+  // Acceso temporal sin autenticación (modo desarrollo)
+  accesoSinLogin: boolean;
+  entrarSinLogin: () => void;
   // Permisos
   esAdmin: boolean;
   puedeVer: (vista: string) => boolean;
@@ -69,6 +105,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [roles, setRoles] = useState<Rol[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [errorAcceso, setErrorAcceso] = useState<string>('');
+  // Modo invitado: se recuerda durante la sesión del navegador
+  const [accesoSinLogin, setAccesoSinLogin] = useState<boolean>(() => {
+    if (!PERMITIR_ACCESO_SIN_LOGIN) return false;
+    try { return sessionStorage.getItem(CLAVE_INVITADO) === '1'; } catch { return false; }
+  });
 
   // --- Suscripción a los roles (para el menú y la pantalla de Roles) ---
   useEffect(() => {
@@ -179,8 +220,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Entra sin autenticarse (solo si la bandera de desarrollo está activa)
+  const entrarSinLogin = () => {
+    if (!PERMITIR_ACCESO_SIN_LOGIN) return;
+    setErrorAcceso('');
+    try { sessionStorage.setItem(CLAVE_INVITADO, '1'); } catch { /* no disponible */ }
+    setAccesoSinLogin(true);
+  };
+
   const cerrarSesion = async () => {
     setErrorAcceso('');
+    try { sessionStorage.removeItem(CLAVE_INVITADO); } catch { /* no disponible */ }
+    setAccesoSinLogin(false);
     try {
       await signOut(auth);
     } catch (e) {
@@ -200,11 +251,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // --- PERMISOS ---
-  const rol = perfil ? roles.find(r => r.id === perfil.rolId) || null : null;
+  // En modo invitado se usan el perfil y el rol ficticios de administrador
+  const perfilEfectivo = perfil ?? (accesoSinLogin ? PERFIL_INVITADO : null);
+  const rol = accesoSinLogin && !perfil
+    ? ROL_INVITADO
+    : (perfil ? roles.find(r => r.id === perfil.rolId) || null : null);
   const esAdmin = !!rol?.esAdmin;
 
   const puedeVer = (vista: string): boolean => {
-    if (!perfil) return false;
+    if (!perfilEfectivo) return false;
     if (esAdmin) return true;                 // el administrador ve todo
     return !!rol?.permisos?.[vista];
   };
@@ -215,8 +270,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{
-      usuarioAuth, perfil, rol, roles, cargando, errorAcceso,
+      usuarioAuth, perfil: perfilEfectivo, rol, roles, cargando, errorAcceso,
       iniciarSesion, cerrarSesion, recuperarPassword,
+      accesoSinLogin, entrarSinLogin,
       esAdmin, puedeVer, vistasPermitidas,
     }}>
       {children}

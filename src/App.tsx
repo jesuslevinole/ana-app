@@ -97,10 +97,11 @@ const Cargando = () => (
 
 // Decide si mostrar el login o la aplicación
 const PuertaDeAcceso = () => {
-  const { usuarioAuth, perfil, cargando } = useAuth();
+  const { usuarioAuth, perfil, cargando, accesoSinLogin } = useAuth();
 
   if (cargando) return <Cargando />;
-  if (!usuarioAuth || !perfil) return <Login />;
+  // Se entra con sesión iniciada o con el acceso temporal sin login
+  if (!accesoSinLogin && (!usuarioAuth || !perfil)) return <Login />;
 
   return (
     <AppProvider>
