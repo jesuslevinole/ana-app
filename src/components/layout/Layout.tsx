@@ -7,7 +7,7 @@ import {
   Calendar, PieChart, FileText, Menu, ChevronLeft, ChevronRight,
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
   ClipboardList, LineChart, Sun, Moon, CalendarRange, FileBarChart,
-  Settings, Users, ShieldCheck, Type, LogOut
+  Settings, Users, ShieldCheck, Type, LogOut, AlertTriangle
 } from 'lucide-react';
 
 // Clave de almacenamiento del tema elegido (claro / oscuro)
@@ -24,7 +24,7 @@ const iconoDe = (nombre: string) => ICONOS[nombre] || FileText;
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const contexto = useContext(AppContext);
-  const { perfil, rol, esAdmin, puedeVer, cerrarSesion } = useAuth();
+  const { perfil, rol, esAdmin, puedeVer, cerrarSesion, accesoSinLogin } = useAuth();
   const { t } = useEtiquetas();
 
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -179,12 +179,12 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         <button
           className="sidebar-toggle-btn"
           style={{ marginTop: perfil ? 0 : 'auto', borderTop: '1px solid var(--border)' }}
-          onClick={() => { if (confirm('¿Cerrar sesión?')) cerrarSesion(); }}
-          title="Cerrar sesión"
+          onClick={() => { if (confirm(accesoSinLogin ? '¿Salir y volver a la pantalla de acceso?' : '¿Cerrar sesión?')) cerrarSesion(); }}
+          title={accesoSinLogin ? 'Salir' : 'Cerrar sesión'}
         >
           <LogOut size={20} />
           {!sidebarCollapsed && (
-            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Cerrar sesión</span>
+            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>{accesoSinLogin ? 'Salir' : 'Cerrar sesión'}</span>
           )}
         </button>
 
@@ -222,6 +222,17 @@ export const Layout = ({ children }: { children: ReactNode }) => {
             <Menu size={24} />
           </button>
         </header>
+        {/* AVISO: se está navegando sin haber iniciado sesión */}
+        {accesoSinLogin && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+            padding: '0.45rem 1rem', backgroundColor: '#ffbc11', color: '#111827',
+            fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.3px'
+          }}>
+            <AlertTriangle size={15} />
+            Estás navegando sin iniciar sesión (acceso temporal de desarrollo)
+          </div>
+        )}
         <div className="content-area">{children}</div>
       </main>
     </div>
