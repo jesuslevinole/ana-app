@@ -3,6 +3,8 @@ import { AppContext } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useEtiquetas } from '../../context/EtiquetasContext';
 import { CATALOGO_NAVEGACION } from '../../config/navegacion';
+import { TextoEditable } from '../TextoEditable';
+import { BarraHerramientas } from '../BarraHerramientas';
 import {
   Calendar, PieChart, FileText, Menu, ChevronLeft, ChevronRight,
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
@@ -92,7 +94,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       <aside className={`sidebar ${menuAbierto ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-box"><Calendar size={20} /></div>
-          <h2>{t('app.nombre', 'Sistema Metas')}</h2>
+          <h2><TextoEditable clave="app.nombre" defecto="Sistema Metas" /></h2>
         </div>
 
         <ul className="nav-menu">
@@ -112,7 +114,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                   style={{ justifyContent: sidebarCollapsed ? 'center' : 'space-between' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : '0.75rem', justifyContent: 'center' }}>
-                    <Icono size={18} /><span>{t(grupo.claveEtiqueta, grupo.etiqueta)}</span>
+                    <Icono size={18} /><TextoEditable clave={grupo.claveEtiqueta} defecto={grupo.etiqueta} />
                   </span>
                   {!sidebarCollapsed && (
                     <ChevronDown
@@ -138,7 +140,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                           justifyContent: sidebarCollapsed ? 'center' : undefined,
                         }}
                       >
-                        <ItemIcono size={16} /><span>{t(item.claveEtiqueta, item.etiqueta)}</span>
+                        <ItemIcono size={16} /><TextoEditable clave={item.claveEtiqueta} defecto={item.etiqueta} />
                       </li>
                     );
                   })}
@@ -235,6 +237,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         )}
         <div className="content-area">{children}</div>
       </main>
+
+      {/* Herramientas de administración: modo edición y "Ver como" */}
+      <BarraHerramientas />
     </div>
   );
 };

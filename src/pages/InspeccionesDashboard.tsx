@@ -3,6 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
+import { TextoEditable } from '../components/TextoEditable';
 import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, FileText, ClipboardCheck, Target, GripVertical, Sigma } from 'lucide-react';
 
 // Color de texto (oscuro o blanco) que contrasta con un fondo hexadecimal dado
@@ -808,7 +809,7 @@ export const InspeccionesDashboard = () => {
     meta: (
       <div className="kpi-card" style={{ borderBottom: '3px solid var(--primary)' }}>
         <div className="kpi-title">
-          Meta ({filtroSemanas || '4'} semanas) <Target size={16} color="var(--primary)" />
+          <TextoEditable clave="insp.kpi.meta" defecto="Meta" /> ({filtroSemanas || '4'} semanas) <Target size={16} color="var(--primary)" />
         </div>
         <div className="kpi-value" style={{ color: 'var(--primary)' }}>
           {(filtroSemanas === '5' ? metaCard5 : metaCard4) > 0 ? fmtNum(filtroSemanas === '5' ? metaCard5 : metaCard4) : '—'}
@@ -820,7 +821,7 @@ export const InspeccionesDashboard = () => {
     ),
     metaAnual: (
       <div className="kpi-card" style={{ borderBottom: '3px solid #ffbc11' }}>
-        <div className="kpi-title">Meta anual {ano} <Sigma size={16} color="#ffbc11" /></div>
+        <div className="kpi-title"><TextoEditable clave="insp.kpi.metaAnual" defecto="Meta anual" /> {ano} <Sigma size={16} color="#ffbc11" /></div>
         <div className="kpi-value" style={{ color: '#ffbc11' }}>{metaAnual > 0 ? fmtNum(metaAnual) : '—'}</div>
         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginTop: '0.3rem' }}>
           Suma de metas mensuales del año
@@ -829,14 +830,14 @@ export const InspeccionesDashboard = () => {
     ),
     mejor4: (
       <div className="kpi-card" style={{ borderBottom: '3px solid var(--success)' }}>
-        <div className="kpi-title">Mejor mes (4 sem) <Award size={16} color="var(--success)" /></div>
+        <div className="kpi-title"><TextoEditable clave="insp.kpi.mejor4" defecto="Mejor mes (4 sem)" /> <Award size={16} color="var(--success)" /></div>
         <div className="kpi-value" style={{ color: 'var(--success)' }}>{kpis.mejor4.cantidad || '—'}</div>
         <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.3rem' }}>{kpis.mejor4.mes !== '-' ? kpis.mejor4.mes : 'Sin datos'}</div>
       </div>
     ),
     mejor5: (
       <div className="kpi-card" style={{ borderBottom: '3px solid #7c3aed' }}>
-        <div className="kpi-title">Mejor mes (5 sem) <Award size={16} color="#7c3aed" /></div>
+        <div className="kpi-title"><TextoEditable clave="insp.kpi.mejor5" defecto="Mejor mes (5 sem)" /> <Award size={16} color="#7c3aed" /></div>
         <div className="kpi-value" style={{ color: kpis.hay5 ? '#7c3aed' : 'var(--text-muted)' }}>{kpis.hay5 ? kpis.mejor5.cantidad : '—'}</div>
         <div style={{ fontSize: '0.95rem', fontWeight: 700, color: kpis.hay5 ? 'var(--text-main)' : 'var(--text-muted)', marginTop: '0.3rem' }}>{kpis.hay5 && kpis.mejor5.mes !== '-' ? kpis.mejor5.mes : 'Sin meses de 5 semanas'}</div>
       </div>
@@ -844,7 +845,7 @@ export const InspeccionesDashboard = () => {
     variacion: (
       <div className="kpi-card" style={{ position: 'relative', borderBottom: `3px solid ${kpis.variacionUltimo === null ? 'var(--border)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)')}` }}>
         <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          Variación último mes
+          <TextoEditable clave="insp.kpi.variacion" defecto="Variación último mes" />
           {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
             ? <TrendingUp size={16} color="var(--success)" />
             : <TrendingDown size={16} color="var(--danger)" />)}
@@ -863,7 +864,7 @@ export const InspeccionesDashboard = () => {
     ),
     cumplimiento: (
       <div className="kpi-card" style={{ borderBottom: `3px solid ${kpis.cumplimientoGlobal === null ? 'var(--border)' : colorCumpl(kpis.cumplimientoGlobal)}` }}>
-        <div className="kpi-title">% Cumplimiento <Target size={16} color="var(--success)" /></div>
+        <div className="kpi-title"><TextoEditable clave="insp.kpi.cumplimiento" defecto="% Cumplimiento" /> <Target size={16} color="var(--success)" /></div>
         <div className="kpi-value" style={{ color: colorCumpl(kpis.cumplimientoGlobal) }}>
           {kpis.cumplimientoGlobal === null ? '—' : `${kpis.cumplimientoGlobal.toFixed(0)}%`}
         </div>
@@ -998,7 +999,7 @@ export const InspeccionesDashboard = () => {
             {/* GRÁFICA CON CONTROLES */}
             <div className="card" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
-                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Evolución de inspecciones</h3>
+                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}><TextoEditable clave="insp.seccion.evolucion" defecto="Evolución de inspecciones" /></h3>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                   {tipoGrafico === 'lineas' && (
@@ -1116,7 +1117,7 @@ export const InspeccionesDashboard = () => {
 
             {/* TABLA DE EVOLUCIÓN (con apartado monetario) */}
             <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
-              <h3 className="detail-section-title">Detalle de evolución</h3>
+              <h3 className="detail-section-title"><TextoEditable clave="insp.seccion.detalle" defecto="Detalle de evolución" /></h3>
               <table className="table" style={{ width: '100%', marginTop: '1rem' }}>
                 <thead>
                   {/* TOTALES: arriba del encabezado */}

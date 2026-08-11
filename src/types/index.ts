@@ -42,6 +42,8 @@ export interface Rol {
   descripcion?: string;
   // Vistas a las que el rol tiene acceso: { [vista]: true }
   permisos: Record<string, boolean>;
+  // Capacidades especiales del rol: { editarEtiquetas: true, verComo: true }
+  acciones?: Record<string, boolean>;
   // Un rol administrador ve todo y puede administrar usuarios, roles y etiquetas
   esAdmin?: boolean;
   // Si es true, el rol no se puede eliminar (roles del sistema)

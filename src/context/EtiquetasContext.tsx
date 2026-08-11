@@ -21,6 +21,10 @@ const decodificar = (k: string) => k.replace(/__/g, '.');
 export interface EtiquetasContextType {
   etiquetas: Record<string, string>;
   cargando: boolean;
+  // Modo edición: cuando está activo, los textos envueltos en <TextoEditable>
+  // muestran un lápiz para renombrarlos en el momento.
+  modoEdicion: boolean;
+  setModoEdicion: (v: boolean) => void;
   // Devuelve la etiqueta personalizada o el texto por defecto
   t: (clave: string, porDefecto: string) => string;
   guardarEtiqueta: (clave: string, valor: string) => Promise<void>;
@@ -38,6 +42,8 @@ export const useEtiquetas = () => {
     return {
       etiquetas: {},
       cargando: false,
+      modoEdicion: false,
+      setModoEdicion: () => {},
       t: (_clave: string, porDefecto: string) => porDefecto,
       guardarEtiqueta: async () => {},
       guardarVarias: async () => {},
@@ -50,6 +56,7 @@ export const useEtiquetas = () => {
 export const EtiquetasProvider = ({ children }: { children: ReactNode }) => {
   const [etiquetas, setEtiquetas] = useState<Record<string, string>>({});
   const [cargando, setCargando] = useState<boolean>(true);
+  const [modoEdicion, setModoEdicion] = useState<boolean>(false);
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -103,7 +110,7 @@ export const EtiquetasProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <EtiquetasContext.Provider value={{ etiquetas, cargando, t, guardarEtiqueta, guardarVarias, restablecer }}>
+    <EtiquetasContext.Provider value={{ etiquetas, cargando, modoEdicion, setModoEdicion, t, guardarEtiqueta, guardarVarias, restablecer }}>
       {children}
     </EtiquetasContext.Provider>
   );

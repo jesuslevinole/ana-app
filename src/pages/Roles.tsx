@@ -3,7 +3,7 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useEtiquetas } from '../context/EtiquetasContext';
-import { CATALOGO_NAVEGACION } from '../config/navegacion';
+import { CATALOGO_NAVEGACION, CATALOGO_ACCIONES } from '../config/navegacion';
 import type { Rol } from '../types';
 import {
   ShieldCheck, Plus, Trash2, Save, X, Check, Lock, AlertCircle
@@ -31,6 +31,7 @@ export const Roles = () => {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [permisos, setPermisos] = useState<Record<string, boolean>>({});
+  const [acciones, setAcciones] = useState<Record<string, boolean>>({});
   const [guardando, setGuardando] = useState(false);
 
   const rolesOrdenados = useMemo(
@@ -58,6 +59,7 @@ export const Roles = () => {
     setNombre('');
     setDescripcion('');
     setPermisos({});
+    setAcciones({});
     setModalAbierto(true);
   };
 
@@ -66,6 +68,7 @@ export const Roles = () => {
     setNombre(r.nombre);
     setDescripcion(r.descripcion || '');
     setPermisos({ ...(r.permisos || {}) });
+    setAcciones({ ...(r.acciones || {}) });
     setModalAbierto(true);
   };
 
@@ -101,6 +104,7 @@ export const Roles = () => {
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         permisos,
+        acciones,
         esAdmin: existente?.esAdmin ?? false,
         protegido: existente?.protegido ?? false,
         creadoEn: existente?.creadoEn ?? new Date().toISOString(),
@@ -333,6 +337,40 @@ export const Roles = () => {
                 </div>
               );
             })}
+
+            {/* CAPACIDADES ESPECIALES */}
+            <h4 className="detail-section-title" style={{ marginTop: '1.5rem', marginBottom: '0.85rem' }}>Capacidades especiales</h4>
+            <div style={{ marginBottom: '1.25rem', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+              {CATALOGO_ACCIONES.map((a2, i) => {
+                const activo = !!acciones[a2.clave];
+                return (
+                  <div
+                    key={a2.clave}
+                    onClick={() => setAcciones(p => ({ ...p, [a2.clave]: !p[a2.clave] }))}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                      padding: '0.75rem 1rem', cursor: 'pointer',
+                      borderTop: i === 0 ? 'none' : '1px solid var(--border)'
+                    }}
+                  >
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0, marginTop: '2px',
+                      backgroundColor: activo ? '#7c3aed' : 'transparent',
+                      border: `2px solid ${activo ? '#7c3aed' : 'var(--border)'}`, color: '#fff'
+                    }}>
+                      {activo && <Check size={13} />}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.86rem', fontWeight: activo ? 700 : 500, color: activo ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {a2.etiqueta}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{a2.descripcion}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
 
             <div style={{
               display: 'flex', alignItems: 'flex-start', gap: '0.6rem',

@@ -95,6 +95,30 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
 export const TODAS_LAS_VISTAS: VistaCatalogo[] = CATALOGO_NAVEGACION.flatMap(g => g.items);
 
 // =========================================================================
+//  CAPACIDADES ESPECIALES
+//  Permisos que no son vistas sino acciones que el rol puede realizar.
+//  Se configuran desde Roles y Permisos.
+// =========================================================================
+export interface AccionCatalogo {
+  clave: string;
+  etiqueta: string;
+  descripcion: string;
+}
+
+export const CATALOGO_ACCIONES: AccionCatalogo[] = [
+  {
+    clave: 'editarEtiquetas',
+    etiqueta: 'Editar nombres en pantalla',
+    descripcion: 'Activa el modo edición para renombrar títulos, tarjetas y gráficas directamente desde cada vista.',
+  },
+  {
+    clave: 'verComo',
+    etiqueta: 'Ver como otro rol',
+    descripcion: 'Permite navegar la aplicación tal como la vería un rol distinto, para comprobar sus permisos.',
+  },
+];
+
+// =========================================================================
 //  ETIQUETAS GENERALES DE LA APLICACIÓN
 //  Textos que no son del menú pero que el administrador puede renombrar.
 // =========================================================================

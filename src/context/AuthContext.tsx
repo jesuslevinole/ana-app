@@ -73,7 +73,14 @@ export interface AuthContextType {
   // Permisos
   esAdmin: boolean;
   puedeVer: (vista: string) => boolean;
+  puedeAccion: (clave: string) => boolean;
   vistasPermitidas: string[];
+  // VER COMO: navegar la app con los permisos de otro rol
+  rolReal: Rol | null;
+  estaSimulando: boolean;
+  rolSimuladoId: string;
+  simularRol: (rolId: string) => void;
+  detenerSimulacion: () => void;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -106,6 +113,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [cargando, setCargando] = useState<boolean>(true);
   const [errorAcceso, setErrorAcceso] = useState<string>('');
   // Modo invitado: se recuerda durante la sesión del navegador
+  // Rol que se está simulando con "Ver como" (vacío = sin simulación)
+  const [rolSimuladoId, setRolSimuladoId] = useState<string>('');
   const [accesoSinLogin, setAccesoSinLogin] = useState<boolean>(() => {
     if (!PERMITIR_ACCESO_SIN_LOGIN) return false;
     try { return sessionStorage.getItem(CLAVE_INVITADO) === '1'; } catch { return false; }
@@ -230,6 +239,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const cerrarSesion = async () => {
     setErrorAcceso('');
+    setRolSimuladoId('');
     try { sessionStorage.removeItem(CLAVE_INVITADO); } catch { /* no disponible */ }
     setAccesoSinLogin(false);
     try {
@@ -253,9 +263,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // --- PERMISOS ---
   // En modo invitado se usan el perfil y el rol ficticios de administrador
   const perfilEfectivo = perfil ?? (accesoSinLogin ? PERFIL_INVITADO : null);
-  const rol = accesoSinLogin && !perfil
+
+  // ROL REAL: el que de verdad tiene el usuario
+  const rolReal = accesoSinLogin && !perfil
     ? ROL_INVITADO
     : (perfil ? roles.find(r => r.id === perfil.rolId) || null : null);
+
+  // ROL EFECTIVO: si se está usando "Ver como", manda el rol simulado.
+  // Así toda la app (menú, vistas y acciones) responde como si el usuario
+  // tuviera ese rol, sin necesidad de cerrar sesión.
+  const rolSimulado = rolSimuladoId ? roles.find(r => r.id === rolSimuladoId) || null : null;
+  const estaSimulando = !!rolSimulado;
+  const rol = rolSimulado ?? rolReal;
+
   const esAdmin = !!rol?.esAdmin;
 
   const puedeVer = (vista: string): boolean => {
@@ -264,16 +284,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return !!rol?.permisos?.[vista];
   };
 
+  // Capacidades especiales (editar nombres, ver como...)
+  const puedeAccion = (clave: string): boolean => {
+    if (!perfilEfectivo) return false;
+    if (esAdmin) return true;                 // el administrador puede todo
+    return !!rol?.acciones?.[clave];
+  };
+
   const vistasPermitidas = rol
     ? Object.keys(rol.permisos || {}).filter(v => rol.permisos[v])
     : [];
+
+  // --- VER COMO ---
+  // Solo se puede simular si el ROL REAL tiene la capacidad, para que un rol
+  // simulado sin permiso no deje al usuario atrapado en la simulación.
+  const simularRol = (id: string) => {
+    const permitido = rolReal?.esAdmin || !!rolReal?.acciones?.verComo;
+    if (!permitido) return;
+    setRolSimuladoId(id);
+  };
+
+  const detenerSimulacion = () => setRolSimuladoId('');
 
   return (
     <AuthContext.Provider value={{
       usuarioAuth, perfil: perfilEfectivo, rol, roles, cargando, errorAcceso,
       iniciarSesion, cerrarSesion, recuperarPassword,
       accesoSinLogin, entrarSinLogin,
-      esAdmin, puedeVer, vistasPermitidas,
+      esAdmin, puedeVer, puedeAccion, vistasPermitidas,
+      rolReal, estaSimulando, rolSimuladoId, simularRol, detenerSimulacion,
     }}>
       {children}
     </AuthContext.Provider>

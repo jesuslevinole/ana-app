@@ -3,6 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { useSemanasEditadas } from '../hooks/useSemanasEditadas';
+import { TextoEditable } from '../components/TextoEditable';
 import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
@@ -1115,14 +1116,14 @@ export const Dashboard = () => {
           </div>
         ) : (
           <>
-            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%' }}>Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
+            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%' }}><TextoEditable clave="dash.seccion.kpi" defecto="Key Performance Indicators (KPI) - Indicadores Clave de Desempeño" /></h3>
             <div className="kpi-grid">
               <div className="kpi-card meta">
-                <div className="kpi-title">Meta Total <Target size={16} /></div>
+                <div className="kpi-title"><TextoEditable clave="dash.kpi.metaTotal" defecto="Meta Total" /> <Target size={16} /></div>
                 <div className="kpi-value" style={{ whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.metaTotal)}</div>
               </div>
               <div className="kpi-card logrado">
-                <div className="kpi-title">Logrado <TrendingUp size={16} color="var(--primary)" /></div>
+                <div className="kpi-title"><TextoEditable clave="dash.kpi.logrado" defecto="Logrado" /> <TrendingUp size={16} color="var(--primary)" /></div>
                 <div className="kpi-value" style={{ color: 'var(--primary)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(kpis.logradoTotal)}</div>
               </div>
               
@@ -1152,7 +1153,7 @@ export const Dashboard = () => {
                 
                 <div style={{ paddingRight: '5.5rem' }}>
                   <div className="kpi-title" style={{ color: 'var(--text-main)' }}>
-                    Cumplido
+                    <TextoEditable clave="dash.kpi.cumplido" defecto="Cumplido" />
                   </div>
                   <div className="kpi-value" style={{ color: 'var(--primary)', marginTop: '0.5rem', whiteSpace: 'nowrap' }}>
                     {miFormatearMoneda(kpis.logradoTotal)}
@@ -1164,7 +1165,7 @@ export const Dashboard = () => {
             {/* GRILLA FLEXBOX EN LA WEB IGUAL QUE EN EL PDF */}
             <div className="dashboard-grid-custom" style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', marginTop: '1.5rem' }}>
               <div className="card" style={{ flex: '1.2', minWidth: '300px', marginBottom: 0 }}>
-                <h3 className="detail-section-title">Progreso de la Meta (Operaciones #)</h3>
+                <h3 className="detail-section-title"><TextoEditable clave="dash.seccion.progreso" defecto="Progreso de la Meta (Operaciones #)" /></h3>
                 <div className="table-wrapper" style={{ boxShadow: 'none', border: 'none', background: 'transparent', marginTop: '1rem' }}>
                   <table className="table" style={{ width: '100%' }}>
                     <thead><tr><th style={{ width: '60px', textAlign: 'center' }}># Ref</th><th>Desde / Hasta</th><th style={{ textAlign: 'right' }}>Venta</th><th style={{ textAlign: 'center' }}>%</th></tr></thead>
