@@ -1,150 +1,118 @@
 import { useState, useContext, useEffect, Fragment, type ReactNode } from 'react';
 import { AppContext } from '../../context/AppContext';
+import { useAuth } from '../../context/AuthContext';
+import { useEtiquetas } from '../../context/EtiquetasContext';
+import { CATALOGO_NAVEGACION } from '../../config/navegacion';
 import {
   Calendar, PieChart, FileText, Menu, ChevronLeft, ChevronRight,
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
-  ClipboardList, LineChart, Sun, Moon, CalendarRange, FileBarChart
+  ClipboardList, LineChart, Sun, Moon, CalendarRange, FileBarChart,
+  Settings, Users, ShieldCheck, Type, LogOut
 } from 'lucide-react';
-
-type ItemNav = {
-  vista: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number }>;
-  extra?: string[];     // otras vistas que también marcan este item como activo
-  disabled?: boolean;
-};
-
-type GrupoNav = {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ size?: number }>;
-  items: ItemNav[];
-};
 
 // Clave de almacenamiento del tema elegido (claro / oscuro)
 const STORAGE_TEMA = 'app_tema_v1';
 
-// =========================================================================
-//  ESTRUCTURA DE MENÚS Y SUBMENÚS
-//  Para agregar items a Inspecciones / Marketing, añade objetos a "items"
-//  (y registra esa vista en App.tsx).
-// =========================================================================
-const GRUPOS: GrupoNav[] = [
-  {
-    id: 'taller',
-    label: 'Taller',
-    icon: Wrench,
-    items: [
-      { vista: 'tabla', label: 'Registros', icon: FileText, extra: ['formulario'] },
-      { vista: 'dashboard', label: 'Dashboard', icon: PieChart },
-      { vista: 'comparacion', label: 'Comparación', icon: GitCompare },
-      { vista: 'comparacionMeses', label: 'Comparación de Meses', icon: CalendarRange },
-      { vista: 'talleres', label: 'Talleres', icon: Store },
-    ],
-  },
-  {
-    id: 'inspecciones',
-    label: 'Inspecciones',
-    icon: ClipboardCheck,
-    items: [
-      { vista: 'inspeccionesRegistro', label: 'Registro', icon: ClipboardList },
-      { vista: 'inspeccionesDashboard', label: 'Dashboard', icon: LineChart },
-      { vista: 'inspeccionesComparacion', label: 'Comparación', icon: GitCompare },
-      { vista: 'inspeccionesComparacionMeses', label: 'Comparación de Meses', icon: CalendarRange },
-    ],
-  },
-  {
-    id: 'reportes',
-    label: 'Reportes',
-    icon: FileBarChart,
-    items: [
-      { vista: 'reporteAnualGeneral', label: 'Reporte Anual General', icon: FileBarChart },
-      { vista: 'reporteAnualInspecciones', label: 'Reporte Anual Inspecciones', icon: ClipboardCheck },
-    ],
-  },
-  {
-    id: 'marketing',
-    label: 'Marketing',
-    icon: Megaphone,
-    items: [
-      // TODO: reemplazar por los items reales cuando definas el contenido
-      { vista: 'marketing', label: 'Próximamente', icon: Clock, disabled: true },
-    ],
-  },
-];
+// Mapa de iconos: el catálogo guarda el nombre y aquí se resuelve el componente
+const ICONOS: Record<string, React.ComponentType<{ size?: number }>> = {
+  Wrench, PieChart, FileText, GitCompare, Store, CalendarRange,
+  ClipboardCheck, ClipboardList, LineChart, FileBarChart, Megaphone, Clock,
+  Settings, Users, ShieldCheck, Type,
+};
+
+const iconoDe = (nombre: string) => ICONOS[nombre] || FileText;
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const contexto = useContext(AppContext);
+  const { perfil, rol, esAdmin, puedeVer, cerrarSesion } = useAuth();
+  const { t } = useEtiquetas();
+
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // --- NUEVO: TEMA CLARO / OSCURO (persistente) ---
+  // --- TEMA CLARO / OSCURO (persistente) ---
   const [tema, setTema] = useState<'dark' | 'light'>(() => {
     try { return localStorage.getItem(STORAGE_TEMA) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
   });
 
-  // Aplica el tema al documento y lo guarda
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', tema);
     try { localStorage.setItem(STORAGE_TEMA, tema); } catch { /* almacenamiento no disponible */ }
   }, [tema]);
 
-  const alternarTema = () => setTema(t => (t === 'dark' ? 'light' : 'dark'));
+  const alternarTema = () => setTema(anterior => (anterior === 'dark' ? 'light' : 'dark'));
 
-  // Leemos la vista como string para poder comparar con las vistas nuevas
   const vistaActual = (contexto?.vista as string) ?? '';
 
+  // --- MENÚ FILTRADO SEGÚN LOS PERMISOS DEL ROL ---
+  // Cada grupo conserva solo las vistas que el usuario puede ver; los grupos
+  // que se quedan sin vistas no se muestran.
+  const gruposVisibles = CATALOGO_NAVEGACION
+    .map(g => ({
+      ...g,
+      items: g.items.filter(i => (i.soloAdmin ? esAdmin : puedeVer(i.vista))),
+    }))
+    .filter(g => g.items.length > 0);
+
   const grupoDeVista = (v: string) =>
-    GRUPOS.find(g => g.items.some(i => i.vista === v || i.extra?.includes(v)))?.id;
+    gruposVisibles.find(g => g.items.some(i => i.vista === v || i.extra?.includes(v)))?.id;
 
   const [abierto, setAbierto] = useState<string | null>(grupoDeVista(vistaActual) ?? 'taller');
 
-  // Abrir automáticamente el grupo de la vista activa cuando cambie
   useEffect(() => {
     const g = grupoDeVista(vistaActual);
     if (g) setAbierto(g);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vistaActual]);
 
   if (!contexto) return null;
 
-  // Navegación segura: setVista espera VistaApp; casteamos para admitir vistas nuevas.
   const ir = (vista: string) => {
     (contexto.setVista as (v: any) => void)(vista);
     setMenuAbierto(false);
   };
 
-  const itemActivo = (item: ItemNav) =>
+  const itemActivo = (item: { vista: string; extra?: string[] }) =>
     vistaActual === item.vista || (item.extra?.includes(vistaActual) ?? false);
+
+  // Iniciales del usuario para el avatar
+  const iniciales = (perfil?.nombre || '?')
+    .split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
 
   return (
     <div className="app-layout">
-      {menuAbierto && <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 40 }} className="md-hidden" onClick={() => setMenuAbierto(false)} />}
+      {menuAbierto && (
+        <div
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 40 }}
+          className="md-hidden"
+          onClick={() => setMenuAbierto(false)}
+        />
+      )}
 
       <aside className={`sidebar ${menuAbierto ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-box"><Calendar size={20} /></div>
-          <h2>Sistema Metas</h2>
+          <h2>{t('app.nombre', 'Sistema Metas')}</h2>
         </div>
 
         <ul className="nav-menu">
-          {GRUPOS.map(grupo => {
-            const Icono = grupo.icon;
+          {gruposVisibles.map(grupo => {
+            const Icono = iconoDe(grupo.icono);
             const grupoActivo = grupo.items.some(itemActivo);
             const estaAbierto = abierto === grupo.id;
-            // En modo colapsado mostramos siempre los items (solo iconos) para que sigan siendo accesibles
             const mostrarItems = estaAbierto || sidebarCollapsed;
 
             return (
               <Fragment key={grupo.id}>
-                {/* ENCABEZADO DEL GRUPO (PADRE) */}
+                {/* ENCABEZADO DEL GRUPO */}
                 <li
                   className={`nav-item ${grupoActivo ? 'active' : ''}`}
                   onClick={() => setAbierto(estaAbierto ? null : grupo.id)}
-                  title={grupo.label}
+                  title={t(grupo.claveEtiqueta, grupo.etiqueta)}
                   style={{ justifyContent: sidebarCollapsed ? 'center' : 'space-between' }}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: sidebarCollapsed ? 0 : '0.75rem', justifyContent: 'center' }}>
-                    <Icono size={18} /><span>{grupo.label}</span>
+                    <Icono size={18} /><span>{t(grupo.claveEtiqueta, grupo.etiqueta)}</span>
                   </span>
                   {!sidebarCollapsed && (
                     <ChevronDown
@@ -154,26 +122,23 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                   )}
                 </li>
 
-                {/* SUBMENÚ (HIJOS) */}
+                {/* SUBMENÚ */}
                 <div style={{ overflow: 'hidden', maxHeight: mostrarItems ? `${grupo.items.length * 52 + 8}px` : '0px', transition: 'max-height 0.3s ease' }}>
                   {grupo.items.map(item => {
-                    const ItemIcono = item.icon;
-                    const activo = itemActivo(item) && !item.disabled;
+                    const ItemIcono = iconoDe(item.icono);
+                    const activo = itemActivo(item);
                     return (
                       <li
-                        key={`${grupo.id}-${item.vista}-${item.label}`}
+                        key={`${grupo.id}-${item.vista}`}
                         className={`nav-item ${activo ? 'active' : ''}`}
-                        title={item.label}
-                        onClick={() => { if (!item.disabled) ir(item.vista); }}
+                        title={t(item.claveEtiqueta, item.etiqueta)}
+                        onClick={() => ir(item.vista)}
                         style={{
                           paddingLeft: sidebarCollapsed ? undefined : '2.5rem',
                           justifyContent: sidebarCollapsed ? 'center' : undefined,
-                          opacity: item.disabled ? 0.5 : 1,
-                          cursor: item.disabled ? 'default' : 'pointer',
-                          fontStyle: item.disabled ? 'italic' : 'normal',
                         }}
                       >
-                        <ItemIcono size={16} /><span>{item.label}</span>
+                        <ItemIcono size={16} /><span>{t(item.claveEtiqueta, item.etiqueta)}</span>
                       </li>
                     );
                   })}
@@ -183,10 +148,50 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           })}
         </ul>
 
-        {/* NUEVO: BOTÓN DE TEMA CLARO / OSCURO */}
+        {/* USUARIO CONECTADO */}
+        {perfil && (
+          <div style={{
+            marginTop: 'auto', padding: sidebarCollapsed ? '0.75rem 0.5rem' : '0.85rem 1rem',
+            borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center',
+            gap: '0.65rem', justifyContent: sidebarCollapsed ? 'center' : 'flex-start'
+          }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
+              backgroundColor: 'var(--primary)', color: '#fff', fontWeight: 800, fontSize: '0.78rem'
+            }}>
+              {iniciales}
+            </span>
+            {!sidebarCollapsed && (
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {perfil.nombre}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {rol?.nombre || 'Sin rol'}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* CERRAR SESIÓN */}
         <button
           className="sidebar-toggle-btn"
-          style={{ marginTop: 'auto', borderTop: '1px solid var(--border)' }}
+          style={{ marginTop: perfil ? 0 : 'auto', borderTop: '1px solid var(--border)' }}
+          onClick={() => { if (confirm('¿Cerrar sesión?')) cerrarSesion(); }}
+          title="Cerrar sesión"
+        >
+          <LogOut size={20} />
+          {!sidebarCollapsed && (
+            <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Cerrar sesión</span>
+          )}
+        </button>
+
+        {/* TEMA CLARO / OSCURO */}
+        <button
+          className="sidebar-toggle-btn"
+          style={{ marginTop: 0, borderTop: '1px solid var(--border)' }}
           onClick={alternarTema}
           title={tema === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
         >
@@ -198,14 +203,24 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           )}
         </button>
 
-        <button className="sidebar-toggle-btn" style={{ marginTop: 0 }} onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? "Expandir" : "Colapsar"}>
+        <button
+          className="sidebar-toggle-btn"
+          style={{ marginTop: 0 }}
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          title={sidebarCollapsed ? 'Expandir' : 'Colapsar'}
+        >
           {sidebarCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </aside>
 
       <main className="main-content">
-        <header style={{ padding: '1rem', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', display: 'none' }} className="md-block">
-          <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setMenuAbierto(!menuAbierto)}><Menu size={24} /></button>
+        <header
+          style={{ padding: '1rem', background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)', display: 'none' }}
+          className="md-block"
+        >
+          <button className="btn btn-outline" style={{ padding: '0.4rem' }} onClick={() => setMenuAbierto(!menuAbierto)}>
+            <Menu size={24} />
+          </button>
         </header>
         <div className="content-area">{children}</div>
       </main>

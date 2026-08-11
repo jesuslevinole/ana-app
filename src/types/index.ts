@@ -29,8 +29,35 @@ export interface Taller {
   orden?: number;     // Añadido para guardar la posición en la tabla
 }
 
-// Añadida la vista 'talleres'
-export type VistaApp = 'dashboard' | 'tabla' | 'formulario' | 'comparacion' | 'talleres';
+// Vistas de la aplicación. El catálogo completo vive en src/config/navegacion.ts;
+// aquí se declara como string para admitir vistas nuevas sin romper tipos.
+export type VistaApp = string;
+
+// =========================================================================
+//  USUARIOS Y ROLES
+// =========================================================================
+export interface Rol {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  // Vistas a las que el rol tiene acceso: { [vista]: true }
+  permisos: Record<string, boolean>;
+  // Un rol administrador ve todo y puede administrar usuarios, roles y etiquetas
+  esAdmin?: boolean;
+  // Si es true, el rol no se puede eliminar (roles del sistema)
+  protegido?: boolean;
+  creadoEn?: string;
+}
+
+export interface Usuario {
+  id: string;        // uid de Firebase Auth
+  nombre: string;
+  email: string;
+  rolId: string;
+  activo: boolean;
+  creadoEn?: string;
+  ultimoAcceso?: string;
+}
 
 export interface AppContextType {
   registros: Registro[];

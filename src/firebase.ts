@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -16,3 +17,10 @@ const app = initializeApp(firebaseConfig);
 
 // Inicializar Cloud Firestore y exportarlo para el AppContext
 export const db = getFirestore(app);
+
+// Autenticación (login con correo y contraseña)
+export const auth = getAuth(app);
+
+// Configuración exportada: la usa la app secundaria que crea usuarios sin
+// cerrar la sesión del administrador (ver pages/Usuarios.tsx).
+export const configFirebase = firebaseConfig;

@@ -1,6 +1,9 @@
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { AppProvider, AppContext } from './context/AppContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { EtiquetasProvider } from './context/EtiquetasContext';
 import { Layout } from './components/layout/Layout';
+import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Registros } from './pages/Registros';
 import { FormularioRegistro } from './pages/FormularioRegistro';
@@ -13,40 +16,105 @@ import { InspeccionesComparacion } from './pages/InspeccionesComparacion';
 import { InspeccionesComparacionMeses } from './pages/InspeccionesComparacionMeses';
 import { ReporteAnualGeneral } from './pages/ReporteAnualGeneral';
 import { ReporteAnualInspecciones } from './pages/ReporteAnualInspecciones';
+import { Usuarios } from './pages/Usuarios';
+import { Roles } from './pages/Roles';
+import { Personalizacion } from './pages/Personalizacion';
 import { Marketing } from './pages/Marketing';
-import "./index.css";
+import { Lock } from 'lucide-react';
+import './index.css';
+
+// Vistas que solo puede abrir un administrador
+const VISTAS_ADMIN = ['usuarios', 'roles', 'personalizacion'];
 
 const EnrutadorVistas = () => {
   const contexto = useContext(AppContext);
+  const { puedeVer, esAdmin, vistasPermitidas } = useAuth();
+
+  const vista = (contexto?.vista as string) ?? '';
+
+  // Si el usuario cae en una vista que no tiene permitida, se le manda a la
+  // primera que sí puede ver. Así nunca queda en una pantalla en blanco.
+  useEffect(() => {
+    if (!contexto) return;
+    const permitida = VISTAS_ADMIN.includes(vista) ? esAdmin : puedeVer(vista);
+    if (!permitida) {
+      const destino = esAdmin ? 'dashboard' : vistasPermitidas[0];
+      if (destino && destino !== vista) {
+        (contexto.setVista as (v: any) => void)(destino);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vista, esAdmin, vistasPermitidas.join(',')]);
+
   if (!contexto) return null;
 
-  // Casteo a string para admitir las vistas nuevas sin tocar el tipo VistaApp
-  // (aunque se recomienda extenderlo, ver nota).
-  const vista = contexto.vista as string;
+  const puedeAbrir = VISTAS_ADMIN.includes(vista) ? esAdmin : puedeVer(vista);
 
   return (
     <Layout>
-      {vista === 'dashboard' && <Dashboard />}
-      {vista === 'tabla' && <Registros />}
-      {vista === 'formulario' && <FormularioRegistro />}
-      {vista === 'comparacion' && <Comparacion />}
-      {vista === 'comparacionMeses' && <ComparacionMeses />}
-      {vista === 'talleres' && <Talleres />}
-      {vista === 'inspeccionesRegistro' && <InspeccionesRegistro />}
-      {vista === 'inspeccionesDashboard' && <InspeccionesDashboard />}
-      {vista === 'inspeccionesComparacion' && <InspeccionesComparacion />}
-      {vista === 'inspeccionesComparacionMeses' && <InspeccionesComparacionMeses />}
-      {vista === 'reporteAnualGeneral' && <ReporteAnualGeneral />}
-      {vista === 'reporteAnualInspecciones' && <ReporteAnualInspecciones />}
-      {vista === 'marketing' && <Marketing />}
+      {!puedeAbrir ? (
+        <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <Lock size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
+          <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Sin acceso a esta sección</h3>
+          <p style={{ color: 'var(--text-muted)' }}>
+            Tu rol no tiene permiso para verla. Si crees que es un error, contacta al administrador.
+          </p>
+        </div>
+      ) : (
+        <>
+          {vista === 'dashboard' && <Dashboard />}
+          {vista === 'tabla' && <Registros />}
+          {vista === 'formulario' && <FormularioRegistro />}
+          {vista === 'comparacion' && <Comparacion />}
+          {vista === 'comparacionMeses' && <ComparacionMeses />}
+          {vista === 'talleres' && <Talleres />}
+          {vista === 'inspeccionesRegistro' && <InspeccionesRegistro />}
+          {vista === 'inspeccionesDashboard' && <InspeccionesDashboard />}
+          {vista === 'inspeccionesComparacion' && <InspeccionesComparacion />}
+          {vista === 'inspeccionesComparacionMeses' && <InspeccionesComparacionMeses />}
+          {vista === 'reporteAnualGeneral' && <ReporteAnualGeneral />}
+          {vista === 'reporteAnualInspecciones' && <ReporteAnualInspecciones />}
+          {vista === 'usuarios' && <Usuarios />}
+          {vista === 'roles' && <Roles />}
+          {vista === 'personalizacion' && <Personalizacion />}
+          {vista === 'marketing' && <Marketing />}
+        </>
+      )}
     </Layout>
+  );
+};
+
+// Pantalla de carga mientras se resuelve la sesión
+const Cargando = () => (
+  <div style={{
+    minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+    color: '#94a3b8', fontWeight: 600, fontSize: '0.9rem'
+  }}>
+    Cargando...
+  </div>
+);
+
+// Decide si mostrar el login o la aplicación
+const PuertaDeAcceso = () => {
+  const { usuarioAuth, perfil, cargando } = useAuth();
+
+  if (cargando) return <Cargando />;
+  if (!usuarioAuth || !perfil) return <Login />;
+
+  return (
+    <AppProvider>
+      <EnrutadorVistas />
+    </AppProvider>
   );
 };
 
 export default function App() {
   return (
-    <AppProvider>
-      <EnrutadorVistas />
-    </AppProvider>
+    <EtiquetasProvider>
+      <AuthProvider>
+        <PuertaDeAcceso />
+      </AuthProvider>
+    </EtiquetasProvider>
   );
 }
