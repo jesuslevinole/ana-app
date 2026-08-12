@@ -26,7 +26,7 @@ const iconoDe = (nombre: string) => ICONOS[nombre] || FileText;
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const contexto = useContext(AppContext);
-  const { perfil, rol, esAdmin, puedeVer, cerrarSesion, accesoSinLogin } = useAuth();
+  const { perfil, rol, puedeVer, cerrarSesion, accesoSinLogin } = useAuth();
   const { t } = useEtiquetas();
 
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -52,7 +52,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   const gruposVisibles = CATALOGO_NAVEGACION
     .map(g => ({
       ...g,
-      items: g.items.filter(i => (i.soloAdmin ? esAdmin : puedeVer(i.vista))),
+      items: g.items.filter(i => puedeVer(i.vista)),
     }))
     .filter(g => g.items.length > 0);
 

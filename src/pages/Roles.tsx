@@ -3,17 +3,18 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useEtiquetas } from '../context/EtiquetasContext';
-import { CATALOGO_NAVEGACION, CATALOGO_ACCIONES } from '../config/navegacion';
+import { CATALOGO_NAVEGACION, CATALOGO_ACCIONES, TODAS_LAS_VISTAS } from '../config/navegacion';
 import type { Rol } from '../types';
 import {
-  ShieldCheck, Plus, Trash2, Save, X, Check, Lock, AlertCircle
+  ShieldCheck, Plus, Trash2, Save, X, Check, Lock, AlertCircle, ShieldAlert
 } from 'lucide-react';
 
 // =========================================================================
 //  ROLES Y PERMISOS
-//  Cada rol define a qué vistas tiene acceso. El rol marcado como
-//  administrador ve todo y además puede administrar usuarios, roles y
-//  la personalización de nombres.
+//  Cada rol define a qué vistas tiene acceso, incluidas las vistas de
+//  ADMINISTRACIÓN (Usuarios, Roles y Permisos, Personalización). Así se puede
+//  delegar la administración en otro rol sin convertirlo en administrador.
+//  El rol marcado como administrador sigue viendo todo por defecto.
 // =========================================================================
 
 const idDesdeNombre = (nombre: string) =>
@@ -23,7 +24,7 @@ const idDesdeNombre = (nombre: string) =>
     .replace(/^-+|-+$/g, '') || `rol-${Date.now()}`;
 
 export const Roles = () => {
-  const { roles, esAdmin } = useAuth();
+  const { roles, esAdmin, puedeVer } = useAuth();
   const { t } = useEtiquetas();
 
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -43,13 +44,13 @@ export const Roles = () => {
     [roles]
   );
 
-  // Solo los administradores pueden entrar aquí
-  if (!esAdmin) {
+  // Entran los administradores y los roles con permiso sobre esta vista
+  if (!puedeVer('roles')) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <Lock size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
         <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Acceso restringido</h3>
-        <p style={{ color: 'var(--text-muted)' }}>Solo un administrador puede gestionar los roles y permisos.</p>
+        <p style={{ color: 'var(--text-muted)' }}>Tu rol no tiene permiso para gestionar los roles y permisos.</p>
       </div>
     );
   }
@@ -64,6 +65,11 @@ export const Roles = () => {
   };
 
   const abrirEditar = (r: Rol) => {
+    // El rol de administrador solo lo puede modificar un administrador real
+    if (r.esAdmin && !esAdmin) {
+      alert('Solo un administrador puede modificar el rol de Administrador.');
+      return;
+    }
     setEditandoId(r.id);
     setNombre(r.nombre);
     setDescripcion(r.descripcion || '');
@@ -80,7 +86,7 @@ export const Roles = () => {
   const alternarGrupo = (idGrupo: string) => {
     const grupo = CATALOGO_NAVEGACION.find(g => g.id === idGrupo);
     if (!grupo) return;
-    const vistas = grupo.items.filter(i => !i.soloAdmin).map(i => i.vista);
+    const vistas = grupo.items.map(i => i.vista);
     if (vistas.length === 0) return;
     const todasActivas = vistas.every(v => permisos[v]);
     setPermisos(p => {
@@ -132,6 +138,13 @@ export const Roles = () => {
   // Cuenta de vistas habilitadas de un rol
   const contarPermisos = (r: Rol) =>
     Object.keys(r.permisos || {}).filter(v => r.permisos[v]).length;
+
+  // ¿Este rol tiene marcada alguna vista de Administración?
+  const tieneSensibles = TODAS_LAS_VISTAS.some(v => v.sensible && permisos[v.vista]);
+
+  // ¿Un rol de la tabla tiene vistas de Administración?
+  const rolConAdministracion = (r: Rol) =>
+    !r.esAdmin && TODAS_LAS_VISTAS.some(v => v.sensible && r.permisos?.[v.vista]);
 
   return (
     <div className="animate-in fade-in">
@@ -211,6 +224,15 @@ export const Roles = () => {
                         ADMINISTRADOR
                       </span>
                     )}
+                    {rolConAdministracion(r) && (
+                      <span style={{
+                        marginLeft: '0.5rem', fontSize: '0.6rem', fontWeight: 800,
+                        color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: '10px',
+                        padding: '2px 7px', letterSpacing: '0.5px'
+                      }}>
+                        CON ADMINISTRACIÓN
+                      </span>
+                    )}
                   </td>
                   <td style={{ color: 'var(--text-muted)' }}>{r.descripcion || '—'}</td>
                   <td style={{ textAlign: 'center', fontWeight: 700 }}>
@@ -287,8 +309,9 @@ export const Roles = () => {
             <h4 className="detail-section-title" style={{ marginTop: 0, marginBottom: '0.85rem' }}>Accesos</h4>
 
             {CATALOGO_NAVEGACION.map(grupo => {
-              const vistas = grupo.items.filter(i => !i.soloAdmin);
+              const vistas = grupo.items;
               if (vistas.length === 0) return null;
+              const grupoSensible = vistas.some(v => v.sensible);
               const todasActivas = vistas.every(v => permisos[v.vista]);
               return (
                 <div key={grupo.id} style={{ marginBottom: '1rem', border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -299,7 +322,8 @@ export const Roles = () => {
                       padding: '0.7rem 1rem', backgroundColor: 'var(--bg-highlight)', cursor: 'pointer'
                     }}
                   >
-                    <strong style={{ color: 'var(--text-main)', fontSize: '0.88rem' }}>
+                    <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', color: 'var(--text-main)', fontSize: '0.88rem' }}>
+                      {grupoSensible && <ShieldAlert size={15} color="#f59e0b" />}
                       {t(grupo.claveEtiqueta, grupo.etiqueta)}
                     </strong>
                     <span style={{ fontSize: '0.7rem', fontWeight: 700, color: todasActivas ? '#22c55e' : 'var(--text-muted)' }}>
@@ -327,8 +351,17 @@ export const Roles = () => {
                           }}>
                             {activo && <Check size={13} />}
                           </span>
-                          <span style={{ fontSize: '0.85rem', color: activo ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activo ? 600 : 400 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: activo ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activo ? 600 : 400 }}>
                             {t(v.claveEtiqueta, v.etiqueta)}
+                            {v.sensible && (
+                              <span style={{
+                                fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.5px',
+                                color: '#f59e0b', border: '1px solid #f59e0b',
+                                borderRadius: '10px', padding: '1px 6px'
+                              }}>
+                                ADMINISTRACIÓN
+                              </span>
+                            )}
                           </span>
                         </div>
                       );
@@ -375,12 +408,16 @@ export const Roles = () => {
             <div style={{
               display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
               padding: '0.7rem 0.9rem', borderRadius: '8px', marginBottom: '1.25rem',
-              backgroundColor: 'var(--bg-highlight)', border: '1px solid var(--border)'
+              backgroundColor: tieneSensibles ? 'rgba(245,158,11,0.12)' : 'var(--bg-highlight)',
+              border: `1px solid ${tieneSensibles ? '#f59e0b' : 'var(--border)'}`
             }}>
-              <AlertCircle size={16} color="var(--text-muted)" style={{ flexShrink: 0, marginTop: '1px' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
-                Las vistas de Administración (Usuarios, Roles y Personalización) están reservadas para los
-                administradores y no aparecen en esta lista.
+              {tieneSensibles
+                ? <ShieldAlert size={16} color="#f59e0b" style={{ flexShrink: 0, marginTop: '1px' }} />
+                : <AlertCircle size={16} color="var(--text-muted)" style={{ flexShrink: 0, marginTop: '1px' }} />}
+              <span style={{ fontSize: '0.75rem', color: tieneSensibles ? 'var(--text-main)' : 'var(--text-muted)', lineHeight: 1.45 }}>
+                {tieneSensibles
+                  ? 'Este rol tendrá acceso a vistas de Administración: podrá gestionar cuentas, permisos o los textos del sistema. Otórgalo solo a personas de confianza. Únicamente un administrador puede asignar el rol de administrador a un usuario.'
+                  : 'Las vistas de Administración (Usuarios, Roles y Personalización) también se pueden otorgar desde esta lista, para delegar la administración sin dar acceso total.'}
               </span>
             </div>
 

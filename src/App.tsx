@@ -23,9 +23,6 @@ import { Marketing } from './pages/Marketing';
 import { Lock } from 'lucide-react';
 import './index.css';
 
-// Vistas que solo puede abrir un administrador
-const VISTAS_ADMIN = ['usuarios', 'roles', 'personalizacion'];
-
 const EnrutadorVistas = () => {
   const contexto = useContext(AppContext);
   const { puedeVer, esAdmin, vistasPermitidas } = useAuth();
@@ -36,7 +33,8 @@ const EnrutadorVistas = () => {
   // primera que sí puede ver. Así nunca queda en una pantalla en blanco.
   useEffect(() => {
     if (!contexto) return;
-    const permitida = VISTAS_ADMIN.includes(vista) ? esAdmin : puedeVer(vista);
+    // Las vistas de Administración ya se controlan con los permisos del rol
+    const permitida = puedeVer(vista);
     if (!permitida) {
       const destino = esAdmin ? 'dashboard' : vistasPermitidas[0];
       if (destino && destino !== vista) {
@@ -48,7 +46,7 @@ const EnrutadorVistas = () => {
 
   if (!contexto) return null;
 
-  const puedeAbrir = VISTAS_ADMIN.includes(vista) ? esAdmin : puedeVer(vista);
+  const puedeAbrir = puedeVer(vista);
 
   return (
     <Layout>

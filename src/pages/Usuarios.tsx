@@ -82,7 +82,7 @@ const formatearFecha = (iso?: string): string => {
 type Aviso = { tipo: 'ok' | 'error'; texto: string };
 
 export const Usuarios = () => {
-  const { roles, esAdmin, perfil } = useAuth();
+  const { roles, esAdmin, perfil, puedeVer } = useAuth();
   const { t } = useEtiquetas();
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -133,12 +133,12 @@ export const Usuarios = () => {
     [usuarios, roles]
   );
 
-  if (!esAdmin) {
+  if (!puedeVer('usuarios')) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <Lock size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
         <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Acceso restringido</h3>
-        <p style={{ color: 'var(--text-muted)' }}>Solo un administrador puede gestionar los usuarios.</p>
+        <p style={{ color: 'var(--text-muted)' }}>Tu rol no tiene permiso para gestionar los usuarios.</p>
       </div>
     );
   }
@@ -211,6 +211,10 @@ export const Usuarios = () => {
     // ROL OBLIGATORIO: ningún usuario puede quedarse sin rol
     if (!rolId) { setError('El rol es obligatorio: selecciona uno para este usuario.'); return; }
     if (!roles.some(r => r.id === rolId)) { setError('El rol seleccionado ya no existe. Elige otro.'); return; }
+    if (!esAdmin && roles.find(r => r.id === rolId)?.esAdmin) {
+      setError('Solo un administrador puede asignar el rol de Administrador.');
+      return;
+    }
 
     // --- EDICIÓN: solo se actualiza el perfil en Firestore ---
     if (editandoId) {
@@ -681,7 +685,9 @@ export const Usuarios = () => {
               >
                 <option value="">Selecciona un rol...</option>
                 {rolesOrdenados.map(r => (
-                  <option key={r.id} value={r.id}>{r.nombre}{r.esAdmin ? ' (administrador)' : ''}</option>
+                  <option key={r.id} value={r.id} disabled={r.esAdmin && !esAdmin}>
+                    {r.nombre}{r.esAdmin ? (esAdmin ? ' (administrador)' : ' (solo un administrador puede asignarlo)') : ''}
+                  </option>
                 ))}
               </select>
               {rolesOrdenados.length === 0 ? (

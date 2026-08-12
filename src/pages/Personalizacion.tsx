@@ -15,7 +15,7 @@ import { Type, Save, RotateCcw, Lock, Search, CheckCircle2, Info } from 'lucide-
 // =========================================================================
 
 export const Personalizacion = () => {
-  const { esAdmin } = useAuth();
+  const { puedeVer } = useAuth();
   const { etiquetas, t, guardarVarias } = useEtiquetas();
 
   const secciones = useMemo(() => SECCIONES_ETIQUETAS(), []);
@@ -29,12 +29,12 @@ export const Personalizacion = () => {
     setBorrador({ ...etiquetas });
   }, [etiquetas]);
 
-  if (!esAdmin) {
+  if (!puedeVer('personalizacion')) {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem' }}>
         <Lock size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
         <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Acceso restringido</h3>
-        <p style={{ color: 'var(--text-muted)' }}>Solo un administrador puede personalizar los nombres del sistema.</p>
+        <p style={{ color: 'var(--text-muted)' }}>Tu rol no tiene permiso para personalizar los nombres del sistema.</p>
       </div>
     );
   }

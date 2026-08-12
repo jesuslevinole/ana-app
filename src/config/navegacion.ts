@@ -22,7 +22,10 @@ export interface VistaCatalogo {
   etiqueta: string;       // nombre por defecto
   icono: string;          // nombre del icono de lucide-react
   extra?: string[];       // otras vistas que marcan este item como activo
-  soloAdmin?: boolean;    // visible únicamente para administradores
+  // Vista sensible (Administración): se puede otorgar a cualquier rol desde
+  // "Roles y Permisos", pero se marca con un aviso porque da acceso a la
+  // gestión de cuentas, permisos y textos del sistema.
+  sensible?: boolean;
 }
 
 export interface GrupoCatalogo {
@@ -84,9 +87,9 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     etiqueta: 'Administración',
     icono: 'Settings',
     items: [
-      { vista: 'usuarios', claveEtiqueta: 'vista.usuarios', etiqueta: 'Usuarios', icono: 'Users', soloAdmin: true },
-      { vista: 'roles', claveEtiqueta: 'vista.roles', etiqueta: 'Roles y Permisos', icono: 'ShieldCheck', soloAdmin: true },
-      { vista: 'personalizacion', claveEtiqueta: 'vista.personalizacion', etiqueta: 'Personalización', icono: 'Type', soloAdmin: true },
+      { vista: 'usuarios', claveEtiqueta: 'vista.usuarios', etiqueta: 'Usuarios', icono: 'Users', sensible: true },
+      { vista: 'roles', claveEtiqueta: 'vista.roles', etiqueta: 'Roles y Permisos', icono: 'ShieldCheck', sensible: true },
+      { vista: 'personalizacion', claveEtiqueta: 'vista.personalizacion', etiqueta: 'Personalización', icono: 'Type', sensible: true },
     ],
   },
 ];
