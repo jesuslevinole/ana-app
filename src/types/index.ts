@@ -59,6 +59,8 @@ export interface Usuario {
   activo: boolean;
   creadoEn?: string;
   ultimoAcceso?: string;
+  // Fecha del ultimo envio del correo de acceso (crear/restablecer contrasena)
+  accesoEnviadoEn?: string;
 }
 
 export interface AppContextType {

@@ -193,6 +193,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setErrorAcceso('Tu cuenta está desactivada. Contacta al administrador.');
           await signOut(auth);
           setPerfil(null);
+        } else if (datos && !datos.rolId) {
+          // ROL OBLIGATORIO: sin rol no se puede entrar al sistema
+          setErrorAcceso('Tu cuenta todavía no tiene un rol asignado. Contacta al administrador.');
+          await signOut(auth);
+          setPerfil(null);
         }
       } catch (e) {
         console.error('Error al cargar el perfil del usuario:', e);

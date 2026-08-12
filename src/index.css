@@ -293,3 +293,7 @@ body { background-color: var(--bg-body); color: var(--text-main); }
   .kpi-grid { grid-template-columns: 1fr; }
   .filter-bar { flex-direction: column; gap: 1rem; }
 }
+
+/* Giro del icono mientras se envia el correo de acceso (Usuarios) */
+@keyframes girar-icono { to { transform: rotate(360deg); } }
+.animate-spin { animation: girar-icono 0.9s linear infinite; }
