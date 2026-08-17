@@ -446,13 +446,13 @@ export const InspeccionesDashboard = () => {
     });
 
     // Gráfica un poco más pequeña (pb amplio: nombre del mes + etiqueta de semanas)
-    const W = 960, H = 536, pl = 56, pr = 32, pt = 32, pb = 68;
+    const W = 960, H = 552, pl = 64, pr = 32, pt = 36, pb = 78;
     const iw = W - pl - pr, ih = H - pt - pb;
     const vals = puntos.map(p => p.valor);
     let min = Math.min(...vals, 0);
     let max = Math.max(...vals, 0);
     if (min === max) max = min + (esPct ? 10 : 5);
-    max = max + (max - min) * 0.15; // aire arriba para que los círculos no toquen el borde
+    max = max + (max - min) * 0.2; // aire arriba para que los círculos (más grandes) no toquen el borde
     const ticks = 5;
     const hayCero = min < 0 && max > 0;
 
@@ -479,8 +479,8 @@ export const InspeccionesDashboard = () => {
 
         <div style={{ width: '100%', overflowX: 'auto' }}>
           <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '680px', display: 'block' }}>
-            {/* Fondo gris claro de la gráfica (como la imagen de referencia) */}
-            <rect x="0" y="0" width={W} height={H} rx="12" fill="#DDDFDA" />
+            {/* Fondo oscuro de la gráfica (acorde al tema dark de la app) */}
+            <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
 
             {/* Rejilla horizontal + escala Y */}
             {Array.from({ length: ticks + 1 }).map((_, k) => {
@@ -488,12 +488,12 @@ export const InspeccionesDashboard = () => {
               const yy = Y(v);
               return (
                 <g key={`grid-${k}`}>
-                  <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="#b9bcb4" strokeWidth="1" opacity="0.7" />
-                  <text x={pl - 10} y={yy + 4} textAnchor="end" fontSize="12" fontWeight="600" fill="#3f4a58">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
+                  <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="#48515e" strokeWidth="1" opacity="0.65" />
+                  <text x={pl - 10} y={yy + 5} textAnchor="end" fontSize="16" fontWeight="700" fill="#cbd5e1">{esPct ? `${v.toFixed(0)}%` : Math.round(v)}</text>
                 </g>
               );
             })}
-            {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="#3f4a58" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
+            {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
 
             {/* Etiquetas del eje X: nombre del mes + sus semanas (4 SEM / 5 SEM) */}
             {Array.from({ length: 12 }).map((_, m) => {
@@ -502,9 +502,9 @@ export const InspeccionesDashboard = () => {
               const esCinco = sem === 5;
               return (
                 <g key={`xl-${m}`}>
-                  <text x={X(m)} y={H - pb + 26} textAnchor="middle" fontSize="12.5" fontWeight="700" fill="#3f4a58">{nombreMes.substring(0, 3)}</text>
+                  <text x={X(m)} y={H - pb + 28} textAnchor="middle" fontSize="17" fontWeight="800" fill="#e2e8f0">{nombreMes.substring(0, 3)}</text>
                   {sem !== undefined && (
-                    <text x={X(m)} y={H - pb + 42} textAnchor="middle" fontSize="9.5" fontWeight="800" fill={esCinco ? '#7c3aed' : '#64748b'} letterSpacing="0.5">
+                    <text x={X(m)} y={H - pb + 48} textAnchor="middle" fontSize="12" fontWeight="800" fill={esCinco ? '#a78bfa' : '#94a3b8'} letterSpacing="0.5">
                       {sem} SEM
                     </text>
                   )}
@@ -514,19 +514,19 @@ export const InspeccionesDashboard = () => {
 
             {/* Línea que conecta los puntos con datos (color del taller) */}
             {puntos.length > 1 && (
-              <polyline points={poly} fill="none" stroke={tallerColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+              <polyline points={poly} fill="none" stroke={tallerColor} strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
             )}
 
             {/* Círculos: color del taller + cantidad dentro; los meses de 5 semanas llevan anillo punteado */}
             {puntos.map((p, i) => {
               const cx = X(p.monthIdx), cy = Y(p.valor);
               const texto = esPct ? `${p.valor}%` : String(p.cantidad);
-              const r = texto.length >= 4 ? 20 : texto.length === 3 ? 18 : 16;
-              const fs = texto.length >= 4 ? 10.5 : texto.length === 3 ? 11.5 : 13;
+              const r = texto.length >= 4 ? 27 : texto.length === 3 ? 25 : 23;
+              const fs = texto.length >= 4 ? 14.5 : texto.length === 3 ? 16.5 : 18.5;
               return (
                 <g key={`pt-${i}`}>
                   {p.semanas === 5 && (
-                    <circle cx={cx} cy={cy} r={r + 5} fill="none" stroke="#7c3aed" strokeWidth="2" strokeDasharray="4,3" />
+                    <circle cx={cx} cy={cy} r={r + 6} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeDasharray="5,4" />
                   )}
                   <circle cx={cx} cy={cy} r={r} fill={tallerColor} stroke="#ffffff" strokeWidth="3" />
                   <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={fs} fontWeight="800" fill="#ffffff">{texto}</text>
