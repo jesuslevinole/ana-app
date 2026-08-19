@@ -78,7 +78,8 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     etiqueta: 'Marketing',
     icono: 'Megaphone',
     items: [
-      { vista: 'marketing', claveEtiqueta: 'vista.marketing', etiqueta: 'Próximamente', icono: 'Clock' },
+      { vista: 'marketing', claveEtiqueta: 'vista.marketing', etiqueta: 'Registro', icono: 'ClipboardList' },
+      { vista: 'marketingDashboard', claveEtiqueta: 'vista.marketingDashboard', etiqueta: 'Dashboard', icono: 'BarChart3' },
     ],
   },
   {

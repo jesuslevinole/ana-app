@@ -19,7 +19,8 @@ import { ReporteAnualInspecciones } from './pages/ReporteAnualInspecciones';
 import { Usuarios } from './pages/Usuarios';
 import { Roles } from './pages/Roles';
 import { Personalizacion } from './pages/Personalizacion';
-import { Marketing } from './pages/Marketing';
+import { MarketingRegistro } from './pages/MarketingRegistro';
+import { MarketingDashboard } from './pages/MarketingDashboard';
 import { Lock } from 'lucide-react';
 import './index.css';
 
@@ -75,7 +76,8 @@ const EnrutadorVistas = () => {
           {vista === 'usuarios' && <Usuarios />}
           {vista === 'roles' && <Roles />}
           {vista === 'personalizacion' && <Personalizacion />}
-          {vista === 'marketing' && <Marketing />}
+          {vista === 'marketing' && <MarketingRegistro />}
+          {vista === 'marketingDashboard' && <MarketingDashboard />}
         </>
       )}
     </Layout>
