@@ -21,6 +21,7 @@ import { Roles } from './pages/Roles';
 import { Personalizacion } from './pages/Personalizacion';
 import { MarketingRegistro } from './pages/MarketingRegistro';
 import { MarketingDashboard } from './pages/MarketingDashboard';
+import { Presentacion } from './pages/Presentacion';
 import { Lock } from 'lucide-react';
 import './index.css';
 
@@ -78,6 +79,7 @@ const EnrutadorVistas = () => {
           {vista === 'personalizacion' && <Personalizacion />}
           {vista === 'marketing' && <MarketingRegistro />}
           {vista === 'marketingDashboard' && <MarketingDashboard />}
+          {vista === 'presentacion' && <Presentacion />}
         </>
       )}
     </Layout>

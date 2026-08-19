@@ -14,7 +14,7 @@
 //  (config/etiquetas) y se comparten con todos los usuarios.
 // =========================================================================
 
-export type ClaveGrupo = 'taller' | 'inspecciones' | 'reportes' | 'marketing' | 'administracion';
+export type ClaveGrupo = 'taller' | 'inspecciones' | 'reportes' | 'marketing' | 'presentacion' | 'administracion';
 
 export interface VistaCatalogo {
   vista: string;          // identificador interno (no cambia nunca)
@@ -83,6 +83,15 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     items: [
       { vista: 'marketing', claveEtiqueta: 'vista.marketing', etiqueta: 'Registro', icono: 'ClipboardList' },
       { vista: 'marketingDashboard', claveEtiqueta: 'vista.marketingDashboard', etiqueta: 'Dashboard', icono: 'BarChart3', soloLectura: true },
+    ],
+  },
+  {
+    id: 'presentacion',
+    claveEtiqueta: 'grupo.presentacion',
+    etiqueta: 'Presentación',
+    icono: 'MonitorPlay',
+    items: [
+      { vista: 'presentacion', claveEtiqueta: 'vista.presentacion', etiqueta: 'Presentación', icono: 'Presentation' },
     ],
   },
   {
