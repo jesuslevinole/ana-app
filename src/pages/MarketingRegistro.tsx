@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import {
   useMarketing, idMarketing, FUENTES_MARKETING, ETIQUETA_SIN_FORMULARIO,
-  cantidadFuente, sumaFuentes, totalRegistroMarketing, fechaCorta,
+  cantidadFuente, sumaFuentes, totalRegistroMarketing,
   type RegistroMarketing
 } from '../hooks/useMarketing';
 import { Plus, Save, Trash2, Pencil, X, Search, Megaphone, Info, Users, ClipboardX } from 'lucide-react';
@@ -39,8 +39,6 @@ export const MarketingRegistro = () => {
   const [taller, setTaller] = useState<string>('');
   const [ano, setAno] = useState<string>(String(anoActual));
   const [mes, setMes] = useState<string>(MESES[new Date().getMonth()] ?? 'Enero');
-  const [desde, setDesde] = useState<string>('');
-  const [hasta, setHasta] = useState<string>('');
   const [valores, setValores] = useState<Record<string, string>>({});
   const [sinFormulario, setSinFormulario] = useState<string>('');
 
@@ -78,8 +76,6 @@ export const MarketingRegistro = () => {
     setTaller(talleresOrdenados[0]?.nombre ?? '');
     setAno(String(anoActual));
     setMes(MESES[new Date().getMonth()] ?? 'Enero');
-    setDesde('');
-    setHasta('');
     setValores({});
     setSinFormulario('');
   };
@@ -95,8 +91,6 @@ export const MarketingRegistro = () => {
     setTaller(r.taller);
     setAno(String(r.ano));
     setMes(r.mes);
-    setDesde(r.desde || '');
-    setHasta(r.hasta || '');
     const v: Record<string, string> = {};
     FUENTES_MARKETING.forEach(f => {
       const n = cantidadFuente(r, f.clave);
@@ -129,7 +123,6 @@ export const MarketingRegistro = () => {
   const guardar = () => {
     if (!taller) { alert('Selecciona un taller.'); return; }
     if (totalModal <= 0) { alert('Captura al menos un cliente en alguna procedencia.'); return; }
-    if (desde && hasta && desde > hasta) { alert('La fecha "Desde" no puede ser posterior a "Hasta".'); return; }
 
     const fuentes: Record<string, number> = {};
     FUENTES_MARKETING.forEach(f => { fuentes[f.clave] = entero(valores[f.clave] ?? ''); });
@@ -139,8 +132,6 @@ export const MarketingRegistro = () => {
       taller,
       ano: parseInt(ano, 10),
       mes,
-      desde: desde || '',
-      hasta: hasta || '',
       fuentes,
       sinFormulario: sinFormularioModal,
       conFormulario: conFormularioModal,
@@ -233,7 +224,7 @@ export const MarketingRegistro = () => {
           <thead>
             {lista.length > 0 && (
               <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
-                <td colSpan={4} style={{ padding: '0.85rem' }}>
+                <td colSpan={3} style={{ padding: '0.85rem' }}>
                   <strong style={{ color: 'var(--text-main)' }}>Total ({lista.length} registros)</strong>
                 </td>
                 <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{totales.conFormulario}</td>
@@ -245,7 +236,6 @@ export const MarketingRegistro = () => {
               <th style={{ width: '110px' }}>Acciones</th>
               <th>Periodo</th>
               <th>Taller</th>
-              <th>Fechas</th>
               <th style={{ textAlign: 'center' }}>Con formulario</th>
               <th style={{ textAlign: 'center' }}>Sin formulario</th>
               <th style={{ textAlign: 'center' }}>Total</th>
@@ -253,7 +243,7 @@ export const MarketingRegistro = () => {
           </thead>
           <tbody>
             {lista.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay registros que coincidan con los filtros.</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay registros que coincidan con los filtros.</td></tr>
             ) : (
               lista.map(r => (
                 <tr key={r.id}>
@@ -269,9 +259,6 @@ export const MarketingRegistro = () => {
                   </td>
                   <td><strong style={{ color: 'var(--text-main)' }}>{r.mes}</strong> <span style={{ color: 'var(--text-muted)' }}>{r.ano}</span></td>
                   <td>{r.taller}</td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                    {r.desde || r.hasta ? `${fechaCorta(r.desde)} — ${fechaCorta(r.hasta)}` : '—'}
-                  </td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--primary)' }}>{sumaFuentes(r)}</td>
                   <td style={{ textAlign: 'center', color: 'var(--danger)', fontWeight: 700 }}>{r.sinFormulario || 0}</td>
                   <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-main)' }}>{totalRegistroMarketing(r)}</td>
@@ -291,7 +278,7 @@ export const MarketingRegistro = () => {
           <div
             onClick={(e) => e.stopPropagation()}
             className="animate-in fade-in"
-            style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', width: '100%', maxWidth: '760px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+            style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', width: '100%', maxWidth: '920px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
           >
             {/* Header del modal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
@@ -317,8 +304,8 @@ export const MarketingRegistro = () => {
               ) : (
                 <>
                   <h3 className="detail-section-title">Periodo</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                    <div className="form-group" style={{ minWidth: 0, gridColumn: '1 / -1' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                    <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">Taller</label>
                       <select className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={taller} onChange={(e) => setTaller(e.target.value)}>
                         <option value="">Seleccione un taller...</option>
@@ -335,24 +322,16 @@ export const MarketingRegistro = () => {
                         {MESES.map(m => <option key={m} value={m}>{m}</option>)}
                       </select>
                     </div>
-                    <div className="form-group" style={{ minWidth: 0 }}>
-                      <label className="form-label">Desde <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-                      <input type="date" className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={desde} onChange={(e) => setDesde(e.target.value)} />
-                    </div>
-                    <div className="form-group" style={{ minWidth: 0 }}>
-                      <label className="form-label">Hasta <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-                      <input type="date" className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={hasta} onChange={(e) => setHasta(e.target.value)} />
-                    </div>
                   </div>
 
                   <h3 className="detail-section-title" style={{ marginTop: '1.5rem' }}>¿De dónde vino el cliente?</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                     {FUENTES_MARKETING.map(f => {
                       const n = entero(valores[f.clave] ?? '');
                       return (
                         <div className="form-group" key={f.clave} style={{ minWidth: 0 }}>
-                          <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <span style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: f.color, flexShrink: 0 }} />
+                          <label className="form-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', minHeight: '2.2rem', lineHeight: 1.25 }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: f.color, flexShrink: 0, marginTop: '0.2rem' }} />
                             {f.etiqueta}
                           </label>
                           <input
@@ -371,8 +350,8 @@ export const MarketingRegistro = () => {
                       );
                     })}
                     <div className="form-group" style={{ minWidth: 0 }}>
-                      <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: 'var(--danger)', flexShrink: 0 }} />
+                      <label className="form-label" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', minHeight: '2.2rem', lineHeight: 1.25 }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: 'var(--danger)', flexShrink: 0, marginTop: '0.2rem' }} />
                         {ETIQUETA_SIN_FORMULARIO}
                       </label>
                       <input
@@ -387,22 +366,6 @@ export const MarketingRegistro = () => {
                       <small style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
                         {sinFormularioModal > 0 ? `${pctModal(sinFormularioModal)} % del total` : 'Clientes atendidos que no llenaron formulario'}
                       </small>
-                    </div>
-                  </div>
-
-                  {/* TOTALES EN VIVO */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginTop: '1.5rem' }}>
-                    <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid var(--primary)' }}>
-                      <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Con formulario</div>
-                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--primary)' }}>{conFormularioModal.toLocaleString('en-US')}</div>
-                    </div>
-                    <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid var(--danger)' }}>
-                      <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Sin formulario</div>
-                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--danger)' }}>{sinFormularioModal.toLocaleString('en-US')}</div>
-                    </div>
-                    <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid var(--success)' }}>
-                      <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Total del periodo</div>
-                      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--success)' }}>{totalModal.toLocaleString('en-US')}</div>
                     </div>
                   </div>
 

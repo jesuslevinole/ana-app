@@ -3,7 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import {
   useMarketing, FUENTES_MARKETING, ETIQUETA_SIN_FORMULARIO, CORTA_SIN_FORMULARIO,
-  COLOR_SIN_FORMULARIO, cantidadFuente, fechaCorta
+  COLOR_SIN_FORMULARIO, cantidadFuente
 } from '../hooks/useMarketing';
 import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone } from 'lucide-react';
 
@@ -98,10 +98,6 @@ export const MarketingDashboard = () => {
       },
     ].map(f => ({ ...f, pct: total > 0 ? (f.cantidad / total) * 100 : 0 }));
 
-    // Rango de fechas del periodo (el menor "desde" y el mayor "hasta")
-    const desdes = regs.map(r => r.desde || '').filter(Boolean).sort();
-    const hastas = regs.map(r => r.hasta || '').filter(Boolean).sort();
-
     // Procedencia con más clientes (sin contar a los que no llenaron formulario)
     const principal = filas
       .filter(f => f.clave !== 'sinFormulario')
@@ -113,8 +109,6 @@ export const MarketingDashboard = () => {
       conFormulario,
       sinFormulario,
       principal: principal && principal.cantidad > 0 ? principal : null,
-      desde: desdes[0] || '',
-      hasta: hastas[hastas.length - 1] || '',
       periodos: regs.length,
     };
   }, [registros, tallerSeleccionado, ano, mes]);
@@ -122,13 +116,7 @@ export const MarketingDashboard = () => {
   const hayDatos = reporte.total > 0;
   const pct = (n: number) => (reporte.total > 0 ? (n / reporte.total) * 100 : 0);
 
-  const tituloPeriodo = useMemo(() => {
-    const base = mes === 'Todos' ? `AÑO ${ano}` : `${mes.toUpperCase()}  ·  AÑO ${ano}`;
-    if (reporte.desde || reporte.hasta) {
-      return `${base}  /  ${fechaCorta(reporte.desde)} to ${fechaCorta(reporte.hasta)}`;
-    }
-    return base;
-  }, [mes, ano, reporte.desde, reporte.hasta]);
+  const tituloPeriodo = mes === 'Todos' ? `AÑO ${ano}` : `${mes.toUpperCase()}  ·  AÑO ${ano}`;
 
   // --- Exportación a PNG (misma técnica que el resto de dashboards) ---
   const reporteRef = useRef<HTMLDivElement>(null);

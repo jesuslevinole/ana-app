@@ -46,8 +46,6 @@ export interface RegistroMarketing {
   taller: string;
   ano: number;
   mes: string;                       // nombre del mes (debe coincidir con MESES)
-  desde?: string;                    // inicio del periodo (yyyy-mm-dd)
-  hasta?: string;                    // fin del periodo (yyyy-mm-dd)
   fuentes: Record<string, number>;   // { [clave de fuente]: cantidad }
   sinFormulario: number;             // clientes atendidos sin formulario
   conFormulario: number;             // suma de todas las fuentes
@@ -72,15 +70,6 @@ export const sumaFuentes = (reg: RegistroMarketing): number =>
 export const totalRegistroMarketing = (reg: RegistroMarketing): number => {
   const sin = typeof reg.sinFormulario === 'number' && reg.sinFormulario > 0 ? reg.sinFormulario : 0;
   return sumaFuentes(reg) + sin;
-};
-
-// Fecha yyyy-mm-dd → mm/dd/yyyy (formato del reporte impreso)
-export const fechaCorta = (iso?: string): string => {
-  if (!iso) return '';
-  const partes = iso.split('-');
-  if (partes.length !== 3) return iso;
-  const [a, m, d] = partes;
-  return `${m}/${d}/${a}`;
 };
 
 export const useMarketing = () => {
