@@ -1,5 +1,6 @@
 import React, { useState, useContext, useRef, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { Store, Plus, Trash2, Image as ImageIcon, Pencil, MapPin, GripVertical, Save, X, Palette } from 'lucide-react';
 import type { Taller } from '../types';
 
@@ -14,6 +15,11 @@ const PALETA_TALLER = [
 export const Talleres = () => {
   const contexto = useContext(AppContext);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Nivel de acceso del rol sobre este módulo (Roles y Permisos)
+  const { puedeEditar, puedeEliminar } = useAuth();
+  const puedoEditar = puedeEditar('talleres');
+  const puedoEliminar = puedeEliminar('talleres');
   
   // Estados del Formulario y Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -143,9 +149,11 @@ export const Talleres = () => {
               </p>
             </div>
           </div>
-          <button className="btn btn-primary" onClick={abrirModalNuevo}>
-            <Plus size={18} /> Registrar Taller
-          </button>
+          {puedoEditar && (
+            <button className="btn btn-primary" onClick={abrirModalNuevo}>
+              <Plus size={18} /> Registrar Taller
+            </button>
+          )}
         </div>
 
         {/* TABLA DE TALLERES */}
@@ -239,9 +247,11 @@ export const Talleres = () => {
                             cursor: 'pointer', 
                             padding: '0.5rem', 
                             borderRadius: '8px', 
-                            marginRight: '0.5rem' 
+                            marginRight: '0.5rem',
+                            opacity: puedoEditar ? 1 : 0.4
                           }}
-                          title="Editar"
+                          disabled={!puedoEditar}
+                          title={puedoEditar ? "Editar" : "Tu rol solo puede consultar"}
                         >
                           <Pencil size={18} />
                         </button>
@@ -257,9 +267,11 @@ export const Talleres = () => {
                             color: 'var(--danger)', 
                             cursor: 'pointer', 
                             padding: '0.5rem', 
-                            borderRadius: '8px' 
+                            borderRadius: '8px',
+                            opacity: puedoEliminar ? 1 : 0.4
                           }}
-                          title="Eliminar"
+                          disabled={!puedoEliminar}
+                          title={puedoEliminar ? "Eliminar" : "Tu rol no puede eliminar"}
                         >
                           <Trash2 size={18} />
                         </button>
@@ -428,7 +440,7 @@ export const Talleres = () => {
               <button type="button" className="btn btn-secondary" onClick={cancelarEdicion} style={{ padding: '0.6rem 1.5rem' }}>
                 Cancelar
               </button>
-              <button type="button" className="btn btn-primary" onClick={guardarTaller} style={{ padding: '0.6rem 1.5rem', boxShadow: '0 4px 6px -1px rgba(29, 140, 248, 0.3)' }}>
+              <button type="button" className="btn btn-primary" onClick={guardarTaller} disabled={!puedoEditar} style={{ padding: '0.6rem 1.5rem', boxShadow: '0 4px 6px -1px rgba(29, 140, 248, 0.3)', opacity: puedoEditar ? 1 : 0.5 }}>
                 {editandoId ? <Save size={18} style={{ marginRight: '0.5rem' }} /> : <Plus size={18} style={{ marginRight: '0.5rem' }} />} 
                 {editandoId ? 'Guardar Cambios' : 'Registrar'}
               </button>

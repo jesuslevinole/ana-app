@@ -26,6 +26,9 @@ export interface VistaCatalogo {
   // "Roles y Permisos", pero se marca con un aviso porque da acceso a la
   // gestión de cuentas, permisos y textos del sistema.
   sensible?: boolean;
+  // Vista de solo consulta (dashboards, comparaciones y reportes): no tiene
+  // nada que editar ni eliminar, así que en Roles solo se ofrece "Ver".
+  soloLectura?: boolean;
 }
 
 export interface GrupoCatalogo {
@@ -44,9 +47,9 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     icono: 'Wrench',
     items: [
       { vista: 'tabla', claveEtiqueta: 'vista.tabla', etiqueta: 'Registros', icono: 'FileText', extra: ['formulario'] },
-      { vista: 'dashboard', claveEtiqueta: 'vista.dashboard', etiqueta: 'Dashboard', icono: 'PieChart' },
-      { vista: 'comparacion', claveEtiqueta: 'vista.comparacion', etiqueta: 'Comparación', icono: 'GitCompare' },
-      { vista: 'comparacionMeses', claveEtiqueta: 'vista.comparacionMeses', etiqueta: 'Comparación de Meses', icono: 'CalendarRange' },
+      { vista: 'dashboard', claveEtiqueta: 'vista.dashboard', etiqueta: 'Dashboard', icono: 'PieChart', soloLectura: true },
+      { vista: 'comparacion', claveEtiqueta: 'vista.comparacion', etiqueta: 'Comparación', icono: 'GitCompare', soloLectura: true },
+      { vista: 'comparacionMeses', claveEtiqueta: 'vista.comparacionMeses', etiqueta: 'Comparación de Meses', icono: 'CalendarRange', soloLectura: true },
       { vista: 'talleres', claveEtiqueta: 'vista.talleres', etiqueta: 'Talleres', icono: 'Store' },
     ],
   },
@@ -57,9 +60,9 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     icono: 'ClipboardCheck',
     items: [
       { vista: 'inspeccionesRegistro', claveEtiqueta: 'vista.inspeccionesRegistro', etiqueta: 'Registro', icono: 'ClipboardList' },
-      { vista: 'inspeccionesDashboard', claveEtiqueta: 'vista.inspeccionesDashboard', etiqueta: 'Dashboard', icono: 'LineChart' },
-      { vista: 'inspeccionesComparacion', claveEtiqueta: 'vista.inspeccionesComparacion', etiqueta: 'Comparación', icono: 'GitCompare' },
-      { vista: 'inspeccionesComparacionMeses', claveEtiqueta: 'vista.inspeccionesComparacionMeses', etiqueta: 'Comparación de Meses', icono: 'CalendarRange' },
+      { vista: 'inspeccionesDashboard', claveEtiqueta: 'vista.inspeccionesDashboard', etiqueta: 'Dashboard', icono: 'LineChart', soloLectura: true },
+      { vista: 'inspeccionesComparacion', claveEtiqueta: 'vista.inspeccionesComparacion', etiqueta: 'Comparación', icono: 'GitCompare', soloLectura: true },
+      { vista: 'inspeccionesComparacionMeses', claveEtiqueta: 'vista.inspeccionesComparacionMeses', etiqueta: 'Comparación de Meses', icono: 'CalendarRange', soloLectura: true },
     ],
   },
   {
@@ -68,8 +71,8 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     etiqueta: 'Reportes',
     icono: 'FileBarChart',
     items: [
-      { vista: 'reporteAnualGeneral', claveEtiqueta: 'vista.reporteAnualGeneral', etiqueta: 'Reporte Anual General', icono: 'FileBarChart' },
-      { vista: 'reporteAnualInspecciones', claveEtiqueta: 'vista.reporteAnualInspecciones', etiqueta: 'Reporte Anual Inspecciones', icono: 'ClipboardCheck' },
+      { vista: 'reporteAnualGeneral', claveEtiqueta: 'vista.reporteAnualGeneral', etiqueta: 'Reporte Anual General', icono: 'FileBarChart', soloLectura: true },
+      { vista: 'reporteAnualInspecciones', claveEtiqueta: 'vista.reporteAnualInspecciones', etiqueta: 'Reporte Anual Inspecciones', icono: 'ClipboardCheck', soloLectura: true },
     ],
   },
   {
@@ -79,7 +82,7 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     icono: 'Megaphone',
     items: [
       { vista: 'marketing', claveEtiqueta: 'vista.marketing', etiqueta: 'Registro', icono: 'ClipboardList' },
-      { vista: 'marketingDashboard', claveEtiqueta: 'vista.marketingDashboard', etiqueta: 'Dashboard', icono: 'BarChart3' },
+      { vista: 'marketingDashboard', claveEtiqueta: 'vista.marketingDashboard', etiqueta: 'Dashboard', icono: 'BarChart3', soloLectura: true },
     ],
   },
   {

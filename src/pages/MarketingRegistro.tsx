@@ -1,5 +1,6 @@
 import { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { MESES } from '../utils/formatters';
 import {
   useMarketing, idMarketing, FUENTES_MARKETING, ETIQUETA_SIN_FORMULARIO,
@@ -18,6 +19,10 @@ import { Plus, Save, Trash2, Pencil, X, Search, Megaphone, Info, Users, Clipboar
 export const MarketingRegistro = () => {
   const contexto = useContext(AppContext);
   const { registros, guardarRegistro, eliminarRegistro } = useMarketing();
+  // Nivel de acceso del rol sobre este módulo (Roles y Permisos)
+  const { puedeEditar, puedeEliminar } = useAuth();
+  const puedoEditar = puedeEditar('marketing');
+  const puedoEliminar = puedeEliminar('marketing');
 
   const talleres = contexto?.talleres ?? [];
   const talleresOrdenados = useMemo(
@@ -167,9 +172,11 @@ export const MarketingRegistro = () => {
               style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '999px', padding: '0.55rem 1rem 0.55rem 2.25rem', fontSize: '0.85rem', outline: 'none', minWidth: '260px' }}
             />
           </div>
-          <button onClick={abrirNuevo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            <Plus size={18} /> Nuevo Registro
-          </button>
+          {puedoEditar && (
+            <button onClick={abrirNuevo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <Plus size={18} /> Nuevo Registro
+            </button>
+          )}
         </div>
       </div>
 
@@ -249,10 +256,10 @@ export const MarketingRegistro = () => {
                 <tr key={r.id}>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--primary)', borderColor: 'transparent', backgroundColor: 'rgba(29, 140, 248, 0.1)' }} onClick={() => abrirEditar(r)} title="Editar">
+                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--primary)', borderColor: 'transparent', backgroundColor: 'rgba(29, 140, 248, 0.1)', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }} disabled={!puedoEditar} onClick={() => abrirEditar(r)} title={puedoEditar ? "Editar" : "Tu rol solo puede consultar"}>
                         <Pencil size={15} />
                       </button>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger)', borderColor: 'transparent', backgroundColor: 'rgba(255, 76, 76, 0.1)' }} onClick={() => { if (confirm(`¿Eliminar el registro de ${r.mes} ${r.ano} de ${r.taller}?`)) eliminarRegistro(r.id); }} title="Eliminar">
+                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger)', borderColor: 'transparent', backgroundColor: 'rgba(255, 76, 76, 0.1)', opacity: puedoEliminar ? 1 : 0.4, cursor: puedoEliminar ? 'pointer' : 'not-allowed' }} disabled={!puedoEliminar} onClick={() => { if (confirm(`¿Eliminar el registro de ${r.mes} ${r.ano} de ${r.taller}?`)) eliminarRegistro(r.id); }} title={puedoEliminar ? "Eliminar" : "Tu rol no puede eliminar"}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -384,7 +391,7 @@ export const MarketingRegistro = () => {
               <button onClick={cerrarModal} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <X size={16} /> Cancelar
               </button>
-              <button onClick={guardar} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} disabled={talleresOrdenados.length === 0}>
+              <button onClick={guardar} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: puedoEditar ? 1 : 0.5 }} disabled={talleresOrdenados.length === 0 || !puedoEditar}>
                 <Save size={16} /> {editandoId ? 'Actualizar' : 'Guardar'}
               </button>
             </div>

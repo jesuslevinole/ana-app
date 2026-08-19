@@ -82,7 +82,9 @@ const formatearFecha = (iso?: string): string => {
 type Aviso = { tipo: 'ok' | 'error'; texto: string };
 
 export const Usuarios = () => {
-  const { roles, esAdmin, perfil, puedeVer } = useAuth();
+  const { roles, esAdmin, perfil, puedeVer, puedeEditar, puedeEliminar } = useAuth();
+  const puedoEditar = puedeEditar('usuarios');
+  const puedoEliminar = puedeEliminar('usuarios');
   const { t } = useEtiquetas();
 
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -351,9 +353,11 @@ export const Usuarios = () => {
             </p>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={abrirNuevo} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Plus size={16} /> Nuevo Usuario
-        </button>
+        {puedoEditar && (
+          <button className="btn btn-primary" onClick={abrirNuevo} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={16} /> Nuevo Usuario
+          </button>
+        )}
       </div>
 
       {/* AVISO (envío de correo, guardado, errores) */}
@@ -430,9 +434,10 @@ export const Usuarios = () => {
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button
                           className="btn btn-outline"
-                          style={{ padding: '0.35rem 0.55rem', color: 'var(--primary)', borderColor: 'transparent' }}
+                          style={{ padding: '0.35rem 0.55rem', color: 'var(--primary)', borderColor: 'transparent', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }}
                           onClick={() => abrirEditar(u)}
-                          title="Editar usuario"
+                          disabled={!puedoEditar}
+                          title={puedoEditar ? "Editar usuario" : "Tu rol solo puede consultar"}
                         >
                           <Pencil size={15} />
                         </button>
@@ -442,13 +447,13 @@ export const Usuarios = () => {
                           className="btn btn-outline"
                           style={{
                             padding: '0.35rem 0.55rem',
-                            color: u.email ? '#22c55e' : 'var(--text-muted)',
+                            color: u.email && puedoEditar ? '#22c55e' : 'var(--text-muted)',
                             borderColor: 'transparent',
-                            cursor: u.email && !enviando ? 'pointer' : 'not-allowed',
-                            opacity: u.email ? 1 : 0.45
+                            cursor: u.email && !enviando && puedoEditar ? 'pointer' : 'not-allowed',
+                            opacity: u.email && puedoEditar ? 1 : 0.45
                           }}
                           onClick={() => enviarCorreoAcceso(u)}
-                          disabled={!u.email || enviando}
+                          disabled={!u.email || enviando || !puedoEditar}
                           title={u.email
                             ? (u.accesoEnviadoEn
                               ? `Reenviar correo de acceso (último envío: ${formatearFecha(u.accesoEnviadoEn)})`
@@ -464,14 +469,14 @@ export const Usuarios = () => {
                           className="btn btn-outline"
                           style={{
                             padding: '0.35rem 0.55rem',
-                            color: esYo ? 'var(--text-muted)' : 'var(--danger)',
+                            color: esYo || !puedoEliminar ? 'var(--text-muted)' : 'var(--danger)',
                             borderColor: 'transparent',
-                            cursor: esYo ? 'not-allowed' : 'pointer',
-                            opacity: esYo ? 0.45 : 1
+                            cursor: esYo || !puedoEliminar ? 'not-allowed' : 'pointer',
+                            opacity: esYo || !puedoEliminar ? 0.45 : 1
                           }}
                           onClick={() => eliminar(u)}
-                          disabled={esYo}
-                          title={esYo ? 'No puedes eliminar tu propia cuenta' : 'Quitar acceso'}
+                          disabled={esYo || !puedoEliminar}
+                          title={esYo ? 'No puedes eliminar tu propia cuenta' : puedoEliminar ? 'Quitar acceso' : 'Tu rol no puede eliminar'}
                         >
                           <Trash2 size={15} />
                         </button>
@@ -521,15 +526,15 @@ export const Usuarios = () => {
                     <td style={{ textAlign: 'center' }}>
                       <button
                         onClick={() => alternarActivo(u)}
-                        disabled={esYo}
-                        title={esYo ? 'No puedes desactivar tu propia cuenta' : (estaActivo ? 'Desactivar' : 'Activar')}
+                        disabled={esYo || !puedoEditar}
+                        title={esYo ? 'No puedes desactivar tu propia cuenta' : puedoEditar ? (estaActivo ? 'Desactivar' : 'Activar') : 'Tu rol solo puede consultar'}
                         style={{
                           display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
                           background: 'none', border: `1px solid ${estaActivo ? '#22c55e' : 'var(--danger)'}`,
                           color: estaActivo ? '#22c55e' : 'var(--danger)',
                           borderRadius: '12px', padding: '0.2rem 0.7rem',
                           fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px',
-                          cursor: esYo ? 'not-allowed' : 'pointer', opacity: esYo ? 0.5 : 1
+                          cursor: esYo || !puedoEditar ? 'not-allowed' : 'pointer', opacity: esYo || !puedoEditar ? 0.5 : 1
                         }}
                       >
                         {estaActivo ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
@@ -737,9 +742,9 @@ export const Usuarios = () => {
               <button
                 className="btn btn-primary"
                 onClick={guardar}
-                disabled={guardando || !rolId}
+                disabled={guardando || !rolId || !puedoEditar}
                 title={!rolId ? 'Selecciona un rol para poder guardar' : undefined}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: (guardando || !rolId) ? 0.6 : 1, cursor: (guardando || !rolId) ? 'not-allowed' : 'pointer' }}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: (guardando || !rolId || !puedoEditar) ? 0.6 : 1, cursor: (guardando || !rolId || !puedoEditar) ? 'not-allowed' : 'pointer' }}
               >
                 <Save size={16} /> {guardando ? 'Guardando...' : editandoId ? 'Actualizar' : 'Crear Usuario'}
               </button>

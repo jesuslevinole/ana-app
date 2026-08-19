@@ -15,7 +15,8 @@ import { Type, Save, RotateCcw, Lock, Search, CheckCircle2, Info } from 'lucide-
 // =========================================================================
 
 export const Personalizacion = () => {
-  const { puedeVer } = useAuth();
+  const { puedeVer, puedeEditar } = useAuth();
+  const puedoEditar = puedeEditar('personalizacion');
   const { etiquetas, t, guardarVarias } = useEtiquetas();
 
   const secciones = useMemo(() => SECCIONES_ETIQUETAS(), []);
@@ -102,8 +103,9 @@ export const Personalizacion = () => {
           <button
             className="btn btn-primary"
             onClick={guardar}
-            disabled={!hayCambios || guardando}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: (!hayCambios || guardando) ? 0.55 : 1, cursor: (!hayCambios || guardando) ? 'not-allowed' : 'pointer' }}
+            disabled={!hayCambios || guardando || !puedoEditar}
+            title={puedoEditar ? undefined : 'Tu rol solo puede consultar esta sección'}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: (!hayCambios || guardando || !puedoEditar) ? 0.55 : 1, cursor: (!hayCambios || guardando || !puedoEditar) ? 'not-allowed' : 'pointer' }}
           >
             <Save size={16} />
             {guardando ? 'Guardando...' : hayCambios ? `Guardar (${Object.keys(cambios).length})` : 'Guardar'}

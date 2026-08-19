@@ -6,7 +6,7 @@ import { useEtiquetas } from '../context/EtiquetasContext';
 import { CATALOGO_NAVEGACION, CATALOGO_ACCIONES, TODAS_LAS_VISTAS } from '../config/navegacion';
 import type { Rol } from '../types';
 import {
-  ShieldCheck, Plus, Trash2, Save, X, Check, Lock, AlertCircle, ShieldAlert
+  ShieldCheck, Plus, Trash2, Save, X, Check, Lock, AlertCircle, ShieldAlert, Pencil
 } from 'lucide-react';
 
 // =========================================================================
@@ -24,7 +24,9 @@ const idDesdeNombre = (nombre: string) =>
     .replace(/^-+|-+$/g, '') || `rol-${Date.now()}`;
 
 export const Roles = () => {
-  const { roles, esAdmin, puedeVer } = useAuth();
+  const { roles, esAdmin, puedeVer, puedeEditar, puedeEliminar } = useAuth();
+  const puedoEditar = puedeEditar('roles');
+  const puedoEliminar = puedeEliminar('roles');
   const { t } = useEtiquetas();
 
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -32,6 +34,8 @@ export const Roles = () => {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [permisos, setPermisos] = useState<Record<string, boolean>>({});
+  // Nivel por vista: { [vista]: { editar, eliminar } }. Sin entrada = solo ver.
+  const [permisosAcciones, setPermisosAcciones] = useState<Record<string, { editar?: boolean; eliminar?: boolean }>>({});
   const [acciones, setAcciones] = useState<Record<string, boolean>>({});
   const [guardando, setGuardando] = useState(false);
 
@@ -60,6 +64,7 @@ export const Roles = () => {
     setNombre('');
     setDescripcion('');
     setPermisos({});
+    setPermisosAcciones({});
     setAcciones({});
     setModalAbierto(true);
   };
@@ -74,24 +79,69 @@ export const Roles = () => {
     setNombre(r.nombre);
     setDescripcion(r.descripcion || '');
     setPermisos({ ...(r.permisos || {}) });
+    // Rol antiguo (creado antes de los niveles): se precarga con editar y
+    // eliminar en las vistas que ya podía ver, que era su comportamiento real.
+    if (r.permisosAcciones === undefined) {
+      const inicial: Record<string, { editar?: boolean; eliminar?: boolean }> = {};
+      TODAS_LAS_VISTAS.forEach(v => {
+        if (!v.soloLectura && r.permisos?.[v.vista]) inicial[v.vista] = { editar: true, eliminar: true };
+      });
+      setPermisosAcciones(inicial);
+    } else {
+      setPermisosAcciones({ ...r.permisosAcciones });
+    }
     setAcciones({ ...(r.acciones || {}) });
     setModalAbierto(true);
   };
 
+  // VER: al quitar el acceso a una vista se retiran también editar y eliminar,
+  // porque no tiene sentido modificar algo que no se puede abrir.
   const alternarPermiso = (vista: string) => {
-    setPermisos(p => ({ ...p, [vista]: !p[vista] }));
+    const activando = !permisos[vista];
+    setPermisos(p => ({ ...p, [vista]: activando }));
+    if (!activando) {
+      setPermisosAcciones(p => {
+        const next = { ...p };
+        delete next[vista];
+        return next;
+      });
+    }
   };
 
-  // Marca o desmarca todas las vistas de un grupo de una sola vez
+  // EDITAR / ELIMINAR de una vista. Marcar cualquiera de los dos implica
+  // otorgar también el acceso de lectura a esa vista.
+  const alternarNivel = (vista: string, nivel: 'editar' | 'eliminar') => {
+    const actual = !!permisosAcciones[vista]?.[nivel];
+    const siguiente = !actual;
+    setPermisosAcciones(p => {
+      const previo = p[vista] || {};
+      const combinado = { ...previo, [nivel]: siguiente };
+      const next = { ...p };
+      if (!combinado.editar && !combinado.eliminar) delete next[vista];
+      else next[vista] = combinado;
+      return next;
+    });
+    if (siguiente) setPermisos(p => ({ ...p, [vista]: true }));
+  };
+
+  // Marca o desmarca un grupo completo (ver + editar + eliminar de sus vistas)
   const alternarGrupo = (idGrupo: string) => {
     const grupo = CATALOGO_NAVEGACION.find(g => g.id === idGrupo);
     if (!grupo) return;
-    const vistas = grupo.items.map(i => i.vista);
-    if (vistas.length === 0) return;
-    const todasActivas = vistas.every(v => permisos[v]);
+    const items = grupo.items;
+    if (items.length === 0) return;
+    const todasActivas = items.every(i => permisos[i.vista]);
     setPermisos(p => {
       const next = { ...p };
-      vistas.forEach(v => { next[v] = !todasActivas; });
+      items.forEach(i => { next[i.vista] = !todasActivas; });
+      return next;
+    });
+    setPermisosAcciones(p => {
+      const next = { ...p };
+      items.forEach(i => {
+        if (todasActivas || i.soloLectura) delete next[i.vista];
+        else next[i.vista] = { editar: true, eliminar: true };
+      });
       return next;
     });
   };
@@ -110,6 +160,7 @@ export const Roles = () => {
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         permisos,
+        permisosAcciones,
         acciones,
         esAdmin: existente?.esAdmin ?? false,
         protegido: existente?.protegido ?? false,
@@ -159,9 +210,11 @@ export const Roles = () => {
             </p>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={abrirNuevo} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Plus size={16} /> Nuevo Rol
-        </button>
+        {puedoEditar && (
+          <button className="btn btn-primary" onClick={abrirNuevo} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={16} /> Nuevo Rol
+          </button>
+        )}
       </div>
 
       {/* LISTA DE ROLES */}
@@ -190,9 +243,10 @@ export const Roles = () => {
                     <div style={{ display: 'flex', gap: '0.4rem' }}>
                       <button
                         className="btn btn-outline"
-                        style={{ padding: '0.35rem 0.55rem', color: 'var(--primary)', borderColor: 'transparent' }}
+                        style={{ padding: '0.35rem 0.55rem', color: 'var(--primary)', borderColor: 'transparent', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }}
                         onClick={() => abrirEditar(r)}
-                        title="Editar permisos"
+                        disabled={!puedoEditar}
+                        title={puedoEditar ? "Editar permisos" : "Tu rol solo puede consultar"}
                       >
                         <ShieldCheck size={15} />
                       </button>
@@ -200,14 +254,14 @@ export const Roles = () => {
                         className="btn btn-outline"
                         style={{
                           padding: '0.35rem 0.55rem',
-                          color: r.protegido ? 'var(--text-muted)' : 'var(--danger)',
+                          color: r.protegido || !puedoEliminar ? 'var(--text-muted)' : 'var(--danger)',
                           borderColor: 'transparent',
-                          cursor: r.protegido ? 'not-allowed' : 'pointer',
-                          opacity: r.protegido ? 0.45 : 1
+                          cursor: r.protegido || !puedoEliminar ? 'not-allowed' : 'pointer',
+                          opacity: r.protegido || !puedoEliminar ? 0.45 : 1
                         }}
                         onClick={() => eliminar(r)}
-                        disabled={r.protegido}
-                        title={r.protegido ? 'Rol del sistema: no se puede eliminar' : 'Eliminar rol'}
+                        disabled={r.protegido || !puedoEliminar}
+                        title={r.protegido ? 'Rol del sistema: no se puede eliminar' : puedoEliminar ? 'Eliminar rol' : 'Tu rol no puede eliminar'}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -270,7 +324,7 @@ export const Roles = () => {
                     {editandoId ? 'Editar Rol' : 'Nuevo Rol'}
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    Marca las vistas a las que tendrá acceso
+                    Marca las vistas y el nivel de acceso de cada una
                   </p>
                 </div>
               </div>
@@ -306,7 +360,11 @@ export const Roles = () => {
             </div>
 
             {/* MATRIZ DE PERMISOS */}
-            <h4 className="detail-section-title" style={{ marginTop: 0, marginBottom: '0.85rem' }}>Accesos</h4>
+            <h4 className="detail-section-title" style={{ marginTop: 0, marginBottom: '0.5rem' }}>Accesos</h4>
+            <p style={{ margin: '0 0 0.85rem 0', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              Marca la casilla para dar acceso a una vista. Sin nada más, el rol solo puede <strong style={{ color: 'var(--text-main)' }}>consultar</strong>.
+              Activa <strong style={{ color: 'var(--primary)' }}>Editar</strong> para que pueda crear y modificar, y <strong style={{ color: 'var(--danger)' }}>Eliminar</strong> para que pueda borrar registros.
+            </p>
 
             {CATALOGO_NAVEGACION.map(grupo => {
               const vistas = grupo.items;
@@ -333,36 +391,85 @@ export const Roles = () => {
                   <div style={{ padding: '0.5rem 0' }}>
                     {vistas.map(v => {
                       const activo = !!permisos[v.vista];
+                      const puedeEditarVista = !!permisosAcciones[v.vista]?.editar;
+                      const puedeEliminarVista = !!permisosAcciones[v.vista]?.eliminar;
                       return (
                         <div
                           key={v.vista}
-                          onClick={() => alternarPermiso(v.vista)}
                           style={{
-                            display: 'flex', alignItems: 'center', gap: '0.75rem',
-                            padding: '0.5rem 1rem', cursor: 'pointer'
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            gap: '0.75rem', padding: '0.5rem 1rem', flexWrap: 'wrap'
                           }}
                         >
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0,
-                            backgroundColor: activo ? 'var(--primary)' : 'transparent',
-                            border: `2px solid ${activo ? 'var(--primary)' : 'var(--border)'}`,
-                            color: '#fff'
-                          }}>
-                            {activo && <Check size={13} />}
-                          </span>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: activo ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activo ? 600 : 400 }}>
-                            {t(v.claveEtiqueta, v.etiqueta)}
-                            {v.sensible && (
-                              <span style={{
-                                fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.5px',
-                                color: '#f59e0b', border: '1px solid #f59e0b',
-                                borderRadius: '10px', padding: '1px 6px'
-                              }}>
-                                ADMINISTRACIÓN
+                          {/* VER: da acceso a la vista */}
+                          <div
+                            onClick={() => alternarPermiso(v.vista)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', minWidth: 0, flex: 1 }}
+                          >
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0,
+                              backgroundColor: activo ? 'var(--primary)' : 'transparent',
+                              border: `2px solid ${activo ? 'var(--primary)' : 'var(--border)'}`,
+                              color: '#fff'
+                            }}>
+                              {activo && <Check size={13} />}
+                            </span>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: activo ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: activo ? 600 : 400 }}>
+                              {t(v.claveEtiqueta, v.etiqueta)}
+                              {v.sensible && (
+                                <span style={{
+                                  fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.5px',
+                                  color: '#f59e0b', border: '1px solid #f59e0b',
+                                  borderRadius: '10px', padding: '1px 6px'
+                                }}>
+                                  ADMINISTRACIÓN
+                                </span>
+                              )}
+                            </span>
+                          </div>
+
+                          {/* NIVEL DE ACCESO: consultar, modificar o eliminar */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                            {v.soloLectura ? (
+                              <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                                Solo consulta
                               </span>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => alternarNivel(v.vista, 'editar')}
+                                  title={`Permite crear y modificar en "${t(v.claveEtiqueta, v.etiqueta)}"`}
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                    background: puedeEditarVista ? 'rgba(29,140,248,0.15)' : 'transparent',
+                                    border: `1px solid ${puedeEditarVista ? 'var(--primary)' : 'var(--border)'}`,
+                                    color: puedeEditarVista ? 'var(--primary)' : 'var(--text-muted)',
+                                    borderRadius: '999px', padding: '0.18rem 0.65rem',
+                                    fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.5px',
+                                    textTransform: 'uppercase', cursor: 'pointer'
+                                  }}
+                                >
+                                  <Pencil size={11} /> Editar
+                                </button>
+                                <button
+                                  onClick={() => alternarNivel(v.vista, 'eliminar')}
+                                  title={`Permite eliminar registros en "${t(v.claveEtiqueta, v.etiqueta)}"`}
+                                  style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                    background: puedeEliminarVista ? 'rgba(255,141,114,0.15)' : 'transparent',
+                                    border: `1px solid ${puedeEliminarVista ? 'var(--danger)' : 'var(--border)'}`,
+                                    color: puedeEliminarVista ? 'var(--danger)' : 'var(--text-muted)',
+                                    borderRadius: '999px', padding: '0.18rem 0.65rem',
+                                    fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.5px',
+                                    textTransform: 'uppercase', cursor: 'pointer'
+                                  }}
+                                >
+                                  <Trash2 size={11} /> Eliminar
+                                </button>
+                              </>
                             )}
-                          </span>
+                          </div>
                         </div>
                       );
                     })}
@@ -425,7 +532,7 @@ export const Roles = () => {
               <button className="btn btn-outline" onClick={() => setModalAbierto(false)}>
                 <X size={16} /> Cancelar
               </button>
-              <button className="btn btn-primary" onClick={guardar} disabled={guardando} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button className="btn btn-primary" onClick={guardar} disabled={guardando || !puedoEditar} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: puedoEditar ? 1 : 0.5 }}>
                 <Save size={16} /> {guardando ? 'Guardando...' : 'Guardar Rol'}
               </button>
             </div>

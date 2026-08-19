@@ -5,6 +5,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { TODAS_LAS_VISTAS } from '../config/navegacion';
 import type { Usuario, Rol } from '../types';
 
 // =========================================================================
@@ -73,6 +74,9 @@ export interface AuthContextType {
   // Permisos
   esAdmin: boolean;
   puedeVer: (vista: string) => boolean;
+  // Nivel de acceso por vista: consultar, modificar o eliminar
+  puedeEditar: (vista: string) => boolean;
+  puedeEliminar: (vista: string) => boolean;
   puedeAccion: (clave: string) => boolean;
   vistasPermitidas: string[];
   // VER COMO: navegar la app con los permisos de otro rol
@@ -283,10 +287,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const esAdmin = !!rol?.esAdmin;
 
+  // Vista padre de una pantalla auxiliar (por ejemplo 'formulario' pertenece a
+  // 'tabla'): así el permiso se otorga una sola vez sobre el módulo.
+  const vistaBase = (vista: string): string => {
+    if (rol?.permisos?.[vista]) return vista;
+    const padre = TODAS_LAS_VISTAS.find(v => v.extra?.includes(vista));
+    return padre ? padre.vista : vista;
+  };
+
   const puedeVer = (vista: string): boolean => {
     if (!perfilEfectivo) return false;
     if (esAdmin) return true;                 // el administrador ve todo
-    return !!rol?.permisos?.[vista];
+    return !!rol?.permisos?.[vistaBase(vista)];
+  };
+
+  // COMPATIBILIDAD: los roles creados antes de existir los niveles de acceso
+  // no tienen "permisosAcciones". Para no quitarles permisos de golpe, se les
+  // conserva el comportamiento anterior (quien veía, podía editar y eliminar)
+  // hasta que el administrador vuelva a guardar el rol con sus niveles.
+  const rolSinNiveles = !!rol && rol.permisosAcciones === undefined;
+
+  // ¿Puede MODIFICAR (crear/editar) lo que hay en esta vista?
+  // Requiere tener acceso a la vista y el permiso "editar" para ella.
+  const puedeEditar = (vista: string): boolean => {
+    if (!perfilEfectivo) return false;
+    if (esAdmin) return true;                 // el administrador puede todo
+    if (!puedeVer(vista)) return false;
+    if (rolSinNiveles) return true;
+    return !!rol?.permisosAcciones?.[vistaBase(vista)]?.editar;
+  };
+
+  // ¿Puede ELIMINAR registros de esta vista?
+  const puedeEliminar = (vista: string): boolean => {
+    if (!perfilEfectivo) return false;
+    if (esAdmin) return true;
+    if (!puedeVer(vista)) return false;
+    if (rolSinNiveles) return true;
+    return !!rol?.permisosAcciones?.[vistaBase(vista)]?.eliminar;
   };
 
   // Capacidades especiales (editar nombres, ver como...)
@@ -316,7 +353,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       usuarioAuth, perfil: perfilEfectivo, rol, roles, cargando, errorAcceso,
       iniciarSesion, cerrarSesion, recuperarPassword,
       accesoSinLogin, entrarSinLogin,
-      esAdmin, puedeVer, puedeAccion, vistasPermitidas,
+      esAdmin, puedeVer, puedeEditar, puedeEliminar, puedeAccion, vistasPermitidas,
       rolReal, estaSimulando, rolSimuladoId, simularRol, detenerSimulacion,
     }}>
       {children}

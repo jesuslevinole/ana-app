@@ -1,5 +1,6 @@
 import { useState, useMemo, useContext, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { MESES } from '../utils/formatters';
 import type { Detalle, Registro } from '../types';
 import { Plus, Trash2, Save, X, Pencil, RotateCcw } from 'lucide-react';
@@ -28,6 +29,10 @@ const miFormatearMoneda = (valor: number) => {
 const calc2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
 
 export const FormularioRegistro = () => {
+  // Nivel de acceso del rol sobre el módulo de Registros
+  const { puedeEditar } = useAuth();
+  const puedoEditar = puedeEditar('tabla');
+
   const contexto = useContext(AppContext);
   const currentYear = new Date().getFullYear();
   
@@ -472,7 +477,7 @@ export const FormularioRegistro = () => {
 
         <div className="reg-modal-footer">
           <button className="btn btn-outline" onClick={cerrar}><X size={16} /> Cancelar</button>
-          <button className="btn btn-primary" onClick={guardarRegistro}><Save size={16} /> {isEditing ? 'Actualizar Registro' : 'Guardar Registro'}</button>
+          {puedoEditar && <button className="btn btn-primary" onClick={guardarRegistro}><Save size={16} /> {isEditing ? 'Actualizar Registro' : 'Guardar Registro'}</button>}
         </div>
       </div>{/* fin .reg-modal-dialog */}
     </div>

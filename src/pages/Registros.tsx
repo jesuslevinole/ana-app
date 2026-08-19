@@ -1,6 +1,7 @@
 import { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
+import { useAuth } from '../context/AuthContext';
 import type { Registro, Detalle } from '../types';
 import { FileText, Search, Plus, Pencil, Trash2, X, Save, Target } from 'lucide-react';
 
@@ -29,6 +30,10 @@ export const Registros = () => {
   const contexto = useContext(AppContext);
   // Metas anuales por taller (compartidas en Firestore)
   const { metasAnuales, obtenerMetaAnual, totalMetaAnualDelAno, guardarMetaAnual } = useMetasAnuales();
+  // Nivel de acceso del rol sobre este módulo (Roles y Permisos)
+  const { puedeEditar, puedeEliminar } = useAuth();
+  const puedoEditar = puedeEditar('tabla');
+  const puedoEliminar = puedeEliminar('tabla');
   const [busqueda, setBusqueda] = useState('');
   const [registroSeleccionado, setRegistroSeleccionado] = useState<Registro | null>(null);
 
@@ -306,9 +311,9 @@ export const Registros = () => {
             />
           </div>
 
-          <button className="btn btn-primary" onClick={() => { contexto.setRegistroEditando(null); contexto.setVista('formulario'); }}>
+          {puedoEditar && <button className="btn btn-primary" onClick={() => { contexto.setRegistroEditando(null); contexto.setVista('formulario'); }}>
             <Plus size={16} /> Nuevo Registro
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -415,7 +420,7 @@ export const Registros = () => {
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
-            <button onClick={guardarEditorMetaAnual} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresDisponibles.length === 0}>
+            <button onClick={guardarEditorMetaAnual} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', opacity: puedoEditar ? 1 : 0.5 }} disabled={talleresDisponibles.length === 0 || !puedoEditar}>
               <Save size={16} /> Guardar meta anual
             </button>
             {metaAnualGuardada && (
@@ -548,15 +553,17 @@ export const Registros = () => {
                   <td style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEditar(r); }}
-                      style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Editar Registro"
+                      disabled={!puedoEditar}
+                      style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', cursor: puedoEditar ? 'pointer' : 'not-allowed', opacity: puedoEditar ? 1 : 0.4, padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title={puedoEditar ? "Editar Registro" : "Tu rol solo puede consultar"}
                     >
                       <Pencil size={15} />
                     </button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); handleEliminar(r.id); }}
-                      style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      title="Eliminar Registro"
+                      disabled={!puedoEliminar}
+                      style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', cursor: puedoEliminar ? 'pointer' : 'not-allowed', opacity: puedoEliminar ? 1 : 0.4, padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title={puedoEliminar ? "Eliminar Registro" : "Tu rol no puede eliminar"}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -606,12 +613,16 @@ export const Registros = () => {
               </h2>
               
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <button className="btn btn-primary" onClick={() => handleEditar(registroSeleccionado)} style={{ borderRadius: '10px' }}>
-                  <Pencil size={16} /> Editar
-                </button>
-                <button className="btn btn-danger" onClick={() => handleEliminar(registroSeleccionado.id)} style={{ borderRadius: '10px' }}>
-                  <Trash2 size={16} /> Eliminar
-                </button>
+                {puedoEditar && (
+                  <button className="btn btn-primary" onClick={() => handleEditar(registroSeleccionado)} style={{ borderRadius: '10px' }}>
+                    <Pencil size={16} /> Editar
+                  </button>
+                )}
+                {puedoEliminar && (
+                  <button className="btn btn-danger" onClick={() => handleEliminar(registroSeleccionado.id)} style={{ borderRadius: '10px' }}>
+                    <Trash2 size={16} /> Eliminar
+                  </button>
+                )}
                 <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border)', margin: '0 0.5rem' }}></div>
                 <button onClick={() => { setRegistroSeleccionado(null); setMostrarFormDetalle(false); setDetalleEditandoId(null); }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                   <X size={24} />
@@ -689,7 +700,7 @@ export const Registros = () => {
                       <label className="form-label" style={{fontSize:'0.7rem'}}>Monto Vendido</label>
                       <input type="number" className="form-control" value={nuevoVendido || ''} onChange={e => setNuevoVendido(Number(e.target.value))} />
                     </div>
-                    <button className="btn btn-primary" onClick={guardarDetalleRapido} style={{padding:'0.65rem 1.25rem', borderRadius:'8px'}} title={detalleEditandoId ? "Actualizar Operación" : "Guardar Operación"}>
+                    <button className="btn btn-primary" onClick={guardarDetalleRapido} disabled={!puedoEditar} style={{padding:'0.65rem 1.25rem', borderRadius:'8px', opacity: puedoEditar ? 1 : 0.5}} title={detalleEditandoId ? "Actualizar Operación" : "Guardar Operación"}>
                       <Save size={16} />
                     </button>
                   </div>
@@ -723,15 +734,17 @@ export const Registros = () => {
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                               <button 
                                 onClick={() => iniciarEdicionDetalle(det)}
-                                style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Editar Operación"
+                                disabled={!puedoEditar}
+                                style={{ background: 'rgba(29, 140, 248, 0.1)', border: 'none', color: 'var(--primary)', cursor: puedoEditar ? 'pointer' : 'not-allowed', opacity: puedoEditar ? 1 : 0.4, padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title={puedoEditar ? "Editar Operación" : "Tu rol solo puede consultar"}
                               >
                                 <Pencil size={14} />
                               </button>
                               <button 
                                 onClick={() => eliminarDetalleRapido(det.id)}
-                                style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Eliminar Operación"
+                                disabled={!puedoEliminar}
+                                style={{ background: 'rgba(255, 76, 76, 0.1)', border: 'none', color: 'var(--danger)', cursor: puedoEliminar ? 'pointer' : 'not-allowed', opacity: puedoEliminar ? 1 : 0.4, padding: '0.4rem', borderRadius: '6px', transition: 'background 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title={puedoEliminar ? "Eliminar Operación" : "Tu rol no puede eliminar"}
                               >
                                 <Trash2 size={14} />
                               </button>

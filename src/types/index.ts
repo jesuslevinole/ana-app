@@ -44,6 +44,10 @@ export interface Rol {
   permisos: Record<string, boolean>;
   // Capacidades especiales del rol: { editarEtiquetas: true, verComo: true }
   acciones?: Record<string, boolean>;
+  // Nivel de acceso POR VISTA: ademas de ver, si puede editar y/o eliminar.
+  //   { tabla: { editar: true, eliminar: false } }
+  // Si una vista no aparece aqui, el rol solo puede consultarla.
+  permisosAcciones?: Record<string, { editar?: boolean; eliminar?: boolean }>;
   // Un rol administrador ve todo y puede administrar usuarios, roles y etiquetas
   esAdmin?: boolean;
   // Si es true, el rol no se puede eliminar (roles del sistema)

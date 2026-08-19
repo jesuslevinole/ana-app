@@ -1,5 +1,6 @@
 import { useState, useContext, useMemo, useEffect } from 'react';
 import { AppContext } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones, idInspeccion, type Inspeccion } from '../hooks/useInspecciones';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
@@ -56,6 +57,10 @@ export const metaDeTaller = (metas: MetasTaller, taller: string, semanas: number
 export const InspeccionesRegistro = () => {
   const contexto = useContext(AppContext);
   const { inspecciones, guardarInspeccion, eliminarInspeccion } = useInspecciones();
+  // Nivel de acceso del rol sobre este módulo (Roles y Permisos)
+  const { puedeEditar, puedeEliminar } = useAuth();
+  const puedoEditar = puedeEditar('inspeccionesRegistro');
+  const puedoEliminar = puedeEliminar('inspeccionesRegistro');
   // Metas anuales por taller (compartidas en Firestore)
   const { metasAnuales, obtenerMetaAnual, guardarMetaAnual } = useMetasAnuales();
 
@@ -348,9 +353,11 @@ export const InspeccionesRegistro = () => {
               style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '999px', padding: '0.55rem 1rem 0.55rem 2.25rem', fontSize: '0.85rem', outline: 'none', minWidth: '260px' }}
             />
           </div>
-          <button onClick={abrirNuevo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-            <Plus size={18} /> Nueva Inspección
-          </button>
+          {puedoEditar && (
+            <button onClick={abrirNuevo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <Plus size={18} /> Nueva Inspección
+            </button>
+          )}
         </div>
       </div>
 
@@ -404,7 +411,7 @@ export const InspeccionesRegistro = () => {
           />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
-          <button onClick={guardarCostoCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+          <button onClick={guardarCostoCatalogo} className="btn btn-primary" disabled={!puedoEditar} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap', opacity: puedoEditar ? 1 : 0.5 }}>
             <Save size={16} /> Guardar costo
           </button>
           {catalogoGuardado && (
@@ -451,7 +458,7 @@ export const InspeccionesRegistro = () => {
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
-            <button onClick={guardarMetaCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresOrdenados.length === 0}>
+            <button onClick={guardarMetaCatalogo} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresOrdenados.length === 0 || !puedoEditar}>
               <Save size={16} /> Guardar metas
             </button>
             {catalogoMetaGuardado && (
@@ -474,7 +481,7 @@ export const InspeccionesRegistro = () => {
               />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', paddingBottom: '2px' }}>
-              <button onClick={guardarEditorMetaAnual} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresOrdenados.length === 0}>
+              <button onClick={guardarEditorMetaAnual} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }} disabled={talleresOrdenados.length === 0 || !puedoEditar}>
                 <Save size={16} /> Guardar meta anual
               </button>
               {metaAnualGuardada && (
@@ -552,10 +559,10 @@ export const InspeccionesRegistro = () => {
                 <tr key={r.id}>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--primary)', borderColor: 'transparent', backgroundColor: 'rgba(29, 140, 248, 0.1)' }} onClick={() => abrirEditar(r)} title="Editar">
+                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--primary)', borderColor: 'transparent', backgroundColor: 'rgba(29, 140, 248, 0.1)', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }} disabled={!puedoEditar} onClick={() => abrirEditar(r)} title={puedoEditar ? "Editar" : "Tu rol solo puede consultar"}>
                         <Pencil size={15} />
                       </button>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger)', borderColor: 'transparent', backgroundColor: 'rgba(255, 76, 76, 0.1)' }} onClick={() => { if (confirm(`¿Eliminar el registro de ${r.mes} ${r.ano} de ${r.taller}?`)) eliminarInspeccion(r.id); }} title="Eliminar">
+                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger)', borderColor: 'transparent', backgroundColor: 'rgba(255, 76, 76, 0.1)', opacity: puedoEliminar ? 1 : 0.4, cursor: puedoEliminar ? 'pointer' : 'not-allowed' }} disabled={!puedoEliminar} onClick={() => { if (confirm(`¿Eliminar el registro de ${r.mes} ${r.ano} de ${r.taller}?`)) eliminarInspeccion(r.id); }} title={puedoEliminar ? "Eliminar" : "Tu rol no puede eliminar"}>
                         <Trash2 size={15} />
                       </button>
                     </div>
@@ -692,7 +699,7 @@ export const InspeccionesRegistro = () => {
               <button onClick={cerrarModal} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <X size={16} /> Cancelar
               </button>
-              <button onClick={guardar} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} disabled={talleresOrdenados.length === 0}>
+              <button onClick={guardar} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: puedoEditar ? 1 : 0.5 }} disabled={talleresOrdenados.length === 0 || !puedoEditar}>
                 <Save size={16} /> {editandoId ? 'Actualizar' : 'Guardar'}
               </button>
             </div>
