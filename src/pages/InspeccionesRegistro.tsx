@@ -5,6 +5,7 @@ import { MESES } from '../utils/formatters';
 import { useInspecciones, idInspeccion, type Inspeccion } from '../hooks/useInspecciones';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { Plus, Save, Trash2, Pencil, X, Search, ClipboardList, Info, DollarSign } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // Formato de moneda en USD (mismo estilo usado en el resto de la app)
 const miFormatearMoneda = (valor: number) =>
@@ -73,9 +74,12 @@ export const InspeccionesRegistro = () => {
   const anoActual = new Date().getFullYear();
 
   // --- Filtros y búsqueda (vista tipo "Gestión de Registros") ---
-  const [filtroAno, setFiltroAno] = useState<string>('Todos');
-  const [filtroMes, setFiltroMes] = useState<string>('Todos');
-  const [filtroTaller, setFiltroTaller] = useState<string>('Todos');
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const filtroPres = useFiltroPresentacion();
+  const [filtroAno, setFiltroAno] = useState<string>(oPorDefecto(filtroPres?.ano, 'Todos'));
+  const [filtroMes, setFiltroMes] = useState<string>(oPorDefecto(filtroPres?.mes, 'Todos'));
+  const [filtroTaller, setFiltroTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
   const [busqueda, setBusqueda] = useState<string>('');
 
   // --- Estado del modal / formulario ---

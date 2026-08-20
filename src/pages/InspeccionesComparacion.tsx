@@ -3,6 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
 import { GitCompare, Filter, TrendingUp, TrendingDown, Minus, Sigma } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // =========================================================================
 //  COMPARACIÓN DE INSPECCIONES (AÑO VS AÑO)
@@ -23,9 +24,14 @@ export const InspeccionesComparacion = () => {
   );
 
   const anoActual = new Date().getFullYear();
-  const [taller, setTaller] = useState<string>('');
-  const [ano1, setAno1] = useState<string>(String(anoActual - 1)); // año base
-  const [ano2, setAno2] = useState<string>(String(anoActual));     // año a comparar
+  // Filtro heredado de la presentación: el año elegido es el que se compara y
+  // el año base pasa a ser el inmediato anterior.
+  const filtroPres = useFiltroPresentacion();
+  const anoPres = parseInt(oPorDefecto(filtroPres?.ano, String(anoActual)), 10) || anoActual;
+
+  const [taller, setTaller] = useState<string>(oPorDefecto(filtroPres?.taller, ''));
+  const [ano1, setAno1] = useState<string>(String(anoPres - 1)); // año base
+  const [ano2, setAno2] = useState<string>(String(anoPres));     // año a comparar
 
   const tallerSeleccionado = taller || (talleresOrdenados[0]?.nombre ?? '');
   const tallerObj = useMemo(() => talleres.find(t => t.nombre === tallerSeleccionado) || null, [talleres, tallerSeleccionado]);

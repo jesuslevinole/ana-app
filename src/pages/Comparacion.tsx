@@ -1,6 +1,7 @@
 import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 const TRIMESTRES = {
   'Q1': ['Enero', 'Febrero', 'Marzo'],
@@ -23,6 +24,9 @@ const miFormatearMoneda = (valor: number) => {
 
 export const Comparacion = () => {
   const contexto = useContext(AppContext);
+  // Filtro heredado de la presentación (taller, año, mes y semanas)
+  const filtroPres = useFiltroPresentacion();
+
   if (!contexto) return null;
   const { registros, talleres } = contexto;
 
@@ -38,10 +42,13 @@ export const Comparacion = () => {
   }, [talleres]);
 
   // Filtros
-  const [taller, setTaller] = useState<string>('Todos'); // Iniciamos en 'Todos' por defecto
-  const [ano1, setAno1] = useState<string>(currentYear);
+  // Filtro heredado de la presentación (taller y año)
+  const anoPres = oPorDefecto(filtroPres?.ano, currentYear);
+
+  const [taller, setTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
+  const [ano1, setAno1] = useState<string>(anoPres);
   const [trimestre1, setTrimestre1] = useState<keyof typeof TRIMESTRES>('Q1');
-  const [ano2, setAno2] = useState<string>(currentYear);
+  const [ano2, setAno2] = useState<string>(anoPres);
   const [trimestre2, setTrimestre2] = useState<keyof typeof TRIMESTRES>('Q2');
 
   // Controles Columna 1 (Izquierda)

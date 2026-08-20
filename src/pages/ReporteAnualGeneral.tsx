@@ -3,6 +3,7 @@ import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { FileBarChart, Filter, TrendingUp, TrendingDown, Target, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // =========================================================================
 //  REPORTE ANUAL GENERAL
@@ -29,11 +30,16 @@ const colorPorAvance = (pct: number) =>
 export const ReporteAnualGeneral = () => {
   const contexto = useContext(AppContext);
   const { obtenerMetaAnual } = useMetasAnuales();
+  // Filtro heredado de la presentación (taller, año, mes y semanas)
+  const filtroPres = useFiltroPresentacion();
+
   if (!contexto) return null;
   const { registros, talleres } = contexto;
 
   const anoActual = String(new Date().getFullYear());
-  const [ano, setAno] = useState<string>(anoActual);
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const [ano, setAno] = useState<string>(oPorDefecto(filtroPres?.ano, anoActual));
 
   // Fecha en que se consulta el reporte (para el encabezado ejecutivo)
   const fechaReporte = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });

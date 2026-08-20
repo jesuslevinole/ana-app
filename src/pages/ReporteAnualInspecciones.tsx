@@ -4,6 +4,7 @@ import { useInspecciones } from '../hooks/useInspecciones';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { ClipboardCheck, Filter, TrendingUp, TrendingDown, Target, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // =========================================================================
 //  REPORTE ANUAL GENERAL
@@ -25,11 +26,16 @@ export const ReporteAnualInspecciones = () => {
   const contexto = useContext(AppContext);
   const { inspecciones } = useInspecciones();
   const { obtenerMetaAnual } = useMetasAnuales();
+  // Filtro heredado de la presentación (taller, año, mes y semanas)
+  const filtroPres = useFiltroPresentacion();
+
   if (!contexto) return null;
   const { talleres } = contexto;
 
   const anoActual = String(new Date().getFullYear());
-  const [ano, setAno] = useState<string>(anoActual);
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const [ano, setAno] = useState<string>(oPorDefecto(filtroPres?.ano, anoActual));
 
   const anosDisponibles = useMemo(() => {
     const set = new Set<string>(inspecciones.map(i => String(i.ano)));

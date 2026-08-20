@@ -5,6 +5,7 @@ import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { useSemanasEditadas } from '../hooks/useSemanasEditadas';
 import { TextoEditable } from '../components/TextoEditable';
 import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
@@ -32,13 +33,18 @@ export const Dashboard = () => {
   const contexto = useContext(AppContext);
   // Metas anuales por taller (compartidas en Firestore)
   const { metasAnuales, obtenerMetaAnual, totalMetaAnualDelAno } = useMetasAnuales();
+  // Filtro heredado de la presentación (taller, año, mes y semanas)
+  const filtroPres = useFiltroPresentacion();
+
   if (!contexto) return null;
   const { registros, talleres } = contexto;
 
   // Estados de Filtro
-  const [filtroAno, setFiltroAno] = useState<string>('Todos');
-  const [filtroMes, setFiltroMes] = useState<string>('Todos');
-  const [filtroTaller, setFiltroTaller] = useState<string>('Todos');
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const [filtroAno, setFiltroAno] = useState<string>(oPorDefecto(filtroPres?.ano, 'Todos'));
+  const [filtroMes, setFiltroMes] = useState<string>(oPorDefecto(filtroPres?.mes, 'Todos'));
+  const [filtroTaller, setFiltroTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
 
   // Validación de filtros completos
   const filtrosCompletos = filtroAno !== 'Todos' && filtroMes !== 'Todos' && filtroTaller !== 'Todos';

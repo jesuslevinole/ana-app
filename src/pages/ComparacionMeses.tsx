@@ -2,6 +2,7 @@ import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { GitCompare, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto, mesAnterior } from '../context/filtroPresentacion';
 
 // =========================================================================
 //  COMPARACIÓN DE TALLER — MES VS MES (VENTAS)
@@ -30,6 +31,9 @@ const miFormatearMoneda = (valor: number) => {
 
 export const ComparacionMeses = () => {
   const contexto = useContext(AppContext);
+  // Filtro heredado de la presentación (taller, año, mes y semanas)
+  const filtroPres = useFiltroPresentacion();
+
   if (!contexto) return null;
   const { registros, talleres } = contexto;
 
@@ -53,11 +57,17 @@ export const ComparacionMeses = () => {
   }, [talleres]);
 
   // Filtros
-  const [taller, setTaller] = useState<string>('Todos');
-  const [ano1, setAno1] = useState<string>(anoPrevioStr);
-  const [mes1, setMes1] = useState<string>(MESES[idxMesPrevio] ?? MESES[0]);
-  const [ano2, setAno2] = useState<string>(anoActualStr);
-  const [mes2, setMes2] = useState<string>(MESES[idxMesActual] ?? MESES[0]);
+  // Filtro heredado de la presentación: el año/mes elegido se toma como el
+  // periodo "actual" y la columna izquierda muestra el periodo anterior.
+  const periodoPres = mesAnterior(
+    oPorDefecto(filtroPres?.mes, MESES[idxMesActual] ?? MESES[0]),
+    oPorDefecto(filtroPres?.ano, anoActualStr)
+  );
+  const [taller, setTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
+  const [ano1, setAno1] = useState<string>(filtroPres ? periodoPres.ano : anoPrevioStr);
+  const [mes1, setMes1] = useState<string>(filtroPres ? periodoPres.mes : (MESES[idxMesPrevio] ?? MESES[0]));
+  const [ano2, setAno2] = useState<string>(oPorDefecto(filtroPres?.ano, anoActualStr));
+  const [mes2, setMes2] = useState<string>(oPorDefecto(filtroPres?.mes, MESES[idxMesActual] ?? MESES[0]));
 
   // Controles Columna 1 (Izquierda)
   const [tipoGrafico1, setTipoGrafico1] = useState<TipoGrafico>('barras');

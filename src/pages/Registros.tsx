@@ -4,6 +4,7 @@ import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { useAuth } from '../context/AuthContext';
 import type { Registro, Detalle } from '../types';
 import { FileText, Search, Plus, Pencil, Trash2, X, Save, Target } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // Función para forzar el formato Mes/Día/Año (MM/DD/YYYY)
 const formatearFechaMDY = (fecha: string) => {
@@ -38,9 +39,12 @@ export const Registros = () => {
   const [registroSeleccionado, setRegistroSeleccionado] = useState<Registro | null>(null);
 
   // --- ESTADOS PARA LOS FILTROS ---
-  const [filtroAno, setFiltroAno] = useState('');
-  const [filtroMes, setFiltroMes] = useState('');
-  const [filtroTaller, setFiltroTaller] = useState('');
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const filtroPres = useFiltroPresentacion();
+  const [filtroAno, setFiltroAno] = useState(oPorDefecto(filtroPres?.ano, ''));
+  const [filtroMes, setFiltroMes] = useState(oPorDefecto(filtroPres?.mes, ''));
+  const [filtroTaller, setFiltroTaller] = useState(oPorDefecto(filtroPres?.taller, ''));
 
   // Estados para el formulario de detalle rápido dentro del modal
   const [mostrarFormDetalle, setMostrarFormDetalle] = useState(false);

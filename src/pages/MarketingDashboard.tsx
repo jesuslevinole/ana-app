@@ -6,6 +6,7 @@ import {
   COLOR_SIN_FORMULARIO, cantidadFuente
 } from '../hooks/useMarketing';
 import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // =========================================================================
 //  MARKETING · DASHBOARD
@@ -49,9 +50,12 @@ export const MarketingDashboard = () => {
   );
 
   const anoActual = new Date().getFullYear();
-  const [taller, setTaller] = useState<string>('');
-  const [ano, setAno] = useState<string>(String(anoActual));
-  const [mes, setMes] = useState<string>('Todos');
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const filtroPres = useFiltroPresentacion();
+  const [taller, setTaller] = useState<string>(oPorDefecto(filtroPres?.taller, ''));
+  const [ano, setAno] = useState<string>(oPorDefecto(filtroPres?.ano, String(anoActual)));
+  const [mes, setMes] = useState<string>(oPorDefecto(filtroPres?.mes, 'Todos'));
 
   const tallerSeleccionado = taller || (talleresOrdenados[0]?.nombre ?? '');
   const tallerObj = useMemo(

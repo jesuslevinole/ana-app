@@ -5,6 +5,7 @@ import { useInspecciones } from '../hooks/useInspecciones';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { TextoEditable } from '../components/TextoEditable';
 import { LineChart, TrendingUp, TrendingDown, Award, Filter, Download, Printer, FileText, ClipboardCheck, Target, GripVertical, Sigma } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // Color de texto (oscuro o blanco) que contrasta con un fondo hexadecimal dado
 const colorTextoSobre = (hex: string): string => {
@@ -68,12 +69,17 @@ export const InspeccionesDashboard = () => {
   );
 
   const anoActual = new Date().getFullYear();
-  const [taller, setTaller] = useState<string>('');
-  const [ano, setAno] = useState<string>(String(anoActual));
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const filtroPres = useFiltroPresentacion();
+  const [taller, setTaller] = useState<string>(oPorDefecto(filtroPres?.taller, ''));
+  const [ano, setAno] = useState<string>(oPorDefecto(filtroPres?.ano, String(anoActual)));
   const [modo, setModo] = useState<Modo>('enteros');
   // Filtro de semanas OBLIGATORIO: hasta no elegir 4 o 5 semanas, el dashboard no se muestra.
   // El filtro define qué META se usa; la gráfica de líneas siempre muestra el año completo.
-  const [filtroSemanas, setFiltroSemanas] = useState<FiltroSemanas>('');
+  const [filtroSemanas, setFiltroSemanas] = useState<FiltroSemanas>(
+    (filtroPres?.semanas === '4' || filtroPres?.semanas === '5') ? filtroPres.semanas : ''
+  );
 
   // Controles de gráfico (como en el Dashboard principal)
   const [tipoGrafico, setTipoGrafico] = useState<TipoGrafico>('lineas');

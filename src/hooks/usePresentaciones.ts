@@ -13,14 +13,63 @@ import { db } from '../firebase';
 //  usuarios vean las mismas presentaciones armadas por la gerencia.
 // =========================================================================
 
+// Diapositiva de texto: se usa para la PORTADA y para el CIERRE. No muestra
+// datos, solo el mensaje con el que abre y cierra la exposición.
+export interface DiapositivaTexto {
+  activa: boolean;
+  titulo: string;
+  subtitulo?: string;
+  puntos?: string[];        // viñetas (ideal para la conclusión)
+  pie?: string;
+  mostrarFecha?: boolean;   // imprime la fecha del día en que se presenta
+  mostrarPeriodo?: boolean; // imprime el taller / mes / año del filtro
+  taller?: string;          // nombre del taller cuyo logo y color se muestran
+}
+
+export const DIAPOSITIVA_VACIA: DiapositivaTexto = {
+  activa: false,
+  titulo: '',
+  subtitulo: '',
+  puntos: [],
+  pie: '',
+  mostrarFecha: true,
+  mostrarPeriodo: true,
+  taller: '',
+};
+
 export interface Presentacion {
   id: string;
   nombre: string;
   descripcion?: string;
   vistas: string[];        // orden de las diapositivas (claves de vista)
+  // FILTRO INICIAL: se aplica a TODAS las diapositivas al reproducir y además
+  // define la carpeta (Año → Taller → Mes) donde se guarda la presentación.
+  ano?: string;
+  taller?: string;
+  mes?: string;
+  semanas?: string;        // '4' o '5'
+  portada?: DiapositivaTexto;
+  cierre?: DiapositivaTexto;
   creadoEn?: string;
   actualizadoEn?: string;
 }
+
+// Etiquetas de las carpetas cuando la presentación no tiene clasificación
+export const SIN_ANO = 'Sin año';
+export const SIN_TALLER = 'Sin taller';
+export const SIN_MES = 'Sin mes';
+
+// Normaliza lo que viene de Firestore para que nunca falte un campo
+export const normalizarTexto = (bruto?: Partial<DiapositivaTexto>): DiapositivaTexto => ({
+  activa: !!bruto?.activa,
+  titulo: bruto?.titulo || '',
+  subtitulo: bruto?.subtitulo || '',
+  puntos: Array.isArray(bruto?.puntos) ? bruto.puntos.filter(x => typeof x === 'string') : [],
+  pie: bruto?.pie || '',
+  mostrarFecha: bruto?.mostrarFecha !== false,
+  mostrarPeriodo: bruto?.mostrarPeriodo !== false,
+  taller: bruto?.taller || '',
+});
 
 // Id legible a partir del nombre (mismo criterio que Roles)
 export const idDesdeNombre = (nombre: string) =>
@@ -44,6 +93,12 @@ export const usePresentaciones = () => {
             id: d.id,
             nombre: bruto.nombre || d.id,
             vistas: Array.isArray(bruto.vistas) ? bruto.vistas : [],
+            ano: bruto.ano || '',
+            taller: bruto.taller || '',
+            mes: bruto.mes || '',
+            semanas: bruto.semanas || '',
+            portada: normalizarTexto(bruto.portada),
+            cierre: normalizarTexto(bruto.cierre),
           } as Presentacion;
         });
         setPresentaciones(data);
@@ -63,6 +118,12 @@ export const usePresentaciones = () => {
         nombre: p.nombre,
         descripcion: p.descripcion || '',
         vistas: p.vistas,
+        ano: p.ano || '',
+        taller: p.taller || '',
+        mes: p.mes || '',
+        semanas: p.semanas || '',
+        portada: normalizarTexto(p.portada),
+        cierre: normalizarTexto(p.cierre),
         creadoEn: p.creadoEn || new Date().toISOString(),
         actualizadoEn: new Date().toISOString(),
       }, { merge: true });

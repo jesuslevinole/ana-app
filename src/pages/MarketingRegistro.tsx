@@ -8,6 +8,7 @@ import {
   type RegistroMarketing
 } from '../hooks/useMarketing';
 import { Plus, Save, Trash2, Pencil, X, Search, Megaphone, Info, Users, ClipboardX } from 'lucide-react';
+import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // =========================================================================
 //  MARKETING · REGISTRO
@@ -33,9 +34,12 @@ export const MarketingRegistro = () => {
   const anoActual = new Date().getFullYear();
 
   // --- Filtros y búsqueda ---
-  const [filtroAno, setFiltroAno] = useState<string>('Todos');
-  const [filtroMes, setFiltroMes] = useState<string>('Todos');
-  const [filtroTaller, setFiltroTaller] = useState<string>('Todos');
+  // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
+  // está presentando, cada control arranca con su valor de siempre.
+  const filtroPres = useFiltroPresentacion();
+  const [filtroAno, setFiltroAno] = useState<string>(oPorDefecto(filtroPres?.ano, 'Todos'));
+  const [filtroMes, setFiltroMes] = useState<string>(oPorDefecto(filtroPres?.mes, 'Todos'));
+  const [filtroTaller, setFiltroTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
   const [busqueda, setBusqueda] = useState<string>('');
 
   // --- Estado del modal / formulario ---
