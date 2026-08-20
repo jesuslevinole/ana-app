@@ -87,7 +87,7 @@ export const InspeccionesDashboard = () => {
   const [hovered, setHovered] = useState<string | null>(null);
 
   // --- Reordenamiento de tarjetas KPI (persistente y compartido vía Firestore) ---
-  const ORDEN_DEFAULT = ['meta', 'metaAnual', 'mejor4', 'mejor5', 'variacion', 'cumplimiento'];
+  const ORDEN_DEFAULT = ['meta', 'metaAnual', 'mejor4', 'mejor5', 'faltante', 'cumplimiento'];
   const ordenGuardado = (contexto as any)?.inspeccionesOrden as string[] | undefined;
   const [ordenTarjetas, setOrdenTarjetas] = useState<string[]>(ORDEN_DEFAULT);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -269,7 +269,11 @@ export const InspeccionesDashboard = () => {
       mesUltimo = datos[datos.length - 1].mes;
       mesPenultimo = datos[datos.length - 2].mes;
     }
-    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor4, mejor5, hay5, variacionUltimo, mesUltimo, mesPenultimo };
+    // FALTANTE: cuánto falta para llegar a la meta de los meses mostrados.
+    // Si el resultado es negativo la meta ya se superó.
+    const faltante = totalMeta > 0 ? totalMeta - total : null;
+
+    return { total, totalMonto, totalMeta, cumplimientoGlobal, promedio, mejor4, mejor5, hay5, variacionUltimo, mesUltimo, mesPenultimo, faltante };
   }, [datos]);
 
   // =========================================================================
@@ -438,6 +442,13 @@ export const InspeccionesDashboard = () => {
     const semanasPorMes: Record<string, number> = {};
     datosLinea.forEach(d => { semanasPorMes[d.mes] = d.semanas; });
 
+    // Variación de cada mes respecto al mes capturado anterior. Se dibuja en el
+    // eje X, justo debajo de la etiqueta de semanas.
+    const variacionPorMes: Record<string, number> = {};
+    datosLinea.forEach((d, i) => {
+      if (i > 0) variacionPorMes[d.mes] = d.cantidad - datosLinea[i - 1].cantidad;
+    });
+
     // Cada punto se ubica en su mes real (0..11)
     const puntos = datosLinea.map((d, i) => {
       const monthIdx = Math.max(0, MESES.indexOf(d.mes)); // 0..11
@@ -452,7 +463,7 @@ export const InspeccionesDashboard = () => {
     });
 
     // Gráfica un poco más pequeña (pb amplio: nombre del mes + etiqueta de semanas)
-    const W = 960, H = 552, pl = 64, pr = 32, pt = 36, pb = 78;
+    const W = 960, H = 570, pl = 64, pr = 32, pt = 36, pb = 96;
     const iw = W - pl - pr, ih = H - pt - pb;
     const vals = puntos.map(p => p.valor);
     let min = Math.min(...vals, 0);
@@ -501,17 +512,24 @@ export const InspeccionesDashboard = () => {
             })}
             {hayCero && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,3" opacity="0.6" />}
 
-            {/* Etiquetas del eje X: nombre del mes + sus semanas (4 SEM / 5 SEM) */}
+            {/* Etiquetas del eje X: mes + semanas (4 SEM / 5 SEM) + variación */}
             {Array.from({ length: 12 }).map((_, m) => {
               const nombreMes = MESES[m] ?? '';
               const sem = semanasPorMes[nombreMes]; // undefined si el mes no tiene registro
               const esCinco = sem === 5;
+              const varMes = variacionPorMes[nombreMes]; // undefined en el primer mes capturado
+              const colorVar = varMes === undefined ? '#94a3b8' : varMes > 0 ? '#2dce89' : varMes < 0 ? '#ff4c4c' : '#94a3b8';
               return (
                 <g key={`xl-${m}`}>
                   <text x={X(m)} y={H - pb + 28} textAnchor="middle" fontSize="17" fontWeight="800" fill="#e2e8f0">{nombreMes.substring(0, 3)}</text>
                   {sem !== undefined && (
                     <text x={X(m)} y={H - pb + 48} textAnchor="middle" fontSize="12" fontWeight="800" fill={esCinco ? '#a78bfa' : '#94a3b8'} letterSpacing="0.5">
                       {sem} SEM
+                    </text>
+                  )}
+                  {varMes !== undefined && (
+                    <text x={X(m)} y={H - pb + 68} textAnchor="middle" fontSize="13" fontWeight="800" fill={colorVar}>
+                      {varMes > 0 ? `+${varMes}` : varMes}
                     </text>
                   )}
                 </g>
@@ -848,24 +866,22 @@ export const InspeccionesDashboard = () => {
         <div style={{ fontSize: '0.95rem', fontWeight: 700, color: kpis.hay5 ? 'var(--text-main)' : 'var(--text-muted)', marginTop: '0.3rem' }}>{kpis.hay5 && kpis.mejor5.mes !== '-' ? kpis.mejor5.mes : 'Sin meses de 5 semanas'}</div>
       </div>
     ),
-    variacion: (
-      <div className="kpi-card" style={{ position: 'relative', borderBottom: `3px solid ${kpis.variacionUltimo === null ? 'var(--border)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)')}` }}>
+    faltante: (
+      <div className="kpi-card" style={{ position: 'relative', borderBottom: `3px solid ${kpis.faltante === null ? 'var(--border)' : (kpis.faltante > 0 ? 'var(--danger)' : 'var(--success)')}` }}>
         <div className="kpi-title" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <TextoEditable clave="insp.kpi.variacion" defecto="Variación último mes" />
-          {kpis.variacionUltimo !== null && (kpis.variacionUltimo >= 0
-            ? <TrendingUp size={16} color="var(--success)" />
-            : <TrendingDown size={16} color="var(--danger)" />)}
+          <TextoEditable clave="insp.kpi.faltante" defecto="Faltante" />
+          {kpis.faltante !== null && (kpis.faltante > 0
+            ? <TrendingDown size={16} color="var(--danger)" />
+            : <TrendingUp size={16} color="var(--success)" />)}
         </div>
-        <div className="kpi-value" style={{ color: kpis.variacionUltimo === null ? 'var(--text-muted)' : (kpis.variacionUltimo >= 0 ? 'var(--success)' : 'var(--danger)') }}>
-          {kpis.variacionUltimo === null ? '-' : `${kpis.variacionUltimo >= 0 ? '+' : ''}${kpis.variacionUltimo}`}
+        <div className="kpi-value" style={{ color: kpis.faltante === null ? 'var(--text-muted)' : (kpis.faltante > 0 ? 'var(--danger)' : 'var(--success)') }}>
+          {kpis.faltante === null ? '—' : fmtNum(Math.abs(kpis.faltante))}
         </div>
-        {kpis.variacionUltimo !== null && (
-          <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.3rem', lineHeight: 1.35 }}>
-            {kpis.variacionUltimo > 0 && <>En {kpis.mesUltimo} sobraron <strong style={{ color: 'var(--success)' }}>{kpis.variacionUltimo}</strong> respecto a {kpis.mesPenultimo}</>}
-            {kpis.variacionUltimo < 0 && <>En {kpis.mesUltimo} faltaron <strong style={{ color: 'var(--danger)' }}>{Math.abs(kpis.variacionUltimo)}</strong> para igualar {kpis.mesPenultimo}</>}
-            {kpis.variacionUltimo === 0 && <>{kpis.mesUltimo} igualó a {kpis.mesPenultimo}</>}
-          </div>
-        )}
+        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.3rem', lineHeight: 1.35 }}>
+          {kpis.faltante === null && <span style={{ color: 'var(--text-muted)' }}>Sin meta capturada</span>}
+          {kpis.faltante !== null && kpis.faltante > 0 && <>Faltan para la meta de <strong>{fmtNum(kpis.totalMeta)}</strong></>}
+          {kpis.faltante !== null && kpis.faltante <= 0 && <>Meta <strong style={{ color: 'var(--success)' }}>superada</strong> ({fmtNum(kpis.totalMeta)})</>}
+        </div>
       </div>
     ),
     cumplimiento: (

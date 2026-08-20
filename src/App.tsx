@@ -20,6 +20,7 @@ import { Usuarios } from './pages/Usuarios';
 import { Roles } from './pages/Roles';
 import { Personalizacion } from './pages/Personalizacion';
 import { MarketingRegistro } from './pages/MarketingRegistro';
+import { MarketingGastos } from './pages/MarketingGastos';
 import { MarketingDashboard } from './pages/MarketingDashboard';
 import { Presentacion } from './pages/Presentacion';
 import { Lock } from 'lucide-react';
@@ -78,6 +79,7 @@ const EnrutadorVistas = () => {
           {vista === 'roles' && <Roles />}
           {vista === 'personalizacion' && <Personalizacion />}
           {vista === 'marketing' && <MarketingRegistro />}
+          {vista === 'marketingGastos' && <MarketingGastos />}
           {vista === 'marketingDashboard' && <MarketingDashboard />}
           {vista === 'presentacion' && <Presentacion />}
         </>

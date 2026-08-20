@@ -82,6 +82,7 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     icono: 'Megaphone',
     items: [
       { vista: 'marketing', claveEtiqueta: 'vista.marketing', etiqueta: 'Registro', icono: 'ClipboardList' },
+      { vista: 'marketingGastos', claveEtiqueta: 'vista.marketingGastos', etiqueta: 'Gastos', icono: 'DollarSign' },
       { vista: 'marketingDashboard', claveEtiqueta: 'vista.marketingDashboard', etiqueta: 'Dashboard', icono: 'BarChart3', soloLectura: true },
     ],
   },

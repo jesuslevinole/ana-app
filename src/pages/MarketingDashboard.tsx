@@ -5,7 +5,10 @@ import {
   useMarketing, FUENTES_MARKETING, ETIQUETA_SIN_FORMULARIO, CORTA_SIN_FORMULARIO,
   COLOR_SIN_FORMULARIO, cantidadFuente
 } from '../hooks/useMarketing';
-import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone } from 'lucide-react';
+import {
+  useMarketingGastos, aporteMarketing, gastosMarketing, fondosMarketing
+} from '../hooks/useMarketingGastos';
+import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 
 // =========================================================================
@@ -34,6 +37,17 @@ const escalaMaxima = (valor: number, divisiones: number): number => {
   const norm = bruto / magnitud;
   const paso = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * magnitud;
   return paso * divisiones;
+};
+
+// Paso "bonito" para el eje de dinero (más fino que 1-2-5 para que la
+// gráfica no quede con la mitad del espacio vacío)
+const pasoBonito = (bruto: number): number => {
+  if (!isFinite(bruto) || bruto <= 0) return 1;
+  const magnitud = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const norm = bruto / magnitud;
+  const escalones = [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
+  const elegido = escalones.find(e => norm <= e) ?? 10;
+  return elegido * magnitud;
 };
 
 const COLOR_BARRA = '#1d8cf8';
@@ -271,6 +285,150 @@ export const MarketingDashboard = () => {
     );
   };
 
+  // =====================================================================
+  //  GASTOS DE MARKETING: aporte, gasto y fondos mes a mes
+  // =====================================================================
+  const { gastos } = useMarketingGastos();
+
+  const serieGastos = useMemo(() => {
+    const delTaller = gastos.filter(g => g.taller === tallerSeleccionado && String(g.ano) === ano);
+    const meses = MESES
+      .map(m => {
+        const g = delTaller.find(x => x.mes === m);
+        if (!g) return null;
+        return {
+          mes: m,
+          aporte: aporteMarketing(g),
+          gastado: gastosMarketing(g),
+          fondos: fondosMarketing(g),
+        };
+      })
+      .filter((x): x is { mes: string; aporte: number; gastado: number; fondos: number } => x !== null);
+
+    const totales = meses.reduce((acc, m) => ({
+      aporte: acc.aporte + m.aporte,
+      gastado: acc.gastado + m.gastado,
+      fondos: acc.fondos + m.fondos,
+    }), { aporte: 0, gastado: 0, fondos: 0 });
+
+    return { meses, totales };
+  }, [gastos, tallerSeleccionado, ano]);
+
+  const fmtDinero = (n: number) =>
+    n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+  // Barras de aporte y gasto + línea de fondos disponibles
+  const renderGastos = () => {
+    const filas = serieGastos.meses;
+
+    return (
+      <div className="card" style={{ marginTop: '1.5rem' }}>
+        <h3 className="detail-section-title" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <DollarSign size={18} color="var(--primary)" /> Gastos de marketing · {ano}
+        </h3>
+
+        {filas.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+            No hay gastos capturados para {tallerSeleccionado || 'este taller'} en {ano}.
+            Regístralos en "Marketing → Gastos".
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid #1d8cf8' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Aporte del año</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1d8cf8' }}>{fmtDinero(serieGastos.totales.aporte)}</div>
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid var(--danger)' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Gastado</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--danger)' }}>{fmtDinero(serieGastos.totales.gastado)}</div>
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: `3px solid ${serieGastos.totales.fondos >= 0 ? 'var(--success)' : 'var(--danger)'}` }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Fondos disponibles</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: serieGastos.totales.fondos >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmtDinero(serieGastos.totales.fondos)}</div>
+              </div>
+            </div>
+
+            {(() => {
+              const W = 1080, H = 460, pl = 88, pr = 32, pt = 54, pb = 74;
+              const iw = W - pl - pr, ih = H - pt - pb;
+              const divisiones = 5;
+              const maxValor = Math.max(...filas.map(f => Math.max(f.aporte, f.gastado, f.fondos)), 1);
+              const minValor = Math.min(...filas.map(f => f.fondos), 0);
+              const paso = pasoBonito((maxValor - Math.min(minValor, 0)) / divisiones);
+              const top = Math.ceil(maxValor / paso) * paso;
+              const piso = minValor < 0 ? -Math.ceil(Math.abs(minValor) / paso) * paso : 0;
+
+              const colW = iw / filas.length;
+              const X = (i: number) => pl + colW * i + colW / 2;
+              const Y = (v: number) => pt + ih - ((v - piso) / (top - piso)) * ih;
+              const anchoBarra = Math.min(colW * 0.3, 34);
+              const poly = filas.map((f, i) => `${X(i).toFixed(1)},${Y(f.fondos).toFixed(1)}`).join(' ');
+
+              return (
+                <div style={{ width: '100%', overflowX: 'auto' }}>
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
+                    <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
+
+                    {/* Leyenda */}
+                    <rect x={pl} y={22} width="16" height="16" rx="3" fill="#1d8cf8" />
+                    <text x={pl + 24} y={35} fontSize="14" fontWeight="700" fill="#e2e8f0">Aporte</text>
+                    <rect x={pl + 104} y={22} width="16" height="16" rx="3" fill="#ff4c4c" />
+                    <text x={pl + 128} y={35} fontSize="14" fontWeight="700" fill="#e2e8f0">Gastado</text>
+                    <line x1={pl + 216} y1={30} x2={pl + 256} y2={30} stroke="#2dce89" strokeWidth="4" strokeLinecap="round" />
+                    <circle cx={pl + 236} cy={30} r="5" fill="#2dce89" stroke="#ffffff" strokeWidth="2" />
+                    <text x={pl + 266} y={35} fontSize="14" fontWeight="700" fill="#e2e8f0">Fondos</text>
+
+                    {/* Rejilla */}
+                    {Array.from({ length: divisiones + 1 }).map((_, k) => {
+                      const v = piso + ((top - piso) / divisiones) * k;
+                      const yy = Y(v);
+                      return (
+                        <g key={`gg-${k}`}>
+                          <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="#48515e" strokeWidth="1" opacity="0.6" />
+                          <text x={pl - 10} y={yy + 5} textAnchor="end" fontSize="13" fontWeight="700" fill="#9fb0c4">{fmtDinero(v)}</text>
+                        </g>
+                      );
+                    })}
+                    {piso < 0 && <line x1={pl} y1={Y(0)} x2={W - pr} y2={Y(0)} stroke="#94a3b8" strokeWidth="1.5" opacity="0.8" />}
+
+                    {/* Barras de aporte y gasto */}
+                    {filas.map((f, i) => {
+                      const yAporte = Y(f.aporte), yGasto = Y(f.gastado), base = Y(Math.max(piso, 0));
+                      return (
+                        <g key={`gb-${f.mes}`}>
+                          <title>{`${f.mes}: aporte ${fmtDinero(f.aporte)} · gastado ${fmtDinero(f.gastado)} · fondos ${fmtDinero(f.fondos)}`}</title>
+                          <rect x={X(i) - anchoBarra - 2} y={yAporte} width={anchoBarra} height={Math.max(base - yAporte, 0)} rx="3" fill="#1d8cf8" />
+                          <rect x={X(i) + 2} y={yGasto} width={anchoBarra} height={Math.max(base - yGasto, 0)} rx="3" fill="#ff4c4c" opacity="0.9" />
+                        </g>
+                      );
+                    })}
+
+                    {/* Línea de fondos */}
+                    {filas.length > 1 && (
+                      <polyline points={poly} fill="none" stroke="#2dce89" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                    )}
+                    {filas.map((f, i) => (
+                      <circle key={`gp-${f.mes}`} cx={X(i)} cy={Y(f.fondos)} r="6" fill="#2dce89" stroke="#ffffff" strokeWidth="2" />
+                    ))}
+
+                    {/* Eje X */}
+                    {filas.map((f, i) => (
+                      <text key={`gx-${f.mes}`} x={X(i)} y={pt + ih + 26} textAnchor="middle" fontSize="15" fontWeight="800" fill="#e2e8f0">
+                        {f.mes.substring(0, 3)}
+                      </text>
+                    ))}
+                    <line x1={pl} y1={pt + ih} x2={W - pr} y2={pt + ih} stroke="#94a3b8" strokeWidth="1.5" opacity="0.8" />
+                  </svg>
+                </div>
+              );
+            })()}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="animate-in fade-in">
       {/* ENCABEZADO */}
@@ -364,9 +522,11 @@ export const MarketingDashboard = () => {
               {tituloPeriodo}
             </div>
 
+            {/* La información y la gráfica van lado a lado para que todo el
+                reporte se vea sin hacer scroll; abajo quedan los gastos. */}
             <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
               {/* Identificación del taller */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', minWidth: '160px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', minWidth: '150px', flexShrink: 0 }}>
                 {tallerLogo && (
                   <div style={{ width: '128px', height: '128px', borderRadius: '16px', backgroundColor: '#ffffff', border: `3px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.35)' }}>
                     <img src={tallerLogo} alt={tallerSeleccionado} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -378,7 +538,7 @@ export const MarketingDashboard = () => {
               </div>
 
               {/* Tabla del reporte */}
-              <div style={{ flex: 1, minWidth: '320px', overflowX: 'auto' }}>
+              <div style={{ flex: '1 1 330px', minWidth: '300px', overflowX: 'auto' }}>
                 <table className="table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
@@ -412,14 +572,18 @@ export const MarketingDashboard = () => {
                   </tbody>
                 </table>
               </div>
+              {/* GRÁFICA COMBINADA, al lado de la tabla */}
+              <div style={{ flex: '2 1 520px', minWidth: '480px' }}>
+                <h3 className="detail-section-title" style={{ marginTop: 0, marginBottom: '0.75rem' }}>
+                  Clientes y porcentaje por procedencia
+                </h3>
+                {renderGrafica()}
+              </div>
             </div>
-
-            {/* GRÁFICA COMBINADA */}
-            <h3 className="detail-section-title" style={{ marginTop: '1.75rem' }}>
-              {tallerSeleccionado} · Clientes y porcentaje por procedencia
-            </h3>
-            {renderGrafica()}
           </div>
+
+          {/* GASTOS DE MARKETING (se ve al bajar) */}
+          {renderGastos()}
         </>
       )}
     </div>
