@@ -199,7 +199,7 @@ export const MarketingDashboard = () => {
 
     return (
       <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '460px', display: 'block' }}>
           <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
 
           {/* Leyenda */}
@@ -367,7 +367,7 @@ export const MarketingDashboard = () => {
 
               return (
                 <div style={{ width: '100%', overflowX: 'auto' }}>
-                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '460px', display: 'block' }}>
                     <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
 
                     {/* Leyenda */}
@@ -522,11 +522,12 @@ export const MarketingDashboard = () => {
               {tituloPeriodo}
             </div>
 
-            {/* La información y la gráfica van lado a lado para que todo el
-                reporte se vea sin hacer scroll; abajo quedan los gastos. */}
-            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {/* Información a la izquierda y gráfica a la derecha, para ver todo
+                el reporte sin hacer scroll. Abajo quedan los gastos. */}
+            <div className="mkt-reporte">
+              <div className="mkt-reporte__info">
               {/* Identificación del taller */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', minWidth: '150px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
                 {tallerLogo && (
                   <div style={{ width: '128px', height: '128px', borderRadius: '16px', backgroundColor: '#ffffff', border: `3px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.35)' }}>
                     <img src={tallerLogo} alt={tallerSeleccionado} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -538,7 +539,7 @@ export const MarketingDashboard = () => {
               </div>
 
               {/* Tabla del reporte */}
-              <div style={{ flex: '1 1 330px', minWidth: '300px', overflowX: 'auto' }}>
+              <div style={{ minWidth: 0, overflowX: 'auto' }}>
                 <table className="table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
@@ -572,8 +573,10 @@ export const MarketingDashboard = () => {
                   </tbody>
                 </table>
               </div>
-              {/* GRÁFICA COMBINADA, al lado de la tabla */}
-              <div style={{ flex: '2 1 520px', minWidth: '480px' }}>
+              </div>
+
+              {/* GRÁFICA COMBINADA, al lado de la información */}
+              <div className="mkt-reporte__grafica">
                 <h3 className="detail-section-title" style={{ marginTop: 0, marginBottom: '0.75rem' }}>
                   Clientes y porcentaje por procedencia
                 </h3>
