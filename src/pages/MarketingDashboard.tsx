@@ -199,7 +199,7 @@ export const MarketingDashboard = () => {
 
     return (
       <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '460px', display: 'block' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
           <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
 
           {/* Leyenda */}
@@ -323,9 +323,18 @@ export const MarketingDashboard = () => {
 
     return (
       <div className="card" style={{ marginTop: '1.5rem' }}>
-        <h3 className="detail-section-title" style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <DollarSign size={18} color="var(--primary)" /> Gastos de marketing · {ano}
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+          <h3 className="detail-section-title" style={{ margin: 0, border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <DollarSign size={18} color="var(--primary)" /> Gastos de marketing
+          </h3>
+          <span style={{
+            fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
+            color: 'var(--text-muted)', backgroundColor: 'var(--bg-highlight)',
+            border: '1px solid var(--border)', borderRadius: '999px', padding: '0.3rem 0.9rem'
+          }}>
+            {tallerSeleccionado} · {ano}
+          </span>
+        </div>
 
         {filas.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
@@ -366,8 +375,8 @@ export const MarketingDashboard = () => {
               const poly = filas.map((f, i) => `${X(i).toFixed(1)},${Y(f.fondos).toFixed(1)}`).join(' ');
 
               return (
-                <div style={{ width: '100%', overflowX: 'auto' }}>
-                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '460px', display: 'block' }}>
+                <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto', overflowX: 'auto' }}>
+                  <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
                     <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
 
                     {/* Leyenda */}
@@ -423,6 +432,36 @@ export const MarketingDashboard = () => {
                 </div>
               );
             })()}
+
+            {/* Detalle mes a mes */}
+            <div style={{ overflowX: 'auto', marginTop: '1.5rem' }}>
+              <table className="table" style={{ width: '100%', minWidth: '560px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
+                    <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: '#1d8cf8' }}>{fmtDinero(serieGastos.totales.aporte)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: 'var(--danger)' }}>{fmtDinero(serieGastos.totales.gastado)}</td>
+                    <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: serieGastos.totales.fondos >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmtDinero(serieGastos.totales.fondos)}</td>
+                  </tr>
+                  <tr>
+                    <th>Mes</th>
+                    <th style={{ textAlign: 'right' }}>Aporte</th>
+                    <th style={{ textAlign: 'right' }}>Gastado</th>
+                    <th style={{ textAlign: 'right' }}>Fondos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map(f => (
+                    <tr key={`tg-${f.mes}`}>
+                      <td><strong>{f.mes}</strong></td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#1d8cf8' }}>{fmtDinero(f.aporte)}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-main)' }}>{fmtDinero(f.gastado)}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: f.fondos >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmtDinero(f.fondos)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>
@@ -515,73 +554,89 @@ export const MarketingDashboard = () => {
             </div>
           </div>
 
-          {/* REPORTE (lo que se exporta a PNG) */}
-          <div className="card" ref={reporteRef} style={{ marginTop: '1.5rem' }}>
-            {/* Barra de título del periodo */}
-            <div style={{ backgroundColor: tallerColor, color: colorTextoSobre(tallerColor), padding: '0.7rem 1.25rem', borderRadius: '8px', fontWeight: 900, fontSize: '1.05rem', letterSpacing: '0.5px', textAlign: 'center', textTransform: 'uppercase', marginBottom: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
-              {tituloPeriodo}
-            </div>
+          {/* ===================== REPORTE (lo que se exporta a PNG) ===================== */}
+          <div ref={reporteRef}>
 
-            {/* Información a la izquierda y gráfica a la derecha, para ver todo
-                el reporte sin hacer scroll. Abajo quedan los gastos. */}
-            <div className="mkt-reporte">
-              <div className="mkt-reporte__info">
-              {/* Identificación del taller */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem' }}>
+            {/* GRÁFICA DE PROCEDENCIAS */}
+            <div className="card" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Origen de los clientes</h3>
+                <span style={{
+                  fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
+                  color: 'var(--text-muted)', backgroundColor: 'var(--bg-highlight)',
+                  border: '1px solid var(--border)', borderRadius: '999px', padding: '0.3rem 0.9rem'
+                }}>
+                  {tituloPeriodo}
+                </span>
+              </div>
+
+              {/* Encabezado del taller: logo a la izquierda y nombre en su color */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', maxWidth: '1120px', minHeight: '104px', marginBottom: '0.5rem' }}>
                 {tallerLogo && (
-                  <div style={{ width: '128px', height: '128px', borderRadius: '16px', backgroundColor: '#ffffff', border: `3px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px', boxShadow: '0 4px 12px rgba(0,0,0,0.35)' }}>
+                  <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '96px', height: '96px', borderRadius: '16px', backgroundColor: '#ffffff', border: `3px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '9px', boxShadow: '0 4px 12px rgba(0,0,0,0.35)' }}>
                     <img src={tallerLogo} alt={tallerSeleccionado} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                   </div>
                 )}
-                <strong style={{ color: 'var(--text-main)', textAlign: 'center', fontSize: '1rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  {tallerSeleccionado}
-                </strong>
+                <div style={{ padding: tallerLogo ? '0 112px' : 0, display: 'flex', justifyContent: 'center' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 900, color: colorTextoSobre(tallerColor), letterSpacing: '0.5px', textAlign: 'center', lineHeight: 1.15, backgroundColor: tallerColor, padding: '0.55rem 1.6rem', borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.35)', border: '2px solid rgba(255,255,255,0.25)' }}>
+                    {tallerSeleccionado} <span style={{ opacity: 0.85, fontWeight: 800 }}>· {mes === 'Todos' ? ano : `${mes} ${ano}`}</span>
+                  </h3>
+                </div>
               </div>
 
-              {/* Tabla del reporte */}
-              <div style={{ minWidth: 0, overflowX: 'auto' }}>
-                <table className="table" style={{ width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <th>Crecimiento customer</th>
-                      <th style={{ textAlign: 'center', width: '150px' }}>Clientes</th>
-                      <th style={{ textAlign: 'center', width: '150px' }}>Crecimiento %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reporte.filas.map(f => (
-                      <tr key={f.clave}>
-                        <td>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', color: 'var(--text-main)' }}>
-                            <span style={{ width: '11px', height: '11px', borderRadius: '3px', backgroundColor: f.color, flexShrink: 0 }} />
-                            {f.etiqueta}
-                          </span>
-                        </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: f.cantidad > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                          {f.cantidad.toLocaleString('en-US')}
-                        </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: f.pct > 0 ? COLOR_LINEA : 'var(--text-muted)' }}>
-                          {f.pct.toFixed(2)}%
-                        </td>
-                      </tr>
-                    ))}
-                    <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                      <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total</strong></td>
-                      <td style={{ textAlign: 'center', fontWeight: 900, color: 'var(--text-main)' }}>{reporte.total.toLocaleString('en-US')}</td>
-                      <td style={{ textAlign: 'center', fontWeight: 900, color: '#ffffff', backgroundColor: '#c0392b' }}>100.00%</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              </div>
-
-              {/* GRÁFICA COMBINADA, al lado de la información */}
-              <div className="mkt-reporte__grafica">
-                <h3 className="detail-section-title" style={{ marginTop: 0, marginBottom: '0.75rem' }}>
-                  Clientes y porcentaje por procedencia
-                </h3>
+              <div style={{ width: '100%', maxWidth: '1120px', margin: '0 auto' }}>
                 {renderGrafica()}
               </div>
+            </div>
+
+            {/* DETALLE POR PROCEDENCIA */}
+            <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
+              <h3 className="detail-section-title">Detalle por procedencia</h3>
+              <table className="table" style={{ width: '100%', marginTop: '1rem', minWidth: '640px' }}>
+                <thead>
+                  {/* TOTALES: arriba del encabezado, como en los demás dashboards */}
+                  <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
+                    <td style={{ padding: '0.85rem' }}><strong style={{ color: 'var(--text-main)' }}>Total</strong></td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{reporte.total.toLocaleString('en-US')}</td>
+                    <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--text-main)' }}>100.00%</td>
+                    <td style={{ padding: '0.85rem' }}></td>
+                  </tr>
+                  <tr>
+                    <th>Procedencia</th>
+                    <th style={{ textAlign: 'center', width: '130px' }}>Clientes</th>
+                    <th style={{ textAlign: 'center', width: '130px' }}>% del total</th>
+                    <th style={{ textAlign: 'center', minWidth: '180px' }}>Participación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reporte.filas.map(f => (
+                    <tr key={f.clave}>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                          <span style={{ width: '11px', height: '11px', borderRadius: '3px', backgroundColor: f.color, flexShrink: 0 }} />
+                          {f.etiqueta}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 700, color: f.cantidad > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                        {f.cantidad.toLocaleString('en-US')}
+                      </td>
+                      <td style={{ textAlign: 'center', fontWeight: 700, color: f.pct > 0 ? COLOR_LINEA : 'var(--text-muted)' }}>
+                        {f.pct.toFixed(2)}%
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', justifyContent: 'center' }}>
+                          <div style={{ flex: 1, maxWidth: '130px', height: '8px', backgroundColor: 'var(--bg-highlight)', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(f.pct, 100)}%`, height: '100%', backgroundColor: f.color, borderRadius: '4px', transition: 'width 0.4s' }} />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={{ margin: 0, paddingTop: '0.75rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+                "Cliente sin formulario" son los clientes atendidos que no llenaron el formulario: suman al total pero no tienen procedencia conocida.
+              </p>
             </div>
           </div>
 
