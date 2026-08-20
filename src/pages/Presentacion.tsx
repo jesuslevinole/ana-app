@@ -28,7 +28,7 @@ import { MarketingDashboard } from './MarketingDashboard';
 import {
   MonitorPlay, Plus, Play, Pencil, Trash2, Save, X, ChevronLeft, ChevronRight,
   ArrowUp, ArrowDown, Check, GripVertical, Maximize2, Minimize2, Info, Presentation,
-  Folder, Filter, CornerDownLeft, ListPlus
+  Folder, Filter, ListPlus, ChevronDown, Store, CalendarRange
 } from 'lucide-react';
 
 // =========================================================================
@@ -84,7 +84,7 @@ export const Presentacion = () => {
   const talleres = contexto?.talleres ?? [];
   const { puedeVer, puedeEditar, puedeEliminar } = useAuth();
   const { t } = useEtiquetas();
-  const { presentaciones, guardarPresentacion, eliminarPresentacion } = usePresentaciones();
+  const { presentaciones, guardarPresentacion, guardarOrden, eliminarPresentacion } = usePresentaciones();
 
   const puedoEditar = puedeEditar('presentacion');
   const puedoEliminar = puedeEliminar('presentacion');
@@ -131,24 +131,38 @@ export const Presentacion = () => {
       .filter(g => g.items.length > 0);
   }, [puedeVer]);
 
+  // Orden dentro de la carpeta: manda el campo "orden" (arrastrar y soltar) y
+  // a igualdad de orden se acomoda por nombre.
   const presentacionesOrdenadas = useMemo(
-    () => [...presentaciones].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    () => [...presentaciones].sort((a, b) => {
+      const oa = typeof a.orden === 'number' ? a.orden : 0;
+      const ob = typeof b.orden === 'number' ? b.orden : 0;
+      if (oa !== ob) return oa - ob;
+      return a.nombre.localeCompare(b.nombre);
+    }),
     [presentaciones]
   );
 
   // =====================================================================
-  //  CARPETAS: Año → Taller → Mes
-  //  Los años y los meses se listan de mayor a menor (lo más reciente
-  //  primero), que es como se revisa en las juntas.
+  //  ÁRBOL DE CARPETAS: Año → Taller → Mes
+  //  Los años y los meses van de mayor a menor (lo más reciente primero),
+  //  que es como se revisa en las juntas.
   // =====================================================================
   const carpetaAno = (p: TipoPresentacion) => p.ano?.trim() || SIN_ANO;
   const carpetaTaller = (p: TipoPresentacion) => p.taller?.trim() || SIN_TALLER;
   const carpetaMes = (p: TipoPresentacion) => p.mes?.trim() || SIN_MES;
 
-  // Año seleccionado / taller seleccionado (null = se está viendo ese nivel)
-  const [anoAbierto, setAnoAbierto] = useState<string | null>(null);
-  const [tallerAbierto, setTallerAbierto] = useState<string | null>(null);
-  const [mesAbierto, setMesAbierto] = useState<string | null>(null);
+  // Carpeta seleccionada. Con año/taller/mes en null se ven todas.
+  const [selAno, setSelAno] = useState<string | null>(null);
+  const [selTaller, setSelTaller] = useState<string | null>(null);
+  const [selMes, setSelMes] = useState<string | null>(null);
+
+  // Nodos desplegados del árbol y estado del panel lateral
+  const [ramasAbiertas, setRamasAbiertas] = useState<string[]>([]);
+  const [panelAbierto, setPanelAbierto] = useState(true);
+
+  const alternarRama = (clave: string) =>
+    setRamasAbiertas(r => (r.includes(clave) ? r.filter(x => x !== clave) : [...r, clave]));
 
   // Ordena años de mayor a menor; "Sin año" siempre al final
   const ordenarAnos = (a: string, b: string) => {
@@ -170,40 +184,68 @@ export const Presentacion = () => {
     return a.localeCompare(b);
   };
 
-  // Cuenta cuántas presentaciones cuelgan de cada carpeta del nivel actual
-  const agrupar = (lista: TipoPresentacion[], clave: (p: TipoPresentacion) => string) => {
-    const mapa = new Map<string, TipoPresentacion[]>();
-    lista.forEach(p => {
-      const k = clave(p);
-      mapa.set(k, [...(mapa.get(k) || []), p]);
+  // Árbol completo: años, sus talleres y los meses de cada taller
+  const arbol = useMemo(() => {
+    const porAno = new Map<string, TipoPresentacion[]>();
+    presentacionesOrdenadas.forEach(p => {
+      const k = carpetaAno(p);
+      porAno.set(k, [...(porAno.get(k) || []), p]);
     });
-    return mapa;
-  };
 
-  const nivelAnos = useMemo(() => agrupar(presentacionesOrdenadas, carpetaAno), [presentacionesOrdenadas]);
+    return Array.from(porAno.keys()).sort(ordenarAnos).map(ano => {
+      const dePorAno = porAno.get(ano) || [];
+      const porTaller = new Map<string, TipoPresentacion[]>();
+      dePorAno.forEach(p => {
+        const k = carpetaTaller(p);
+        porTaller.set(k, [...(porTaller.get(k) || []), p]);
+      });
 
-  const enAno = useMemo(
-    () => (anoAbierto ? (nivelAnos.get(anoAbierto) || []) : []),
-    [nivelAnos, anoAbierto]
+      const talleresNodo = Array.from(porTaller.keys()).sort(ordenarTalleres).map(taller => {
+        const deTaller = porTaller.get(taller) || [];
+        const porMes = new Map<string, TipoPresentacion[]>();
+        deTaller.forEach(p => {
+          const k = carpetaMes(p);
+          porMes.set(k, [...(porMes.get(k) || []), p]);
+        });
+        const mesesNodo = Array.from(porMes.keys()).sort(ordenarMeses).map(mes => ({
+          mes, total: (porMes.get(mes) || []).length,
+        }));
+        return { taller, total: deTaller.length, meses: mesesNodo };
+      });
+
+      return { ano, total: dePorAno.length, talleres: talleresNodo };
+    });
+  }, [presentacionesOrdenadas]);
+
+  // Presentaciones de la carpeta seleccionada
+  const listaCarpeta = useMemo(
+    () => presentacionesOrdenadas
+      .filter(p => !selAno || carpetaAno(p) === selAno)
+      .filter(p => !selTaller || carpetaTaller(p) === selTaller)
+      .filter(p => !selMes || carpetaMes(p) === selMes),
+    [presentacionesOrdenadas, selAno, selTaller, selMes]
   );
-  const nivelTalleres = useMemo(() => agrupar(enAno, carpetaTaller), [enAno]);
 
-  const enTaller = useMemo(
-    () => (tallerAbierto ? (nivelTalleres.get(tallerAbierto) || []) : []),
-    [nivelTalleres, tallerAbierto]
-  );
-  const nivelMeses = useMemo(() => agrupar(enTaller, carpetaMes), [enTaller]);
+  // Nombre de la carpeta abierta, para el encabezado de la lista
+  const rutaCarpeta = [selAno, selTaller, selMes].filter(Boolean).join('  ›  ') || 'Todas las presentaciones';
 
-  const enMes = useMemo(
-    () => (mesAbierto ? (nivelMeses.get(mesAbierto) || []) : []),
-    [nivelMeses, mesAbierto]
-  );
+  // --- ARRASTRAR Y SOLTAR para reordenar las presentaciones ---
+  const [arrastrandoId, setArrastrandoId] = useState<string | null>(null);
+  const [sobreId, setSobreId] = useState<string | null>(null);
 
-  // Si se borra la última presentación de una carpeta, se vuelve al nivel útil
-  const subirNivel = () => {
-    if (mesAbierto) setMesAbierto(null);
-    else if (tallerAbierto) setTallerAbierto(null);
-    else setAnoAbierto(null);
+  const soltarPresentacion = async (destinoId: string) => {
+    const origenId = arrastrandoId;
+    setArrastrandoId(null);
+    setSobreId(null);
+    if (!origenId || origenId === destinoId || !puedoEditar) return;
+
+    const ids = listaCarpeta.map(p => p.id);
+    const desde = ids.indexOf(origenId);
+    const hacia = ids.indexOf(destinoId);
+    if (desde < 0 || hacia < 0) return;
+
+    ids.splice(hacia, 0, ids.splice(desde, 1)[0]);
+    await guardarOrden(ids);
   };
 
   // =====================================================================
@@ -828,181 +870,275 @@ export const Presentacion = () => {
         </span>
       </div>
 
-      {/* MIGAS DE PAN */}
-      {presentacionesOrdenadas.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1.5rem' }}>
-          {(anoAbierto || tallerAbierto || mesAbierto) && (
-            <button onClick={subirNivel} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.35rem 0.7rem', fontSize: '0.78rem' }} title="Volver a la carpeta anterior">
-              <CornerDownLeft size={14} /> Volver
-            </button>
-          )}
-          <button
-            onClick={() => { setAnoAbierto(null); setTallerAbierto(null); setMesAbierto(null); }}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, color: anoAbierto ? 'var(--text-muted)' : 'var(--text-main)' }}
-          >
-            Presentaciones
-          </button>
-          {anoAbierto && (
-            <>
-              <ChevronRight size={14} color="var(--text-muted)" />
-              <button
-                onClick={() => { setTallerAbierto(null); setMesAbierto(null); }}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, color: tallerAbierto ? 'var(--text-muted)' : 'var(--text-main)' }}
-              >
-                {anoAbierto}
-              </button>
-            </>
-          )}
-          {tallerAbierto && (
-            <>
-              <ChevronRight size={14} color="var(--text-muted)" />
-              <button
-                onClick={() => setMesAbierto(null)}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, color: mesAbierto ? 'var(--text-muted)' : 'var(--text-main)' }}
-              >
-                {tallerAbierto}
-              </button>
-            </>
-          )}
-          {mesAbierto && (
-            <>
-              <ChevronRight size={14} color="var(--text-muted)" />
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>{mesAbierto}</span>
-            </>
-          )}
-        </div>
-      )}
+      {/* CONTENIDO: panel lateral de carpetas + lista de presentaciones */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.25rem', marginTop: '1.5rem' }}>
 
-      {/* CARPETAS DEL NIVEL ACTUAL */}
-      {presentacionesOrdenadas.length > 0 && !mesAbierto && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-          {(!anoAbierto
-            ? Array.from(nivelAnos.keys()).sort(ordenarAnos).map(k => ({ k, n: (nivelAnos.get(k) || []).length, abrir: () => setAnoAbierto(k) }))
-            : !tallerAbierto
-              ? Array.from(nivelTalleres.keys()).sort(ordenarTalleres).map(k => ({ k, n: (nivelTalleres.get(k) || []).length, abrir: () => setTallerAbierto(k) }))
-              : Array.from(nivelMeses.keys()).sort(ordenarMeses).map(k => ({ k, n: (nivelMeses.get(k) || []).length, abrir: () => setMesAbierto(k) }))
-          ).map(carpeta => (
+        {/* ---------- PANEL LATERAL DE CARPETAS ---------- */}
+        <div
+          className="card"
+          style={{
+            margin: 0, flexShrink: 0, alignSelf: 'stretch',
+            width: panelAbierto ? '270px' : '58px',
+            padding: panelAbierto ? '1rem' : '0.75rem 0.5rem',
+            transition: 'width 0.18s ease'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: panelAbierto ? 'space-between' : 'center', gap: '0.5rem', marginBottom: panelAbierto ? '0.85rem' : 0 }}>
+            {panelAbierto && (
+              <strong style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-main)', fontSize: '0.85rem' }}>
+                <Folder size={16} color="var(--primary)" /> Carpetas
+              </strong>
+            )}
             <button
-              key={carpeta.k}
-              onClick={carpeta.abrir}
-              className="card"
-              style={{
-                margin: 0, display: 'flex', alignItems: 'center', gap: '0.85rem',
-                textAlign: 'left', cursor: 'pointer', border: '1px solid var(--border)'
-              }}
+              onClick={() => setPanelAbierto(a => !a)}
+              className="btn btn-outline"
+              style={{ padding: '0.3rem', color: 'var(--text-muted)' }}
+              title={panelAbierto ? 'Contraer carpetas' : 'Desplegar carpetas'}
             >
-              <Folder size={30} color="var(--primary)" style={{ flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {carpeta.k}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {carpeta.n} {carpeta.n === 1 ? 'presentación' : 'presentaciones'}
-                </div>
-              </div>
+              {panelAbierto ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
             </button>
-          ))}
-        </div>
-      )}
+          </div>
 
-      {/* TARJETAS */}
-      {presentacionesOrdenadas.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', marginTop: '1.5rem' }}>
-          <MonitorPlay size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
-          <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>Aún no hay presentaciones</h3>
-          <p style={{ color: 'var(--text-muted)' }}>
-            {puedoEditar ? 'Crea una con "Nueva Presentación" y elige los módulos que quieres mostrar.' : 'Pide a un administrador que arme una presentación.'}
-          </p>
-        </div>
-      ) : !mesAbierto ? null : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1.5rem' }}>
-          {enMes.map(p => {
-            const visibles = p.vistas.filter(v => COMPONENTES[v] && puedeVer(v));
-            const totalDiapositivas = armarDiapositivas(p).length;
-            const tienePortada = normalizarTexto(p.portada).activa;
-            const tieneCierre = normalizarTexto(p.cierre).activa;
-            return (
-              <div key={p.id} className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem' }}>{p.nombre}</h3>
-                    <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {p.descripcion || `${totalDiapositivas} ${totalDiapositivas === 1 ? 'diapositiva' : 'diapositivas'}`}
-                    </p>
+          {panelAbierto && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+              {/* Raíz: todas las presentaciones */}
+              <button
+                onClick={() => { setSelAno(null); setSelTaller(null); setSelMes(null); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
+                  background: !selAno ? 'var(--bg-highlight)' : 'none', border: 'none',
+                  borderRadius: '6px', padding: '0.45rem 0.5rem', cursor: 'pointer',
+                  color: !selAno ? 'var(--text-main)' : 'var(--text-muted)',
+                  fontWeight: !selAno ? 700 : 500, fontSize: '0.83rem', textAlign: 'left'
+                }}
+              >
+                <MonitorPlay size={15} color="var(--primary)" style={{ flexShrink: 0 }} />
+                Todas
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{presentacionesOrdenadas.length}</span>
+              </button>
+
+              {arbol.map(nodoAno => {
+                const claveAno = `ano:${nodoAno.ano}`;
+                const anoDesplegado = ramasAbiertas.includes(claveAno);
+                const anoActivo = selAno === nodoAno.ano && !selTaller;
+                return (
+                  <div key={claveAno}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                      <button
+                        onClick={() => alternarRama(claveAno)}
+                        style={{ background: 'none', border: 'none', padding: '0.25rem', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
+                        title={anoDesplegado ? 'Contraer' : 'Desplegar'}
+                      >
+                        {anoDesplegado ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                      <button
+                        onClick={() => { setSelAno(nodoAno.ano); setSelTaller(null); setSelMes(null); alternarRama(claveAno); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1, minWidth: 0,
+                          background: anoActivo ? 'var(--bg-highlight)' : 'none', border: 'none',
+                          borderRadius: '6px', padding: '0.4rem 0.45rem', cursor: 'pointer',
+                          color: anoActivo ? 'var(--text-main)' : 'var(--text-muted)',
+                          fontWeight: anoActivo ? 700 : 600, fontSize: '0.83rem', textAlign: 'left'
+                        }}
+                      >
+                        <Folder size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodoAno.ano}</span>
+                        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{nodoAno.total}</span>
+                      </button>
+                    </div>
+
+                    {anoDesplegado && nodoAno.talleres.map(nodoTaller => {
+                      const claveTaller = `taller:${nodoAno.ano}:${nodoTaller.taller}`;
+                      const tallerDesplegado = ramasAbiertas.includes(claveTaller);
+                      const tallerActivo = selAno === nodoAno.ano && selTaller === nodoTaller.taller && !selMes;
+                      return (
+                        <div key={claveTaller} style={{ paddingLeft: '1rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                            <button
+                              onClick={() => alternarRama(claveTaller)}
+                              style={{ background: 'none', border: 'none', padding: '0.25rem', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
+                              title={tallerDesplegado ? 'Contraer' : 'Desplegar'}
+                            >
+                              {tallerDesplegado ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                            </button>
+                            <button
+                              onClick={() => { setSelAno(nodoAno.ano); setSelTaller(nodoTaller.taller); setSelMes(null); alternarRama(claveTaller); }}
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1, minWidth: 0,
+                                background: tallerActivo ? 'var(--bg-highlight)' : 'none', border: 'none',
+                                borderRadius: '6px', padding: '0.35rem 0.45rem', cursor: 'pointer',
+                                color: tallerActivo ? 'var(--text-main)' : 'var(--text-muted)',
+                                fontWeight: tallerActivo ? 700 : 500, fontSize: '0.8rem', textAlign: 'left'
+                              }}
+                            >
+                              <Store size={13} style={{ flexShrink: 0 }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodoTaller.taller}</span>
+                              <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: 'var(--text-muted)' }}>{nodoTaller.total}</span>
+                            </button>
+                          </div>
+
+                          {tallerDesplegado && nodoTaller.meses.map(nodoMes => {
+                            const mesActivo = selAno === nodoAno.ano && selTaller === nodoTaller.taller && selMes === nodoMes.mes;
+                            return (
+                              <button
+                                key={`mes:${claveTaller}:${nodoMes.mes}`}
+                                onClick={() => { setSelAno(nodoAno.ano); setSelTaller(nodoTaller.taller); setSelMes(nodoMes.mes); }}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: '0.45rem', width: 'calc(100% - 1.35rem)',
+                                  marginLeft: '1.35rem',
+                                  background: mesActivo ? 'rgba(29,140,248,0.15)' : 'none', border: 'none',
+                                  borderRadius: '6px', padding: '0.3rem 0.45rem', cursor: 'pointer',
+                                  color: mesActivo ? 'var(--primary)' : 'var(--text-muted)',
+                                  fontWeight: mesActivo ? 700 : 500, fontSize: '0.78rem', textAlign: 'left'
+                                }}
+                              >
+                                <CalendarRange size={12} style={{ flexShrink: 0 }} />
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodoMes.mes}</span>
+                                <span style={{ marginLeft: 'auto', fontSize: '0.68rem' }}>{nodoMes.total}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <span style={{
-                    fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)',
-                    border: '1px solid var(--primary)', borderRadius: '999px',
-                    padding: '0.15rem 0.6rem', whiteSpace: 'nowrap', flexShrink: 0
-                  }}>
-                    {totalDiapositivas}
-                  </span>
-                </div>
-
-                {/* Recorrido de la presentación */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-                  {tienePortada && (
-                    <span style={{
-                      fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary)',
-                      backgroundColor: 'rgba(29,140,248,0.12)', border: '1px solid var(--primary)',
-                      borderRadius: '6px', padding: '0.2rem 0.5rem'
-                    }}>
-                      Portada
-                    </span>
-                  )}
-                  {visibles.slice(0, 6).map((v, i) => (
-                    <span key={`${v}-${i}`} style={{
-                      fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-muted)',
-                      backgroundColor: 'var(--bg-highlight)', border: '1px solid var(--border)',
-                      borderRadius: '6px', padding: '0.2rem 0.5rem'
-                    }}>
-                      {i + 1}. {etiquetaVista(v)}
-                    </span>
-                  ))}
-                  {visibles.length > 6 && (
-                    <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary)', padding: '0.2rem 0.3rem' }}>
-                      +{visibles.length - 6} más
-                    </span>
-                  )}
-                  {tieneCierre && (
-                    <span style={{
-                      fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary)',
-                      backgroundColor: 'rgba(29,140,248,0.12)', border: '1px solid var(--primary)',
-                      borderRadius: '6px', padding: '0.2rem 0.5rem'
-                    }}>
-                      Cierre
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary" onClick={() => presentar(p)} disabled={totalDiapositivas === 0} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: totalDiapositivas === 0 ? 0.5 : 1 }}>
-                    <Play size={16} /> Presentar
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => abrirEditar(p)}
-                    disabled={!puedoEditar}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }}
-                    title={puedoEditar ? 'Editar presentación' : 'Tu rol solo puede consultar'}
-                  >
-                    <Pencil size={15} /> Editar
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => eliminar(p)}
-                    disabled={!puedoEliminar}
-                    style={{ padding: '0.5rem 0.7rem', color: 'var(--danger)', opacity: puedoEliminar ? 1 : 0.4, cursor: puedoEliminar ? 'pointer' : 'not-allowed' }}
-                    title={puedoEliminar ? 'Eliminar presentación' : 'Tu rol no puede eliminar'}
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* ---------- LISTA DE PRESENTACIONES ---------- */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1rem' }}>{rutaCarpeta}</h3>
+            {puedoEditar && listaCarpeta.length > 1 && (
+              <small style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                <GripVertical size={13} /> Arrastra una tarjeta para cambiar el orden
+              </small>
+            )}
+          </div>
+
+          {listaCarpeta.length === 0 ? (
+            <div className="card" style={{ textAlign: 'center', padding: '4rem 2rem', margin: 0 }}>
+              <MonitorPlay size={48} color="var(--text-muted)" style={{ opacity: 0.5, marginBottom: '1rem' }} />
+              <h3 style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                {presentacionesOrdenadas.length === 0 ? 'Aún no hay presentaciones' : 'Esta carpeta está vacía'}
+              </h3>
+              <p style={{ color: 'var(--text-muted)' }}>
+                {puedoEditar ? 'Crea una con "Nueva Presentación" y elige los módulos que quieres mostrar.' : 'Pide a un administrador que arme una presentación.'}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
+              {listaCarpeta.map(p => {
+                const visibles = p.vistas.filter(v => COMPONENTES[v] && puedeVer(v));
+                const totalDiapositivas = armarDiapositivas(p).length;
+                const tienePortada = normalizarTexto(p.portada).activa;
+                const tieneCierre = normalizarTexto(p.cierre).activa;
+                const esDestino = sobreId === p.id && arrastrandoId !== p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className="card"
+                    draggable={puedoEditar}
+                    onDragStart={() => setArrastrandoId(p.id)}
+                    onDragOver={e => { e.preventDefault(); if (sobreId !== p.id) setSobreId(p.id); }}
+                    onDragLeave={() => setSobreId(actual => (actual === p.id ? null : actual))}
+                    onDrop={() => soltarPresentacion(p.id)}
+                    onDragEnd={() => { setArrastrandoId(null); setSobreId(null); }}
+                    style={{
+                      margin: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem',
+                      opacity: arrastrandoId === p.id ? 0.45 : 1,
+                      border: esDestino ? '2px dashed var(--primary)' : '1px solid var(--border)',
+                      cursor: puedoEditar ? 'grab' : 'default'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', minWidth: 0 }}>
+                        {puedoEditar && <GripVertical size={16} color="var(--text-muted)" style={{ flexShrink: 0, marginTop: '2px' }} />}
+                        <div style={{ minWidth: 0 }}>
+                          <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem' }}>{p.nombre}</h3>
+                          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {p.descripcion || `${totalDiapositivas} ${totalDiapositivas === 1 ? 'diapositiva' : 'diapositivas'}`}
+                          </p>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.7rem', fontWeight: 800, color: 'var(--primary)',
+                        border: '1px solid var(--primary)', borderRadius: '999px',
+                        padding: '0.15rem 0.6rem', whiteSpace: 'nowrap', flexShrink: 0
+                      }}>
+                        {totalDiapositivas}
+                      </span>
+                    </div>
+
+                    {/* Recorrido de la presentación */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                      {tienePortada && (
+                        <span style={{
+                          fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary)',
+                          backgroundColor: 'rgba(29,140,248,0.12)', border: '1px solid var(--primary)',
+                          borderRadius: '6px', padding: '0.2rem 0.5rem'
+                        }}>
+                          Portada
+                        </span>
+                      )}
+                      {visibles.slice(0, 6).map((v, i) => (
+                        <span key={`${v}-${i}`} style={{
+                          fontSize: '0.68rem', fontWeight: 600, color: 'var(--text-muted)',
+                          backgroundColor: 'var(--bg-highlight)', border: '1px solid var(--border)',
+                          borderRadius: '6px', padding: '0.2rem 0.5rem'
+                        }}>
+                          {i + 1}. {etiquetaVista(v)}
+                        </span>
+                      ))}
+                      {visibles.length > 6 && (
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary)', padding: '0.2rem 0.3rem' }}>
+                          +{visibles.length - 6} más
+                        </span>
+                      )}
+                      {tieneCierre && (
+                        <span style={{
+                          fontSize: '0.68rem', fontWeight: 700, color: 'var(--primary)',
+                          backgroundColor: 'rgba(29,140,248,0.12)', border: '1px solid var(--primary)',
+                          borderRadius: '6px', padding: '0.2rem 0.5rem'
+                        }}>
+                          Conclusión
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto', flexWrap: 'wrap' }}>
+                      <button className="btn btn-primary" onClick={() => presentar(p)} disabled={totalDiapositivas === 0} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: totalDiapositivas === 0 ? 0.5 : 1 }}>
+                        <Play size={16} /> Presentar
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => abrirEditar(p)}
+                        disabled={!puedoEditar}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }}
+                        title={puedoEditar ? 'Editar presentación' : 'Tu rol solo puede consultar'}
+                      >
+                        <Pencil size={15} /> Editar
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        onClick={() => eliminar(p)}
+                        disabled={!puedoEliminar}
+                        style={{ padding: '0.5rem 0.7rem', color: 'var(--danger)', opacity: puedoEliminar ? 1 : 0.4, cursor: puedoEliminar ? 'pointer' : 'not-allowed' }}
+                        title={puedoEliminar ? 'Eliminar presentación' : 'Tu rol no puede eliminar'}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* ===================== EDITOR ===================== */}
       {modalAbierto && (

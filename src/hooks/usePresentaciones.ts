@@ -48,6 +48,7 @@ export interface Presentacion {
   taller?: string;
   mes?: string;
   semanas?: string;        // '4' o '5'
+  orden?: number;          // posición dentro de su carpeta (arrastrar y soltar)
   portada?: DiapositivaTexto;
   cierre?: DiapositivaTexto;
   creadoEn?: string;
@@ -97,6 +98,7 @@ export const usePresentaciones = () => {
             taller: bruto.taller || '',
             mes: bruto.mes || '',
             semanas: bruto.semanas || '',
+            orden: typeof bruto.orden === 'number' ? bruto.orden : 0,
             portada: normalizarTexto(bruto.portada),
             cierre: normalizarTexto(bruto.cierre),
           } as Presentacion;
@@ -122,6 +124,7 @@ export const usePresentaciones = () => {
         taller: p.taller || '',
         mes: p.mes || '',
         semanas: p.semanas || '',
+        orden: typeof p.orden === 'number' ? p.orden : 0,
         portada: normalizarTexto(p.portada),
         cierre: normalizarTexto(p.cierre),
         creadoEn: p.creadoEn || new Date().toISOString(),
@@ -133,6 +136,19 @@ export const usePresentaciones = () => {
     }
   };
 
+  // Guarda de una sola vez el nuevo orden de una carpeta. Se usa al soltar
+  // una presentación arrastrada: cada id recibe su posición en la lista.
+  const guardarOrden = async (ids: string[]) => {
+    try {
+      await Promise.all(
+        ids.map((id, i) => setDoc(doc(db, 'presentaciones', id), { orden: (i + 1) * 10 }, { merge: true }))
+      );
+    } catch (error) {
+      console.error('Error al guardar el orden de las presentaciones:', error);
+      alert('No se pudo guardar el nuevo orden. Revisa la consola.');
+    }
+  };
+
   const eliminarPresentacion = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'presentaciones', id));
@@ -141,5 +157,5 @@ export const usePresentaciones = () => {
     }
   };
 
-  return { presentaciones, cargando, guardarPresentacion, eliminarPresentacion };
+  return { presentaciones, cargando, guardarPresentacion, guardarOrden, eliminarPresentacion };
 };
