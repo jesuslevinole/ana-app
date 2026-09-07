@@ -9,7 +9,10 @@ import {
   type GastoMarketing
 } from '../hooks/useMarketingGastos';
 import {
-  Plus, Save, Trash2, Pencil, X, Search, DollarSign, Info, Wallet, Receipt, PiggyBank
+  useMarketing, totalRegistroMarketing, sumaFuentes, cantidadFuente
+} from '../hooks/useMarketing';
+import {
+  Plus, Save, Trash2, Pencil, X, Search, DollarSign, Info, Users, UserPlus, UserCheck
 } from 'lucide-react';
 
 // =========================================================================
@@ -87,6 +90,26 @@ export const MarketingGastos = () => {
     total: acc.total + totalExpensesMarketing(g),
     fondos: acc.fondos + fondosMarketing(g),
   }), { gross: 0, aporte: 0, facebook: 0, expenses: 0, melvin: 0, total: 0, fondos: 0 }), [lista]);
+
+  // --- Clientes (vienen del módulo Marketing → Registro) ---
+  // Se calculan con los MISMOS filtros de la página:
+  //   · Total de clientes:   acumulado del AÑO filtrado (ignora el filtro de mes)
+  //   · Clientes nuevos:     los del periodo que NO son "Clientes regulares"
+  //   · Clientes atendidos:  total del periodo filtrado (con y sin formulario)
+  const { registros: registrosMarketing } = useMarketing();
+  const clientes = useMemo(() => {
+    const delAno = registrosMarketing
+      .filter(r => filtroTaller === 'Todos' || r.taller === filtroTaller)
+      .filter(r => filtroAno === 'Todos' || String(r.ano) === filtroAno);
+    const delPeriodo = delAno.filter(r => filtroMes === 'Todos' || r.mes === filtroMes);
+
+    return {
+      totalAno: delAno.reduce((acc, r) => acc + totalRegistroMarketing(r), 0),
+      nuevos: delPeriodo.reduce((acc, r) => acc + Math.max(0, sumaFuentes(r) - cantidadFuente(r, 'clientesRegulares')), 0),
+      atendidos: delPeriodo.reduce((acc, r) => acc + totalRegistroMarketing(r), 0),
+      periodos: delPeriodo.length,
+    };
+  }, [registrosMarketing, filtroAno, filtroMes, filtroTaller]);
 
   // --- Modal ---
   const limpiar = () => {
@@ -205,27 +228,22 @@ export const MarketingGastos = () => {
         </div>
       </div>
 
-      {/* RESUMEN */}
-      <div className="kpi-grid">
+      {/* RESUMEN: CLIENTES (datos capturados en Marketing → Registro) */}
+      <div className="kpi-grid tres-columnas">
         <div className="kpi-card meta">
-          <div className="kpi-title">Aporte de marketing <Wallet size={16} /></div>
-          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{fmtMoneda(totales.aporte)}</div>
-          <small style={{ color: 'var(--text-muted)' }}>Sobre una venta de {fmtMoneda(totales.gross)}</small>
-        </div>
-        <div className="kpi-card faltante">
-          <div className="kpi-title">Gastado <Receipt size={16} /></div>
-          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{fmtMoneda(totales.facebook + totales.expenses + totales.melvin)}</div>
-          <small style={{ color: 'var(--text-muted)' }}>Facebook, expenses y Sr. Melvin</small>
+          <div className="kpi-title">Total de clientes <Users size={16} /></div>
+          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{clientes.totalAno.toLocaleString('en-US')}</div>
+          <small style={{ color: 'var(--text-muted)' }}>Acumulado del {filtroAno === 'Todos' ? 'total capturado' : `año ${filtroAno}`}</small>
         </div>
         <div className="kpi-card logrado">
-          <div className="kpi-title">Fondos disponibles <PiggyBank size={16} /></div>
-          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{fmtMoneda(totales.fondos)}</div>
-          <small style={{ color: 'var(--text-muted)' }}>Aporte menos lo gastado</small>
+          <div className="kpi-title">Clientes nuevos <UserPlus size={16} /></div>
+          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{clientes.nuevos.toLocaleString('en-US')}</div>
+          <small style={{ color: 'var(--text-muted)' }}>Del periodo, sin contar clientes regulares</small>
         </div>
         <div className="kpi-card logrado">
-          <div className="kpi-title">Total de expenses <Info size={16} /></div>
-          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{fmtMoneda(totales.total)}</div>
-          <small style={{ color: 'var(--text-muted)' }}>{lista.length} {lista.length === 1 ? 'registro' : 'registros'}</small>
+          <div className="kpi-title">Clientes atendidos <UserCheck size={16} /></div>
+          <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{clientes.atendidos.toLocaleString('en-US')}</div>
+          <small style={{ color: 'var(--text-muted)' }}>{clientes.periodos} {clientes.periodos === 1 ? 'periodo capturado' : 'periodos capturados'}</small>
         </div>
       </div>
 

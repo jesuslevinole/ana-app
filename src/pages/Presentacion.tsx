@@ -262,8 +262,16 @@ export const Presentacion = () => {
     setFiltroTaller('');
     setFiltroMes('');
     setFiltroSemanas('');
-    // Una presentación nueva llega con portada y cierre listos para usarse
-    setPortada({ ...DIAPOSITIVA_VACIA, activa: true });
+    // Una presentación nueva llega con portada y cierre listos para usarse.
+    // La portada trae los textos pedidos por la gerencia; "{mes}" se sustituye
+    // solo al reproducir, según el mes de la presentación.
+    setPortada({
+      ...DIAPOSITIVA_VACIA,
+      activa: true,
+      titulo: "Presentación de KPI's",
+      subtitulo: "KPI's: Key Performance Indicators - Indicadores clave de desempeño",
+      puntos: ['Resultados mes de {mes}'],
+    });
     setCierre({ ...DIAPOSITIVA_VACIA, activa: true, titulo: 'Gracias', subtitulo: '¿Preguntas?' });
     setModalAbierto(true);
   };
@@ -459,12 +467,25 @@ export const Presentacion = () => {
     return `${grupoDeVista(d.vista)} · ${etiquetaVista(d.vista)}`;
   };
 
+  // Sustituye {mes}, {año} y {taller} por los valores del filtro de la
+  // presentación (o del calendario actual si la presentación no tiene mes/año).
+  // Así la portada puede decir "Resultados mes de {mes}" y actualizarse sola.
+  const conPlaceholders = (s: string): string => {
+    const mes = reproduciendo?.mes || MESES[new Date().getMonth()] || '';
+    const ano = reproduciendo?.ano || String(new Date().getFullYear());
+    const taller = reproduciendo?.taller || '';
+    return s
+      .replace(/\{mes\}/gi, mes)
+      .replace(/\{a(ñ|n)o\}/gi, ano)
+      .replace(/\{taller\}/gi, taller);
+  };
+
   // PORTADA / CIERRE: pantalla completa con el color y el logo del taller
   const dibujarTexto = (texto: DiapositivaTexto, esPortada: boolean) => {
     const taller = talleres.find(t => t.nombre === texto.taller) || null;
     const color = (taller && (taller as unknown as { color?: string }).color) || '#1d8cf8';
     const textoSobre = colorTextoSobre(color);
-    const titulo = texto.titulo.trim() || (esPortada ? (reproduciendo?.nombre ?? '') : 'Gracias');
+    const titulo = conPlaceholders(texto.titulo.trim() || (esPortada ? (reproduciendo?.nombre ?? '') : 'Gracias'));
 
     return (
       <div style={{
@@ -493,7 +514,7 @@ export const Presentacion = () => {
 
         {texto.subtitulo && (
           <h2 style={{ margin: 0, fontSize: 'clamp(1rem, 2.4vw, 1.6rem)', fontWeight: 600, opacity: 0.92, maxWidth: '900px' }}>
-            {texto.subtitulo}
+            {conPlaceholders(texto.subtitulo)}
           </h2>
         )}
 
@@ -508,7 +529,7 @@ export const Presentacion = () => {
                   flexShrink: 0, marginTop: '0.45em', width: '10px', height: '10px',
                   borderRadius: '50%', backgroundColor: textoSobre, opacity: 0.8
                 }} />
-                {punto}
+                {conPlaceholders(punto)}
               </li>
             ))}
           </ul>
@@ -521,7 +542,7 @@ export const Presentacion = () => {
                 {textoPeriodo(reproduciendo)}
               </span>
             )}
-            {texto.pie && <span style={{ fontSize: '1rem', fontWeight: 600 }}>{texto.pie}</span>}
+            {texto.pie && <span style={{ fontSize: '1rem', fontWeight: 600 }}>{conPlaceholders(texto.pie)}</span>}
             {texto.mostrarFecha && (
               <span style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                 {fechaDeHoy()}
@@ -735,7 +756,7 @@ export const Presentacion = () => {
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 value={valor.titulo}
                 onChange={e => cambiar('titulo', e.target.value)}
-                placeholder={titulo === 'Portada' ? 'Ej: Resultados 2026' : 'Ej: Gracias'}
+                placeholder={titulo === 'Portada' ? "Ej: Presentación de KPI's" : 'Ej: Gracias'}
               />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
@@ -745,7 +766,7 @@ export const Presentacion = () => {
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 value={valor.subtitulo || ''}
                 onChange={e => cambiar('subtitulo', e.target.value)}
-                placeholder={titulo === 'Portada' ? 'Ej: Junta de gerencia' : 'Ej: ¿Preguntas?'}
+                placeholder={titulo === 'Portada' ? "Ej: KPI's: Key Performance Indicators" : 'Ej: ¿Preguntas?'}
               />
             </div>
             {/* VIÑETAS: sirven sobre todo para escribir las conclusiones */}
@@ -1244,7 +1265,7 @@ export const Presentacion = () => {
 
               {/* PORTADA Y CONCLUSIÓN */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
-                {editorTexto('Portada', portada, setPortada, 'Abre la exposición antes del primer módulo')}
+                {editorTexto('Portada', portada, setPortada, 'Abre la exposición antes del primer módulo. Escribe {mes}, {año} o {taller} y se sustituyen solos al reproducir')}
                 {editorTexto('Conclusión', cierre, setCierre, 'Cierra la exposición después del último módulo')}
               </div>
 

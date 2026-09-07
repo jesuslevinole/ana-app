@@ -1122,7 +1122,7 @@ export const Dashboard = () => {
           </div>
         ) : (
           <>
-            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%' }}><TextoEditable clave="dash.seccion.kpi" defecto="Key Performance Indicators (KPI) - Indicadores Clave de Desempeño" /></h3>
+            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%' }}><TextoEditable clave="dash.seccion.kpi" defecto="KPI's: Key Performance Indicators - Indicadores clave de desempeño" /></h3>
             <div className="kpi-grid">
               <div className="kpi-card meta">
                 <div className="kpi-title"><TextoEditable clave="dash.kpi.metaTotal" defecto="Meta Total" /> <Target size={16} /></div>
@@ -1457,7 +1457,7 @@ export const Dashboard = () => {
             <p className="report-fecha" style={{ fontWeight: 600, fontSize: '11pt', marginTop: '4px' }}>{fechaReporte}</p>
           </div>
 
-          <h3 className="section-executive-title">Key Performance Indicators (KPI) - Indicadores Clave de Desempeño</h3>
+          <h3 className="section-executive-title">KPI's: Key Performance Indicators - Indicadores clave de desempeño</h3>
           <div className="kpi-print-row">
             <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>🎯 META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
             <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'9.5pt', color:'#1d8cf8', fontWeight: 700}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
