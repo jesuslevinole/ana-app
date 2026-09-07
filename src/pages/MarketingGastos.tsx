@@ -2,6 +2,7 @@ import { useState, useContext, useMemo } from 'react';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
+import { TextoEditable } from '../components/TextoEditable';
 import { MESES } from '../utils/formatters';
 import {
   useMarketingGastos, idGastoMarketing, PORCENTAJE_MARKETING,
@@ -178,7 +179,7 @@ export const MarketingGastos = () => {
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <DollarSign size={32} color="var(--primary)" />
           <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Gastos de Marketing</h2>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}><TextoEditable clave="mkt.gastos.titulo" defecto="Gastos de Marketing" /></h2>
             <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>
               Aporte del {PORCENTAJE_MARKETING} % de la venta, gastos del mes y fondos de cada taller
             </p>
@@ -231,17 +232,17 @@ export const MarketingGastos = () => {
       {/* RESUMEN: CLIENTES (datos capturados en Marketing → Registro) */}
       <div className="kpi-grid tres-columnas">
         <div className="kpi-card meta">
-          <div className="kpi-title">Total de clientes <Users size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.gastos.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
           <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{clientes.totalAno.toLocaleString('en-US')}</div>
           <small style={{ color: 'var(--text-muted)' }}>Acumulado del {filtroAno === 'Todos' ? 'total capturado' : `año ${filtroAno}`}</small>
         </div>
         <div className="kpi-card logrado">
-          <div className="kpi-title">Clientes nuevos <UserPlus size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.gastos.kpi.nuevos" defecto="Clientes nuevos" /> <UserPlus size={16} /></div>
           <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{clientes.nuevos.toLocaleString('en-US')}</div>
           <small style={{ color: 'var(--text-muted)' }}>Del periodo, sin contar clientes regulares</small>
         </div>
         <div className="kpi-card logrado">
-          <div className="kpi-title">Clientes atendidos <UserCheck size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.gastos.kpi.atendidos" defecto="Clientes atendidos" /> <UserCheck size={16} /></div>
           <div className="kpi-value" style={{ fontSize: '1.5rem' }}>{clientes.atendidos.toLocaleString('en-US')}</div>
           <small style={{ color: 'var(--text-muted)' }}>{clientes.periodos} {clientes.periodos === 1 ? 'periodo capturado' : 'periodos capturados'}</small>
         </div>

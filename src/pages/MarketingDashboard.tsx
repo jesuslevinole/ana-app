@@ -10,6 +10,7 @@ import {
 } from '../hooks/useMarketingGastos';
 import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
+import { TextoEditable } from '../components/TextoEditable';
 
 // =========================================================================
 //  MARKETING · DASHBOARD
@@ -325,7 +326,7 @@ export const MarketingDashboard = () => {
       <div className="card" style={{ marginTop: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
           <h3 className="detail-section-title" style={{ margin: 0, border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <DollarSign size={18} color="var(--primary)" /> Gastos de marketing
+            <DollarSign size={18} color="var(--primary)" /> <TextoEditable clave="mkt.dash.seccion.gastos" defecto="Gastos de marketing" />
           </h3>
           <span style={{
             fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
@@ -444,10 +445,10 @@ export const MarketingDashboard = () => {
                     <td style={{ textAlign: 'right', padding: '0.85rem', fontWeight: 800, color: serieGastos.totales.fondos >= 0 ? 'var(--success)' : 'var(--danger)' }}>{fmtDinero(serieGastos.totales.fondos)}</td>
                   </tr>
                   <tr>
-                    <th>Mes</th>
-                    <th style={{ textAlign: 'right' }}>Aporte</th>
-                    <th style={{ textAlign: 'right' }}>Gastado</th>
-                    <th style={{ textAlign: 'right' }}>Fondos</th>
+                    <th><TextoEditable clave="mkt.dash.col.mes" defecto="Mes" /></th>
+                    <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.dash.col.aporte" defecto="Aporte" /></th>
+                    <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.dash.col.gastado" defecto="Gastado" /></th>
+                    <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.dash.col.fondos" defecto="Fondos" /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -475,9 +476,9 @@ export const MarketingDashboard = () => {
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <BarChart3 size={32} color="var(--primary)" />
           <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Dashboard de Marketing</h2>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}><TextoEditable clave="mkt.dash.titulo" defecto="Dashboard de Marketing" /></h2>
             <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>
-              De dónde vienen los clientes y cuánto aporta cada medio
+              <TextoEditable clave="mkt.dash.subtitulo" defecto="De dónde vienen los clientes y cuánto aporta cada medio" />
             </p>
           </div>
         </div>
@@ -529,22 +530,22 @@ export const MarketingDashboard = () => {
           {/* TARJETAS RESUMEN */}
           <div className="kpi-grid">
             <div className="kpi-card logrado">
-              <div className="kpi-title">Total de clientes <Users size={16} /></div>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
               <div className="kpi-value">{reporte.total.toLocaleString('en-US')}</div>
               <small style={{ color: 'var(--text-muted)' }}>{reporte.periodos} {reporte.periodos === 1 ? 'periodo' : 'periodos'} capturados</small>
             </div>
             <div className="kpi-card meta">
-              <div className="kpi-title">Con formulario <Megaphone size={16} /></div>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.conFormulario" defecto="Con formulario" /> <Megaphone size={16} /></div>
               <div className="kpi-value">{reporte.conFormulario.toLocaleString('en-US')}</div>
               <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.conFormulario).toFixed(2)} % del total</small>
             </div>
             <div className="kpi-card faltante">
-              <div className="kpi-title">Sin formulario <ClipboardX size={16} /></div>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin formulario" /> <ClipboardX size={16} /></div>
               <div className="kpi-value">{reporte.sinFormulario.toLocaleString('en-US')}</div>
               <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.sinFormulario).toFixed(2)} % del total</small>
             </div>
             <div className="kpi-card logrado">
-              <div className="kpi-title">Principal procedencia <Award size={16} /></div>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.principal" defecto="Principal procedencia" /> <Award size={16} /></div>
               <div className="kpi-value" style={{ fontSize: '1.35rem', lineHeight: 1.2 }}>
                 {reporte.principal ? reporte.principal.corta : '—'}
               </div>
@@ -560,7 +561,7 @@ export const MarketingDashboard = () => {
             {/* GRÁFICA DE PROCEDENCIAS */}
             <div className="card" style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
-                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>Origen de los clientes</h3>
+                <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}><TextoEditable clave="mkt.dash.seccion.origen" defecto="Origen de los clientes" /></h3>
                 <span style={{
                   fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
                   color: 'var(--text-muted)', backgroundColor: 'var(--bg-highlight)',
@@ -591,7 +592,7 @@ export const MarketingDashboard = () => {
 
             {/* DETALLE POR PROCEDENCIA */}
             <div className="card" style={{ marginTop: '1.5rem', overflowX: 'auto' }}>
-              <h3 className="detail-section-title">Detalle por procedencia</h3>
+              <h3 className="detail-section-title"><TextoEditable clave="mkt.dash.seccion.detalle" defecto="Detalle por procedencia" /></h3>
               <table className="table" style={{ width: '100%', marginTop: '1rem', minWidth: '640px' }}>
                 <thead>
                   {/* TOTALES: arriba del encabezado, como en los demás dashboards */}
@@ -602,10 +603,10 @@ export const MarketingDashboard = () => {
                     <td style={{ padding: '0.85rem' }}></td>
                   </tr>
                   <tr>
-                    <th>Procedencia</th>
-                    <th style={{ textAlign: 'center', width: '130px' }}>Clientes</th>
-                    <th style={{ textAlign: 'center', width: '130px' }}>% del total</th>
-                    <th style={{ textAlign: 'center', minWidth: '180px' }}>Participación</th>
+                    <th><TextoEditable clave="mkt.dash.col.procedencia" defecto="Procedencia" /></th>
+                    <th style={{ textAlign: 'center', width: '130px' }}><TextoEditable clave="mkt.dash.col.clientes" defecto="Clientes" /></th>
+                    <th style={{ textAlign: 'center', width: '130px' }}><TextoEditable clave="mkt.dash.col.pct" defecto="% del total" /></th>
+                    <th style={{ textAlign: 'center', minWidth: '180px' }}><TextoEditable clave="mkt.dash.col.participacion" defecto="Participación" /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -635,7 +636,7 @@ export const MarketingDashboard = () => {
                 </tbody>
               </table>
               <p style={{ margin: 0, paddingTop: '0.75rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-                "Cliente sin formulario" son los clientes atendidos que no llenaron el formulario: suman al total pero no tienen procedencia conocida.
+                <TextoEditable clave="mkt.dash.nota" defecto='"Cliente sin formulario" son los clientes atendidos que no llenaron el formulario: suman al total pero no tienen procedencia conocida.' />
               </p>
             </div>
           </div>
