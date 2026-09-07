@@ -480,12 +480,25 @@ export const Presentacion = () => {
       .replace(/\{taller\}/gi, taller);
   };
 
+  // Textos "de relleno" (Subtitulo, Punto 1, Pie de página...) que a veces se
+  // capturan como ejemplo: se tratan como vacíos y NO se proyectan.
+  const esRelleno = (s: string): boolean => {
+    const t = s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return t === '' || t === 'titulo' || t === 'subtitulo' || t === 'pie de pagina' || t === 'pie' || /^punto \d+$/.test(t);
+  };
+  const textoLimpio = (s?: string): string => (!s || esRelleno(s) ? '' : conPlaceholders(s));
+
   // PORTADA / CIERRE: pantalla completa con el color y el logo del taller
   const dibujarTexto = (texto: DiapositivaTexto, esPortada: boolean) => {
     const taller = talleres.find(t => t.nombre === texto.taller) || null;
     const color = (taller && (taller as unknown as { color?: string }).color) || '#1d8cf8';
     const textoSobre = colorTextoSobre(color);
-    const titulo = conPlaceholders(texto.titulo.trim() || (esPortada ? (reproduciendo?.nombre ?? '') : 'Gracias'));
+    const titulo = conPlaceholders(
+      (!esRelleno(texto.titulo) && texto.titulo.trim()) || (esPortada ? (reproduciendo?.nombre ?? '') : 'Gracias')
+    );
+    const subtitulo = textoLimpio(texto.subtitulo);
+    const pie = textoLimpio(texto.pie);
+    const puntos = (texto.puntos || []).filter(x => !esRelleno(x)).map(x => conPlaceholders(x));
 
     return (
       <div style={{
@@ -512,37 +525,37 @@ export const Presentacion = () => {
           {titulo}
         </h1>
 
-        {texto.subtitulo && (
+        {subtitulo && (
           <h2 style={{ margin: 0, fontSize: 'clamp(1rem, 2.4vw, 1.6rem)', fontWeight: 600, opacity: 0.92, maxWidth: '900px' }}>
-            {conPlaceholders(texto.subtitulo)}
+            {subtitulo}
           </h2>
         )}
 
-        {(texto.puntos || []).filter(x => x.trim()).length > 0 && (
+        {puntos.length > 0 && (
           <ul style={{
             listStyle: 'none', margin: '0.5rem 0 0 0', padding: 0, textAlign: 'left',
             maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '0.85rem'
           }}>
-            {(texto.puntos || []).filter(x => x.trim()).map((punto, i) => (
+            {puntos.map((punto, i) => (
               <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', fontSize: 'clamp(0.95rem, 2vw, 1.35rem)', fontWeight: 500, lineHeight: 1.4 }}>
                 <span style={{
                   flexShrink: 0, marginTop: '0.45em', width: '10px', height: '10px',
                   borderRadius: '50%', backgroundColor: textoSobre, opacity: 0.8
                 }} />
-                {conPlaceholders(punto)}
+                {punto}
               </li>
             ))}
           </ul>
         )}
 
-        {(texto.pie || texto.mostrarFecha || (texto.mostrarPeriodo && textoPeriodo(reproduciendo))) && (
+        {(pie || texto.mostrarFecha || (texto.mostrarPeriodo && textoPeriodo(reproduciendo))) && (
           <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', opacity: 0.85 }}>
             {texto.mostrarPeriodo && textoPeriodo(reproduciendo) && (
               <span style={{ fontSize: 'clamp(1rem, 2.2vw, 1.35rem)', fontWeight: 800, letterSpacing: '0.5px' }}>
                 {textoPeriodo(reproduciendo)}
               </span>
             )}
-            {texto.pie && <span style={{ fontSize: '1rem', fontWeight: 600 }}>{conPlaceholders(texto.pie)}</span>}
+            {pie && <span style={{ fontSize: '1rem', fontWeight: 600 }}>{pie}</span>}
             {texto.mostrarFecha && (
               <span style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                 {fechaDeHoy()}
