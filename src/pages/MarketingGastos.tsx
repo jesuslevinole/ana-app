@@ -181,7 +181,7 @@ export const MarketingGastos = () => {
           <div>
             <h2 style={{ fontSize: '1.5rem', margin: 0 }}><TextoEditable clave="mkt.gastos.titulo" defecto="Gastos de Marketing" /></h2>
             <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>
-              Aporte del {PORCENTAJE_MARKETING} % de la venta, gastos del mes y fondos de cada taller
+              <TextoEditable clave="mkt.gastos.subtitulo" defecto={`Aporte del ${PORCENTAJE_MARKETING} % de la venta, gastos del mes y fondos de cada taller`} />
             </p>
           </div>
         </div>
@@ -255,7 +255,7 @@ export const MarketingGastos = () => {
             {lista.length > 0 && (
               <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
                 <td colSpan={3} style={{ padding: '0.85rem' }}>
-                  <strong style={{ color: 'var(--text-main)' }}>Total ({lista.length})</strong>
+                  <strong style={{ color: 'var(--text-main)' }}><TextoEditable clave="mkt.gastos.totalFila" defecto="Total" /> ({lista.length})</strong>
                 </td>
                 <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--text-main)' }}>{fmtMoneda(totales.gross)}</td>
                 <td style={{ textAlign: 'right', fontWeight: 800, color: 'var(--primary)' }}>{fmtMoneda(totales.aporte)}</td>
@@ -267,16 +267,16 @@ export const MarketingGastos = () => {
               </tr>
             )}
             <tr>
-              <th style={{ width: '100px' }}>Acciones</th>
-              <th>Periodo</th>
-              <th>Taller</th>
-              <th style={{ textAlign: 'right' }}>Gross</th>
-              <th style={{ textAlign: 'right' }}>Aporte %</th>
-              <th style={{ textAlign: 'right' }}>Facebook</th>
-              <th style={{ textAlign: 'right' }}>Expenses</th>
-              <th style={{ textAlign: 'right' }}>Sr. Melvin</th>
-              <th style={{ textAlign: 'right' }}>Total expenses</th>
-              <th style={{ textAlign: 'right' }}>Fondos</th>
+              <th style={{ width: '100px' }}><TextoEditable clave="mkt.gastos.col.acciones" defecto="Acciones" /></th>
+              <th><TextoEditable clave="mkt.gastos.col.periodo" defecto="Periodo" /></th>
+              <th><TextoEditable clave="mkt.gastos.col.taller" defecto="Taller" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.gross" defecto="Gross" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.aportePct" defecto="Aporte %" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.facebook" defecto="Facebook" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.expenses" defecto="Expenses" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.melvin" defecto="Sr. Melvin" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.totalExpenses" defecto="Total expenses" /></th>
+              <th style={{ textAlign: 'right' }}><TextoEditable clave="mkt.gastos.col.fondos" defecto="Fondos" /></th>
             </tr>
           </thead>
           <tbody>

@@ -9,6 +9,7 @@ import {
 } from '../hooks/useMarketing';
 import { Plus, Save, Trash2, Pencil, X, Search, Megaphone, Info, Users, ClipboardX } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
+import { TextoEditable } from '../components/TextoEditable';
 
 // =========================================================================
 //  MARKETING · REGISTRO
@@ -159,9 +160,9 @@ export const MarketingRegistro = () => {
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Megaphone size={32} color="var(--primary)" />
           <div>
-            <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Gestión de Marketing</h2>
+            <h2 style={{ fontSize: '1.5rem', margin: 0 }}><TextoEditable clave="mkt.reg.titulo" defecto="Gestión de Marketing" /></h2>
             <p className="page-subtitle" style={{ marginLeft: 0, marginTop: '0.25rem' }}>
-              Registro del origen de los clientes, sincronizado en la nube
+              <TextoEditable clave="mkt.reg.subtitulo" defecto="Registro del origen de los clientes, sincronizado en la nube" />
             </p>
           </div>
         </div>
@@ -212,19 +213,19 @@ export const MarketingRegistro = () => {
       {/* RESUMEN DE LO FILTRADO */}
       <div className="kpi-grid">
         <div className="kpi-card logrado">
-          <div className="kpi-title">Total de clientes <Users size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.reg.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
           <div className="kpi-value">{totales.total.toLocaleString('en-US')}</div>
         </div>
         <div className="kpi-card meta">
-          <div className="kpi-title">Con formulario <Megaphone size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.reg.kpi.conFormulario" defecto="Con formulario" /> <Megaphone size={16} /></div>
           <div className="kpi-value">{totales.conFormulario.toLocaleString('en-US')}</div>
         </div>
         <div className="kpi-card faltante">
-          <div className="kpi-title">Sin formulario <ClipboardX size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.reg.kpi.sinFormulario" defecto="Sin formulario" /> <ClipboardX size={16} /></div>
           <div className="kpi-value">{totales.sin.toLocaleString('en-US')}</div>
         </div>
         <div className="kpi-card logrado">
-          <div className="kpi-title">Periodos capturados <Info size={16} /></div>
+          <div className="kpi-title"><TextoEditable clave="mkt.reg.kpi.periodos" defecto="Periodos capturados" /> <Info size={16} /></div>
           <div className="kpi-value">{lista.length}</div>
         </div>
       </div>
@@ -236,7 +237,7 @@ export const MarketingRegistro = () => {
             {lista.length > 0 && (
               <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
                 <td colSpan={3} style={{ padding: '0.85rem' }}>
-                  <strong style={{ color: 'var(--text-main)' }}>Total ({lista.length} registros)</strong>
+                  <strong style={{ color: 'var(--text-main)' }}><TextoEditable clave="mkt.reg.totalFila" defecto="Total" /> ({lista.length} registros)</strong>
                 </td>
                 <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{totales.conFormulario}</td>
                 <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--danger)' }}>{totales.sin}</td>
@@ -244,12 +245,12 @@ export const MarketingRegistro = () => {
               </tr>
             )}
             <tr>
-              <th style={{ width: '110px' }}>Acciones</th>
-              <th>Periodo</th>
-              <th>Taller</th>
-              <th style={{ textAlign: 'center' }}>Con formulario</th>
-              <th style={{ textAlign: 'center' }}>Sin formulario</th>
-              <th style={{ textAlign: 'center' }}>Total</th>
+              <th style={{ width: '110px' }}><TextoEditable clave="mkt.reg.col.acciones" defecto="Acciones" /></th>
+              <th><TextoEditable clave="mkt.reg.col.periodo" defecto="Periodo" /></th>
+              <th><TextoEditable clave="mkt.reg.col.taller" defecto="Taller" /></th>
+              <th style={{ textAlign: 'center' }}><TextoEditable clave="mkt.reg.col.conFormulario" defecto="Con formulario" /></th>
+              <th style={{ textAlign: 'center' }}><TextoEditable clave="mkt.reg.col.sinFormulario" defecto="Sin formulario" /></th>
+              <th style={{ textAlign: 'center' }}><TextoEditable clave="mkt.reg.col.total" defecto="Total" /></th>
             </tr>
           </thead>
           <tbody>
