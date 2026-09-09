@@ -29,7 +29,7 @@ import { MarketingDashboard } from './MarketingDashboard';
 import {
   MonitorPlay, Plus, Play, Pencil, Trash2, Save, X, ChevronLeft, ChevronRight,
   ArrowUp, ArrowDown, Check, GripVertical, Maximize2, Minimize2, Info, Presentation,
-  Folder, Filter, ListPlus, ChevronDown, Store, CalendarRange
+  Folder, Filter, ChevronDown, Store, CalendarRange
 } from 'lucide-react';
 
 // =========================================================================
@@ -94,7 +94,6 @@ export const Presentacion = () => {
   // --- Editor ---
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [vistas, setVistas] = useState<string[]>([]);
   // Filtro inicial: manda sobre todas las diapositivas y define la carpeta
@@ -253,9 +252,12 @@ export const Presentacion = () => {
   // =====================================================================
   //  EDITOR
   // =====================================================================
+  // El nombre de la presentación es la concatenación del filtro:
+  // AÑO · TALLER · MES. Se recalcula solo al cambiar cualquiera de los tres.
+  const nombre = [filtroAno, filtroTaller, filtroMes].filter(x => x && x.trim()).join(' · ');
+
   const abrirNueva = () => {
     setEditandoId(null);
-    setNombre('');
     setDescripcion('');
     setVistas([]);
     setFiltroAno(String(new Date().getFullYear()));
@@ -265,20 +267,13 @@ export const Presentacion = () => {
     // Una presentación nueva llega con portada y cierre listos para usarse.
     // La portada trae los textos pedidos por la gerencia; "{mes}" se sustituye
     // solo al reproducir, según el mes de la presentación.
-    setPortada({
-      ...DIAPOSITIVA_VACIA,
-      activa: true,
-      titulo: "Presentación de KPI's",
-      subtitulo: "KPI's: Key Performance Indicators - Indicadores clave de desempeño",
-      puntos: ['Resultados mes de {mes}'],
-    });
-    setCierre({ ...DIAPOSITIVA_VACIA, activa: true, titulo: 'Gracias', subtitulo: '¿Preguntas?' });
+    setPortada({ ...DIAPOSITIVA_VACIA, activa: true, titulo: "Presentación de KPI's" });
+    setCierre({ ...DIAPOSITIVA_VACIA, activa: true, titulo: 'Gracias' });
     setModalAbierto(true);
   };
 
   const abrirEditar = (p: TipoPresentacion) => {
     setEditandoId(p.id);
-    setNombre(p.nombre);
     setDescripcion(p.descripcion || '');
     setVistas([...p.vistas]);
     setFiltroAno(p.ano || '');
@@ -311,7 +306,7 @@ export const Presentacion = () => {
   };
 
   const guardar = async () => {
-    if (!nombre.trim()) { alert('Escribe un nombre para la presentación.'); return; }
+    if (!nombre.trim()) { alert('Elige al menos el año, el taller o el mes: de ahí sale el nombre.'); return; }
     if (vistas.length === 0 && !portada.activa && !cierre.activa) {
       alert('Agrega al menos un módulo, una portada o un cierre a la presentación.');
       return;
@@ -725,17 +720,8 @@ export const Presentacion = () => {
     asignar: (v: DiapositivaTexto) => void,
     ayuda: string
   ) => {
-    const cambiar = (campo: keyof DiapositivaTexto, dato: string | boolean | string[]) =>
+    const cambiar = (campo: keyof DiapositivaTexto, dato: string | boolean) =>
       asignar({ ...valor, [campo]: dato });
-
-    const puntos = valor.puntos || [];
-    const cambiarPunto = (i: number, texto: string) => {
-      const next = [...puntos];
-      next[i] = texto;
-      cambiar('puntos', next);
-    };
-    const agregarPunto = () => cambiar('puntos', [...puntos, '']);
-    const quitarPunto = (i: number) => cambiar('puntos', puntos.filter((_, k) => k !== i));
 
     return (
       <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -771,64 +757,6 @@ export const Presentacion = () => {
                 onChange={e => cambiar('titulo', e.target.value)}
                 placeholder={titulo === 'Portada' ? "Ej: Presentación de KPI's" : 'Ej: Gracias'}
               />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Subtítulo <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-              <input
-                className="form-control"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={valor.subtitulo || ''}
-                onChange={e => cambiar('subtitulo', e.target.value)}
-                placeholder={titulo === 'Portada' ? "Ej: KPI's: Key Performance Indicators" : 'Ej: ¿Preguntas?'}
-              />
-            </div>
-            {/* VIÑETAS: sirven sobre todo para escribir las conclusiones */}
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">
-                Puntos <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional, uno por línea)</small>
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                {puntos.map((punto, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <input
-                      className="form-control"
-                      style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
-                      value={punto}
-                      onChange={e => cambiarPunto(i, e.target.value)}
-                      placeholder={`Punto ${i + 1}`}
-                    />
-                    <button onClick={() => quitarPunto(i)} className="btn btn-outline" style={{ padding: '0.35rem', color: 'var(--danger)' }} title="Quitar punto">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button onClick={agregarPunto} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: 'var(--primary)', fontSize: '0.78rem' }}>
-                  <ListPlus size={15} /> Agregar punto
-                </button>
-              </div>
-            </div>
-
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Pie <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-              <input
-                className="form-control"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={valor.pie || ''}
-                onChange={e => cambiar('pie', e.target.value)}
-                placeholder="Ej: Preparado por Jesús Molero"
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Logo y color del taller <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-              <select
-                className="form-control"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={valor.taller || ''}
-                onChange={e => cambiar('taller', e.target.value)}
-              >
-                <option value="">Sin logo (color por defecto)</option>
-                {talleres.map(tl => <option key={tl.id} value={tl.nombre}>{tl.nombre}</option>)}
-              </select>
             </div>
             <div
               onClick={() => cambiar('mostrarPeriodo', !valor.mostrarPeriodo)}
@@ -1180,12 +1108,12 @@ export const Presentacion = () => {
       {modalAbierto && (
         <div
           onClick={() => setModalAbierto(false)}
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '4vh 1rem', overflowY: 'auto' }}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '3vh 1rem', overflowY: 'auto' }}
         >
           <div
             onClick={e => e.stopPropagation()}
             className="animate-in fade-in"
-            style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', width: '100%', maxWidth: '940px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+            style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', width: '100%', maxWidth: '1240px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1204,19 +1132,24 @@ export const Presentacion = () => {
               </button>
             </div>
 
-            <div style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
-                <div className="form-group" style={{ minWidth: 0 }}>
-                  <label className="form-label">Nombre</label>
-                  <input
+            <div style={{ padding: '1.25rem 1.5rem' }}>
+              {/* NOMBRE: se arma solo con el año, el taller y el mes */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
+                  <label className="form-label">Nombre <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(año · taller · mes)</small></label>
+                  <div
                     className="form-control"
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={nombre}
-                    onChange={e => setNombre(e.target.value)}
-                    placeholder="Ej: Junta mensual de gerencia"
-                  />
+                    style={{
+                      width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)',
+                      color: nombre ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 700,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}
+                    title={nombre}
+                  >
+                    {nombre || 'Elige el año, el taller y el mes'}
+                  </div>
                 </div>
-                <div className="form-group" style={{ minWidth: 0 }}>
+                <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
                   <label className="form-label">Descripción <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
                   <input
                     className="form-control"
@@ -1228,8 +1161,11 @@ export const Presentacion = () => {
                 </div>
               </div>
 
+              {/* TRES COLUMNAS: filtro y textos · módulos · orden */}
+              <div className="pres-editor">
+              <div>
               {/* FILTRO INICIAL: manda sobre todas las diapositivas y ordena la carpeta */}
-              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', marginTop: '1.25rem', overflow: 'hidden' }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 1rem', backgroundColor: 'var(--bg-highlight)' }}>
                   <Filter size={16} color="var(--primary)" />
                   <div>
@@ -1239,7 +1175,7 @@ export const Presentacion = () => {
                     </div>
                   </div>
                 </div>
-                <div style={{ padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
+                <div style={{ padding: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
                   <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
                     <label className="form-label">Año</label>
                     <input
@@ -1276,17 +1212,17 @@ export const Presentacion = () => {
                 </div>
               </div>
 
-              {/* PORTADA Y CONCLUSIÓN */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
-                {editorTexto('Portada', portada, setPortada, 'Abre la exposición antes del primer módulo. Escribe {mes}, {año} o {taller} y se sustituyen solos al reproducir')}
+              {/* PORTADA Y CONCLUSIÓN, debajo del filtro */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', marginTop: '0.9rem' }}>
+                {editorTexto('Portada', portada, setPortada, 'Abre la exposición. Escribe {mes}, {año} o {taller} y se sustituyen solos')}
                 {editorTexto('Conclusión', cierre, setCierre, 'Cierra la exposición después del último módulo')}
               </div>
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
                 {/* MÓDULOS DISPONIBLES */}
                 <div>
                   <h4 className="detail-section-title" style={{ marginTop: 0 }}>Módulos disponibles</h4>
-                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '420px', overflowY: 'auto' }}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '46vh', overflowY: 'auto' }}>
                     {disponiblesPorGrupo.map(g => (
                       <div key={g.id}>
                         <div style={{ padding: '0.55rem 1rem', backgroundColor: 'var(--bg-highlight)', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
@@ -1324,7 +1260,7 @@ export const Presentacion = () => {
                   <h4 className="detail-section-title" style={{ marginTop: 0 }}>
                     Orden de las diapositivas {vistas.length > 0 && <span style={{ color: 'var(--primary)' }}>({vistas.length})</span>}
                   </h4>
-                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '420px', overflowY: 'auto' }}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '46vh', overflowY: 'auto' }}>
                     {vistas.length === 0 ? (
                       <div style={{ padding: '2.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                         Marca módulos a la izquierda para agregarlos.

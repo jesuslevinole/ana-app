@@ -8,6 +8,7 @@ import {
 import {
   useMarketingGastos, aporteMarketing, gastosMarketing, fondosMarketing
 } from '../hooks/useMarketingGastos';
+import { PastillaProcedencia } from '../components/IconosMarketing';
 import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 import { TextoEditable } from '../components/TextoEditable';
@@ -28,16 +29,6 @@ const colorTextoSobre = (hex: string): string => {
   const g = parseInt(full.substring(2, 4), 16);
   const b = parseInt(full.substring(4, 6), 16);
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#111827' : '#ffffff';
-};
-
-// Máximo "redondo" para la escala de un eje (1, 2, 5 × 10ⁿ por división)
-const escalaMaxima = (valor: number, divisiones: number): number => {
-  if (!isFinite(valor) || valor <= 0) return divisiones;
-  const bruto = valor / divisiones;
-  const magnitud = Math.pow(10, Math.floor(Math.log10(bruto)));
-  const norm = bruto / magnitud;
-  const paso = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * magnitud;
-  return paso * divisiones;
 };
 
 // Paso "bonito" para el eje de dinero (más fino que 1-2-5 para que la
@@ -117,13 +108,31 @@ export const MarketingDashboard = () => {
       },
     ].map(f => ({ ...f, pct: total > 0 ? (f.cantidad / total) * 100 : 0 }));
 
-    // Procedencia con más clientes (sin contar a los que no llenaron formulario)
-    const principal = filas
-      .filter(f => f.clave !== 'sinFormulario')
-      .sort((a, b) => b.cantidad - a.cantidad)[0] ?? null;
+    // PROCEDENCIA IDENTIFICADA: se sabe por qué medio llegó el cliente. Deja
+    // fuera a "No se sabe su procedencia" y a "Cliente sin formulario".
+    const identificadas = filas
+      .filter(f => f.clave !== 'sinFormulario' && f.clave !== 'sinProcedencia')
+      .map(f => ({ ...f, pctIdentificada: 0 }))
+      .sort((a, b) => b.cantidad - a.cantidad);
+
+    const totalIdentificada = identificadas.reduce((acc, f) => acc + f.cantidad, 0);
+    identificadas.forEach(f => {
+      f.pctIdentificada = totalIdentificada > 0 ? (f.cantidad / totalIdentificada) * 100 : 0;
+    });
+
+    // Sin procedencia conocida: los que no se sabe + los que no llenaron formulario
+    const sinProcedencia = filas.find(f => f.clave === 'sinProcedencia')?.cantidad ?? 0;
+    const sinIdentificar = sinProcedencia + sinFormulario;
+
+    // Procedencia con más clientes
+    const principal = identificadas[0] ?? null;
 
     return {
       filas,
+      identificadas,
+      totalIdentificada,
+      sinProcedencia,
+      sinIdentificar,
       total,
       conFormulario,
       sinFormulario,
@@ -175,113 +184,108 @@ export const MarketingDashboard = () => {
   };
 
   // =====================================================================
-  //  GRÁFICA COMBINADA: barras (clientes) + línea (% del total)
+  //  PROCEDENCIA DE CLIENTES (solo procedencia identificada)
+  //  Barras horizontales ordenadas de mayor a menor, con el icono de cada
+  //  medio. A la derecha: clientes, % del total y % de lo identificado.
   // =====================================================================
   const renderGrafica = () => {
-    const filas = reporte.filas;
-    const n = filas.length;
-
-    const W = 1080, H = 560, pl = 74, pr = 84, pt = 54, pb = 168;
-    const iw = W - pl - pr, ih = H - pt - pb;
-
-    const divisiones = 6;
+    const filas = reporte.identificadas;
     const maxCantidad = Math.max(...filas.map(f => f.cantidad), 1);
-    const maxPct = Math.max(...filas.map(f => f.pct), 1);
-    const topCantidad = escalaMaxima(maxCantidad, divisiones);
-    const topPct = Math.min(escalaMaxima(maxPct, divisiones), 100);
-
-    const colW = iw / n;
-    const X = (i: number) => pl + colW * i + colW / 2;
-    const YCantidad = (v: number) => pt + ih - (v / topCantidad) * ih;
-    const YPct = (v: number) => pt + ih - (v / topPct) * ih;
-
-    const anchoBarra = Math.min(colW * 0.46, 56);
-    const poly = filas.map((f, i) => `${X(i).toFixed(1)},${YPct(f.pct).toFixed(1)}`).join(' ');
 
     return (
-      <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
-          <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
+      <div style={{ width: '100%' }}>
+        {/* Encabezado de columnas */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 110px 130px',
+          gap: '0.75rem', alignItems: 'end', padding: '0 0.9rem 0.6rem 0.9rem',
+          borderBottom: '1px solid var(--border)'
+        }}>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Procedencia
+          </span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'right' }}>
+            Clientes
+          </span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'right', lineHeight: 1.25 }}>
+            % del total<br /><span style={{ fontWeight: 700, opacity: 0.75 }}>({reporte.total})</span>
+          </span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--primary)', textAlign: 'right', lineHeight: 1.25 }}>
+            % identificada<br /><span style={{ fontWeight: 700, opacity: 0.75 }}>({reporte.totalIdentificada})</span>
+          </span>
+        </div>
 
-          {/* Leyenda */}
-          <g>
-            <rect x={pl} y={20} width="16" height="16" rx="3" fill={COLOR_BARRA} />
-            <text x={pl + 24} y={33} fontSize="15" fontWeight="700" fill="#e2e8f0">Clientes</text>
-            <line x1={pl + 116} y1={28} x2={pl + 156} y2={28} stroke={COLOR_LINEA} strokeWidth="4" strokeLinecap="round" />
-            <circle cx={pl + 136} cy={28} r="6" fill={COLOR_LINEA} stroke="#ffffff" strokeWidth="2" />
-            <text x={pl + 166} y={33} fontSize="15" fontWeight="700" fill="#e2e8f0">% del total</text>
-          </g>
-
-          {/* Rejilla y ejes */}
-          {Array.from({ length: divisiones + 1 }).map((_, k) => {
-            const vCant = (topCantidad / divisiones) * k;
-            const vPct = (topPct / divisiones) * k;
-            const yy = YCantidad(vCant);
-            return (
-              <g key={`grid-${k}`}>
-                <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="#48515e" strokeWidth="1" opacity="0.65" />
-                <text x={pl - 12} y={yy + 5} textAnchor="end" fontSize="15" fontWeight="700" fill="#9fb0c4">
-                  {Math.round(vCant).toLocaleString('en-US')}
-                </text>
-                <text x={W - pr + 12} y={yy + 5} textAnchor="start" fontSize="15" fontWeight="700" fill={COLOR_LINEA}>
-                  {vPct.toFixed(vPct >= 10 ? 0 : 1)}%
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Barras: cantidad de clientes por procedencia */}
-          {filas.map((f, i) => {
-            const alto = Math.max(pt + ih - YCantidad(f.cantidad), 0);
-            const x = X(i) - anchoBarra / 2;
-            const y = YCantidad(f.cantidad);
-            return (
-              <g key={`bar-${f.clave}`}>
-                <title>{`${f.etiqueta}: ${f.cantidad} clientes (${f.pct.toFixed(2)}%)`}</title>
-                <rect x={x} y={y} width={anchoBarra} height={alto} rx="4" fill={COLOR_BARRA} opacity="0.95" />
-                {f.cantidad > 0 && (
-                  <text x={X(i)} y={y - 9} textAnchor="middle" fontSize="16" fontWeight="800" fill="#ffffff">
-                    {f.cantidad.toLocaleString('en-US')}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Línea: porcentaje que representa cada procedencia */}
-          <polyline points={poly} fill="none" stroke={COLOR_LINEA} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          {filas.map((f, i) => {
-            const cy = YPct(f.pct);
-            // El porcentaje exacto se lee en el eje derecho, en la tabla del
-            // reporte y al pasar el puntero sobre el punto: no se rotula aquí
-            // para no encimarse con las cifras de las barras.
-            return (
-              <g key={`pt-${f.clave}`}>
-                <title>{`${f.etiqueta}: ${f.pct.toFixed(2)}% del total`}</title>
-                <circle cx={X(i)} cy={cy} r="6" fill={COLOR_LINEA} stroke="#ffffff" strokeWidth="2" />
-              </g>
-            );
-          })}
-
-          {/* Eje X: nombre corto de cada procedencia (girado para que quepa) */}
-          {filas.map((f, i) => (
-            <text
-              key={`xl-${f.clave}`}
-              x={X(i)}
-              y={pt + ih + 18}
-              textAnchor="end"
-              fontSize="15"
-              fontWeight="700"
-              fill="#e2e8f0"
-              transform={`rotate(-38 ${X(i)} ${pt + ih + 18})`}
+        {/* Una fila por procedencia */}
+        {filas.map(f => {
+          const ancho = maxCantidad > 0 ? (f.cantidad / maxCantidad) * 100 : 0;
+          const apagada = f.cantidad === 0;
+          return (
+            <div
+              key={f.clave}
+              style={{
+                display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 110px 130px',
+                gap: '0.75rem', alignItems: 'center', padding: '0.6rem 0.9rem',
+                borderBottom: '1px solid var(--border)', opacity: apagada ? 0.45 : 1
+              }}
             >
-              {f.corta}
-            </text>
-          ))}
+              {/* Icono, nombre y barra */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <PastillaProcedencia clave={f.clave} size={34} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.35rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {f.etiqueta}
+                  </div>
+                  <div style={{ height: '14px', backgroundColor: 'var(--bg-highlight)', borderRadius: '7px', overflow: 'hidden' }}>
+                    <div
+                      title={`${f.etiqueta}: ${f.cantidad} clientes`}
+                      style={{
+                        width: `${ancho}%`, height: '100%', borderRadius: '7px',
+                        background: `linear-gradient(90deg, ${f.color} 0%, ${f.color}bb 100%)`,
+                        boxShadow: apagada ? 'none' : `0 0 10px ${f.color}55`,
+                        transition: 'width 0.45s ease'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
 
-          {/* Línea base del eje X */}
-          <line x1={pl} y1={pt + ih} x2={W - pr} y2={pt + ih} stroke="#94a3b8" strokeWidth="1.5" opacity="0.8" />
-        </svg>
+              <span style={{ textAlign: 'right', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                {f.cantidad.toLocaleString('en-US')}
+              </span>
+              <span style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                {f.pct.toFixed(2)}%
+              </span>
+              <span style={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)' }}>
+                {f.pctIdentificada.toFixed(2)}%
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Total de lo identificado */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 110px 130px',
+          gap: '0.75rem', alignItems: 'center', padding: '0.85rem 0.9rem',
+          backgroundColor: 'var(--bg-highlight)', borderRadius: '0 0 10px 10px'
+        }}>
+          <strong style={{ fontSize: '0.8rem', fontWeight: 900, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-main)' }}>
+            Total procedencia identificada
+          </strong>
+          <span style={{ textAlign: 'right', fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-main)' }}>
+            {reporte.totalIdentificada.toLocaleString('en-US')}
+          </span>
+          <span style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+            {(reporte.total > 0 ? (reporte.totalIdentificada / reporte.total) * 100 : 0).toFixed(2)}%
+          </span>
+          <span style={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 900, color: 'var(--primary)' }}>
+            100.00%
+          </span>
+        </div>
+
+        <p style={{ margin: '0.85rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--danger)' }}>{reporte.sinIdentificar.toLocaleString('en-US')} clientes</strong>
+          {' '}({(reporte.total > 0 ? (reporte.sinIdentificar / reporte.total) * 100 : 0).toFixed(2)} %) no tienen su procedencia identificada.
+          Meta recomendada: reducir esta cifra mes a mes.
+        </p>
       </div>
     );
   };
@@ -532,17 +536,19 @@ export const MarketingDashboard = () => {
             <div className="kpi-card logrado">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
               <div className="kpi-value">{reporte.total.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{reporte.periodos} {reporte.periodos === 1 ? 'periodo' : 'periodos'} capturados</small>
+              <small style={{ color: 'var(--text-muted)' }}>Clientes nuevos + sin procedencia</small>
             </div>
             <div className="kpi-card meta">
-              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.conFormulario" defecto="Con formulario" /> <Megaphone size={16} /></div>
-              <div className="kpi-value">{reporte.conFormulario.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.conFormulario).toFixed(2)} % del total</small>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.nuevos" defecto="Clientes nuevos" /> <Megaphone size={16} /></div>
+              <div className="kpi-value">{reporte.totalIdentificada.toLocaleString('en-US')}</div>
+              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.totalIdentificada).toFixed(2)} % · procedencia identificada</small>
             </div>
             <div className="kpi-card faltante">
-              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin formulario" /> <ClipboardX size={16} /></div>
-              <div className="kpi-value">{reporte.sinFormulario.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.sinFormulario).toFixed(2)} % del total</small>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin procedencia" /> <ClipboardX size={16} /></div>
+              <div className="kpi-value">{reporte.sinIdentificar.toLocaleString('en-US')}</div>
+              <small style={{ color: 'var(--text-muted)' }}>
+                {reporte.sinProcedencia.toLocaleString('en-US')} sin procedencia + {reporte.sinFormulario.toLocaleString('en-US')} sin formulario
+              </small>
             </div>
             <div className="kpi-card logrado">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.principal" defecto="Principal procedencia" /> <Award size={16} /></div>
@@ -550,7 +556,7 @@ export const MarketingDashboard = () => {
                 {reporte.principal ? reporte.principal.corta : '—'}
               </div>
               <small style={{ color: 'var(--text-muted)' }}>
-                {reporte.principal ? `${reporte.principal.cantidad} clientes · ${reporte.principal.pct.toFixed(2)} %` : 'Sin información'}
+                {reporte.principal ? `${reporte.principal.cantidad} clientes · ${reporte.principal.pctIdentificada.toFixed(2)} % de lo identificado` : 'Sin información'}
               </small>
             </div>
           </div>
@@ -613,8 +619,8 @@ export const MarketingDashboard = () => {
                   {reporte.filas.map(f => (
                     <tr key={f.clave}>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                          <span style={{ width: '11px', height: '11px', borderRadius: '3px', backgroundColor: f.color, flexShrink: 0 }} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                          <PastillaProcedencia clave={f.clave} size={26} />
                           {f.etiqueta}
                         </span>
                       </td>
