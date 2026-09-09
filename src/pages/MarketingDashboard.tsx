@@ -9,11 +9,7 @@ import {
   useMarketingGastos, aporteMarketing, gastosMarketing, fondosMarketing
 } from '../hooks/useMarketingGastos';
 import { PastillaProcedencia } from '../components/IconosMarketing';
-<<<<<<< HEAD
-import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign } from 'lucide-react';
-=======
 import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign, GripVertical, Palette } from 'lucide-react';
->>>>>>> 6f749d2 (Correcciones generales)
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 import { TextoEditable } from '../components/TextoEditable';
 
@@ -249,51 +245,19 @@ export const MarketingDashboard = () => {
   };
 
   // =====================================================================
-<<<<<<< HEAD
-  //  PROCEDENCIA DE CLIENTES (solo procedencia identificada)
-  //  Barras horizontales ordenadas de mayor a menor, con el icono de cada
-  //  medio. A la derecha: clientes, % del total y % de lo identificado.
-=======
   //  PROCEDENCIA DE CLIENTES
   //  Barras horizontales gruesas y cuadradas, en el color elegido. Cada fila
   //  se puede arrastrar para reordenar (el orden se guarda para todos).
->>>>>>> 6f749d2 (Correcciones generales)
   // =====================================================================
   const PALETA_GRAFICA = ['#1d8cf8', '#00d6b4', '#8965e0', '#ff8d72', '#ffbc11', '#2dce89', '#e14eca', '#f56036'];
 
   const renderGrafica = () => {
-<<<<<<< HEAD
-    const filas = reporte.identificadas;
-=======
     // Las filas se dibujan en el orden configurado
     const filas = filasOrdenadas;
->>>>>>> 6f749d2 (Correcciones generales)
     const maxCantidad = Math.max(...filas.map(f => f.cantidad), 1);
 
     return (
       <div style={{ width: '100%' }}>
-<<<<<<< HEAD
-        {/* Encabezado de columnas */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 110px 130px',
-          gap: '0.75rem', alignItems: 'end', padding: '0 0.9rem 0.6rem 0.9rem',
-          borderBottom: '1px solid var(--border)'
-        }}>
-          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Procedencia
-          </span>
-          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'right' }}>
-            Clientes
-          </span>
-          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'right', lineHeight: 1.25 }}>
-            % del total<br /><span style={{ fontWeight: 700, opacity: 0.75 }}>({reporte.total})</span>
-          </span>
-          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--primary)', textAlign: 'right', lineHeight: 1.25 }}>
-            % identificada<br /><span style={{ fontWeight: 700, opacity: 0.75 }}>({reporte.totalIdentificada})</span>
-          </span>
-        </div>
-
-=======
         {/* Barra de herramientas: color de la gráfica */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
           <small style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
@@ -343,20 +307,10 @@ export const MarketingDashboard = () => {
           </span>
         </div>
 
->>>>>>> 6f749d2 (Correcciones generales)
         {/* Una fila por procedencia */}
         {filas.map(f => {
           const ancho = maxCantidad > 0 ? (f.cantidad / maxCantidad) * 100 : 0;
           const apagada = f.cantidad === 0;
-<<<<<<< HEAD
-          return (
-            <div
-              key={f.clave}
-              style={{
-                display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 110px 130px',
-                gap: '0.75rem', alignItems: 'center', padding: '0.6rem 0.9rem',
-                borderBottom: '1px solid var(--border)', opacity: apagada ? 0.45 : 1
-=======
           const esDestino = encima === f.clave && arrastrando !== f.clave;
           return (
             <div
@@ -375,7 +329,6 @@ export const MarketingDashboard = () => {
                 backgroundColor: arrastrando === f.clave ? 'var(--bg-highlight)' : 'transparent',
                 opacity: arrastrando === f.clave ? 0.5 : (apagada ? 0.55 : 1),
                 cursor: 'grab'
->>>>>>> 6f749d2 (Correcciones generales)
               }}
             >
               {/* Icono, nombre y barra */}
@@ -385,16 +338,6 @@ export const MarketingDashboard = () => {
                   <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.35rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {f.etiqueta}
                   </div>
-<<<<<<< HEAD
-                  <div style={{ height: '14px', backgroundColor: 'var(--bg-highlight)', borderRadius: '7px', overflow: 'hidden' }}>
-                    <div
-                      title={`${f.etiqueta}: ${f.cantidad} clientes`}
-                      style={{
-                        width: `${ancho}%`, height: '100%', borderRadius: '7px',
-                        background: `linear-gradient(90deg, ${f.color} 0%, ${f.color}bb 100%)`,
-                        boxShadow: apagada ? 'none' : `0 0 10px ${f.color}55`,
-                        transition: 'width 0.45s ease'
-=======
                   {/* Barra gruesa y de esquinas rectas */}
                   <div style={{ height: '26px', backgroundColor: 'var(--bg-highlight)' }}>
                     <div
@@ -403,7 +346,6 @@ export const MarketingDashboard = () => {
                         width: `${ancho}%`, height: '100%',
                         backgroundColor: colorGrafica,
                         transition: 'width 0.45s ease, background-color 0.2s'
->>>>>>> 6f749d2 (Correcciones generales)
                       }}
                     />
                   </div>
@@ -413,40 +355,13 @@ export const MarketingDashboard = () => {
               <span style={{ textAlign: 'right', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
                 {f.cantidad.toLocaleString('en-US')}
               </span>
-<<<<<<< HEAD
-              <span style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                {f.pct.toFixed(2)}%
-              </span>
-              <span style={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, color: 'var(--primary)' }}>
-                {f.pctIdentificada.toFixed(2)}%
-              </span>
-=======
               <span style={{ textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, color: colorGrafica }}>
                 {f.pct.toFixed(2)}%
               </span>
->>>>>>> 6f749d2 (Correcciones generales)
             </div>
           );
         })}
 
-<<<<<<< HEAD
-        {/* Total de lo identificado */}
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 110px 130px',
-          gap: '0.75rem', alignItems: 'center', padding: '0.85rem 0.9rem',
-          backgroundColor: 'var(--bg-highlight)', borderRadius: '0 0 10px 10px'
-        }}>
-          <strong style={{ fontSize: '0.8rem', fontWeight: 900, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-main)' }}>
-            Total procedencia identificada
-          </strong>
-          <span style={{ textAlign: 'right', fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-main)' }}>
-            {reporte.totalIdentificada.toLocaleString('en-US')}
-          </span>
-          <span style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-muted)' }}>
-            {(reporte.total > 0 ? (reporte.totalIdentificada / reporte.total) * 100 : 0).toFixed(2)}%
-          </span>
-          <span style={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 900, color: 'var(--primary)' }}>
-=======
         {/* Total general */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 120px',
@@ -460,7 +375,6 @@ export const MarketingDashboard = () => {
             {reporte.total.toLocaleString('en-US')}
           </span>
           <span style={{ textAlign: 'right', fontSize: '0.95rem', fontWeight: 900, color: colorGrafica }}>
->>>>>>> 6f749d2 (Correcciones generales)
             100.00%
           </span>
         </div>
