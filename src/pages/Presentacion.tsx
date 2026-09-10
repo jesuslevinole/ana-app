@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useEtiquetas } from '../context/EtiquetasContext';
 import {
   usePresentaciones, idDesdeNombre, normalizarTexto, DIAPOSITIVA_VACIA,
-  SIN_ANO, SIN_TALLER, SIN_MES,
+  SIN_ANO, SIN_MES,
   type Presentacion as TipoPresentacion, type DiapositivaTexto
 } from '../hooks/usePresentaciones';
 import { ContextoFiltroPresentacion, type FiltroPresentacion } from '../context/filtroPresentacion';
@@ -29,7 +29,7 @@ import { MarketingDashboard } from './MarketingDashboard';
 import {
   MonitorPlay, Plus, Play, Pencil, Trash2, Save, X, ChevronLeft, ChevronRight,
   ArrowUp, ArrowDown, Check, GripVertical, Maximize2, Minimize2, Info, Presentation,
-  Folder, Filter, ListPlus, ChevronDown, Store, CalendarRange
+  Folder, Filter, ChevronDown, Store, CalendarRange
 } from 'lucide-react';
 
 // =========================================================================
@@ -94,7 +94,6 @@ export const Presentacion = () => {
   // --- Editor ---
   const [modalAbierto, setModalAbierto] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
-  const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [vistas, setVistas] = useState<string[]>([]);
   // Filtro inicial: manda sobre todas las diapositivas y define la carpeta
@@ -146,17 +145,26 @@ export const Presentacion = () => {
   );
 
   // =====================================================================
-  //  ÁRBOL DE CARPETAS: Año → Taller → Mes
+  //  ÁRBOL DE CARPETAS: Año → Mes
   //  Los años y los meses van de mayor a menor (lo más reciente primero),
-  //  que es como se revisa en las juntas.
+  //  que es como se revisa en las juntas. Dentro de cada mes vive una
+  //  presentación por taller, generadas todas de una vez.
   // =====================================================================
   const carpetaAno = (p: TipoPresentacion) => p.ano?.trim() || SIN_ANO;
-  const carpetaTaller = (p: TipoPresentacion) => p.taller?.trim() || SIN_TALLER;
+  // Logo y color del taller de una presentación, para pintar su tarjeta y su
+  // portada sin tener que configurarlos a mano.
+  const datosTaller = (nombreTaller?: string) => {
+    const t = talleres.find(x => x.nombre === nombreTaller) || null;
+    return {
+      nombre: t?.nombre || nombreTaller || '',
+      logo: t?.logo || '',
+      color: (t && (t as unknown as { color?: string }).color) || '#1d8cf8',
+    };
+  };
   const carpetaMes = (p: TipoPresentacion) => p.mes?.trim() || SIN_MES;
 
-  // Carpeta seleccionada. Con año/taller/mes en null se ven todas.
+  // Carpeta seleccionada. Con año y mes en null se ven todas.
   const [selAno, setSelAno] = useState<string | null>(null);
-  const [selTaller, setSelTaller] = useState<string | null>(null);
   const [selMes, setSelMes] = useState<string | null>(null);
 
   // Nodos desplegados del árbol y estado del panel lateral
@@ -180,13 +188,7 @@ export const Presentacion = () => {
     return MESES.indexOf(b) - MESES.indexOf(a);
   };
 
-  const ordenarTalleres = (a: string, b: string) => {
-    if (a === SIN_TALLER) return 1;
-    if (b === SIN_TALLER) return -1;
-    return a.localeCompare(b);
-  };
-
-  // Árbol completo: años, sus talleres y los meses de cada taller
+  // Árbol completo: años y los meses de cada año
   const arbol = useMemo(() => {
     const porAno = new Map<string, TipoPresentacion[]>();
     presentacionesOrdenadas.forEach(p => {
@@ -195,27 +197,16 @@ export const Presentacion = () => {
     });
 
     return Array.from(porAno.keys()).sort(ordenarAnos).map(ano => {
-      const dePorAno = porAno.get(ano) || [];
-      const porTaller = new Map<string, TipoPresentacion[]>();
-      dePorAno.forEach(p => {
-        const k = carpetaTaller(p);
-        porTaller.set(k, [...(porTaller.get(k) || []), p]);
+      const delAno = porAno.get(ano) || [];
+      const porMes = new Map<string, TipoPresentacion[]>();
+      delAno.forEach(p => {
+        const k = carpetaMes(p);
+        porMes.set(k, [...(porMes.get(k) || []), p]);
       });
-
-      const talleresNodo = Array.from(porTaller.keys()).sort(ordenarTalleres).map(taller => {
-        const deTaller = porTaller.get(taller) || [];
-        const porMes = new Map<string, TipoPresentacion[]>();
-        deTaller.forEach(p => {
-          const k = carpetaMes(p);
-          porMes.set(k, [...(porMes.get(k) || []), p]);
-        });
-        const mesesNodo = Array.from(porMes.keys()).sort(ordenarMeses).map(mes => ({
-          mes, total: (porMes.get(mes) || []).length,
-        }));
-        return { taller, total: deTaller.length, meses: mesesNodo };
-      });
-
-      return { ano, total: dePorAno.length, talleres: talleresNodo };
+      const mesesNodo = Array.from(porMes.keys()).sort(ordenarMeses).map(mes => ({
+        mes, total: (porMes.get(mes) || []).length,
+      }));
+      return { ano, total: delAno.length, meses: mesesNodo };
     });
   }, [presentacionesOrdenadas]);
 
@@ -223,13 +214,12 @@ export const Presentacion = () => {
   const listaCarpeta = useMemo(
     () => presentacionesOrdenadas
       .filter(p => !selAno || carpetaAno(p) === selAno)
-      .filter(p => !selTaller || carpetaTaller(p) === selTaller)
       .filter(p => !selMes || carpetaMes(p) === selMes),
-    [presentacionesOrdenadas, selAno, selTaller, selMes]
+    [presentacionesOrdenadas, selAno, selMes]
   );
 
   // Nombre de la carpeta abierta, para el encabezado de la lista
-  const rutaCarpeta = [selAno, selTaller, selMes].filter(Boolean).join('  ›  ') || 'Todas las presentaciones';
+  const rutaCarpeta = [selAno, selMes].filter(Boolean).join('  ›  ') || 'Todas las presentaciones';
 
   // --- ARRASTRAR Y SOLTAR para reordenar las presentaciones ---
   const [arrastrandoId, setArrastrandoId] = useState<string | null>(null);
@@ -253,9 +243,18 @@ export const Presentacion = () => {
   // =====================================================================
   //  EDITOR
   // =====================================================================
+  // El nombre sale del filtro: AÑO · MES. Es el mismo para todos los talleres
+  // del mes, que se distinguen por su logo y su color en la tarjeta.
+  const nombre = [filtroAno, filtroMes].filter(x => x && x.trim()).join(' · ');
+
+  // Talleres del sistema, en su orden de visualización
+  const talleresOrdenados = useMemo(
+    () => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)),
+    [talleres]
+  );
+
   const abrirNueva = () => {
     setEditandoId(null);
-    setNombre('');
     setDescripcion('');
     setVistas([]);
     setFiltroAno(String(new Date().getFullYear()));
@@ -265,20 +264,13 @@ export const Presentacion = () => {
     // Una presentación nueva llega con portada y cierre listos para usarse.
     // La portada trae los textos pedidos por la gerencia; "{mes}" se sustituye
     // solo al reproducir, según el mes de la presentación.
-    setPortada({
-      ...DIAPOSITIVA_VACIA,
-      activa: true,
-      titulo: "Presentación de KPI's",
-      subtitulo: "KPI's: Key Performance Indicators - Indicadores clave de desempeño",
-      puntos: ['Resultados mes de {mes}'],
-    });
-    setCierre({ ...DIAPOSITIVA_VACIA, activa: true, titulo: 'Gracias', subtitulo: '¿Preguntas?' });
+    setPortada({ ...DIAPOSITIVA_VACIA, activa: true, titulo: "Presentación de KPI's" });
+    setCierre({ ...DIAPOSITIVA_VACIA, activa: true, titulo: 'Gracias' });
     setModalAbierto(true);
   };
 
   const abrirEditar = (p: TipoPresentacion) => {
     setEditandoId(p.id);
-    setNombre(p.nombre);
     setDescripcion(p.descripcion || '');
     setVistas([...p.vistas]);
     setFiltroAno(p.ano || '');
@@ -310,34 +302,80 @@ export const Presentacion = () => {
     setArrastrando(null);
   };
 
+  // Id de la presentación de un taller dentro de un mes
+  const idDeTaller = (ano: string, mes: string, taller: string) =>
+    idDesdeNombre(`${ano}-${mes}-${taller}`);
+
   const guardar = async () => {
-    if (!nombre.trim()) { alert('Escribe un nombre para la presentación.'); return; }
+    if (!nombre.trim()) { alert('Elige el año y el mes: de ahí sale el nombre.'); return; }
     if (vistas.length === 0 && !portada.activa && !cierre.activa) {
-      alert('Agrega al menos un módulo, una portada o un cierre a la presentación.');
+      alert('Agrega al menos un módulo, una portada o una conclusión.');
       return;
     }
-    const id = editandoId || idDesdeNombre(nombre);
-    if (!editandoId && presentaciones.some(p => p.id === id)) {
-      alert('Ya existe una presentación con ese nombre. Usa otro.');
-      return;
-    }
+
     setGuardando(true);
     try {
-      const existente = presentaciones.find(p => p.id === id);
-      await guardarPresentacion({
-        id,
+      // --- EDICIÓN: solo se actualiza la presentación abierta ---
+      if (editandoId) {
+        const existente = presentaciones.find(p => p.id === editandoId);
+        await guardarPresentacion({
+          id: editandoId,
+          nombre: nombre.trim(),
+          descripcion: descripcion.trim(),
+          vistas,
+          ano: filtroAno,
+          taller: filtroTaller,
+          mes: filtroMes,
+          semanas: filtroSemanas,
+          portada,
+          cierre,
+          creadoEn: existente?.creadoEn,
+          orden: existente?.orden,
+        });
+        setModalAbierto(false);
+        return;
+      }
+
+      // --- ALTA: se genera una presentación por cada taller del sistema ---
+      if (talleresOrdenados.length === 0) {
+        alert('No hay talleres registrados. Crea al menos uno en el módulo "Talleres".');
+        return;
+      }
+
+      const yaExisten = talleresOrdenados.filter(t =>
+        presentaciones.some(p => p.id === idDeTaller(filtroAno, filtroMes, t.nombre))
+      );
+      if (yaExisten.length > 0) {
+        const seguir = confirm(
+          `${yaExisten.length} de ${talleresOrdenados.length} talleres ya tienen presentación de ${nombre}.\n\n` +
+          'Se respetan tal cual (con sus ediciones) y solo se crean las que faltan. ¿Continuar?'
+        );
+        if (!seguir) return;
+      }
+
+      const nuevos = talleresOrdenados.filter(t =>
+        !presentaciones.some(p => p.id === idDeTaller(filtroAno, filtroMes, t.nombre))
+      );
+
+      await Promise.all(nuevos.map(t => guardarPresentacion({
+        id: idDeTaller(filtroAno, filtroMes, t.nombre),
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         vistas,
         ano: filtroAno,
-        taller: filtroTaller,
+        taller: t.nombre,          // cada una queda filtrada por su taller
         mes: filtroMes,
         semanas: filtroSemanas,
         portada,
         cierre,
-        creadoEn: existente?.creadoEn,
-      });
+        orden: (talleresOrdenados.indexOf(t) + 1) * 10,
+      })));
+
+      // Al terminar se abre la carpeta del mes recién generado
+      setSelAno(filtroAno || SIN_ANO);
+      setSelMes(filtroMes || SIN_MES);
       setModalAbierto(false);
+      if (nuevos.length === 0) alert('Todos los talleres ya tenían su presentación de este mes.');
     } finally {
       setGuardando(false);
     }
@@ -490,7 +528,7 @@ export const Presentacion = () => {
 
   // PORTADA / CIERRE: pantalla completa con el color y el logo del taller
   const dibujarTexto = (texto: DiapositivaTexto, esPortada: boolean) => {
-    const taller = talleres.find(t => t.nombre === texto.taller) || null;
+    const taller = talleres.find(t => t.nombre === (texto.taller || reproduciendo?.taller)) || null;
     const color = (taller && (taller as unknown as { color?: string }).color) || '#1d8cf8';
     const textoSobre = colorTextoSobre(color);
     const titulo = conPlaceholders(
@@ -725,17 +763,8 @@ export const Presentacion = () => {
     asignar: (v: DiapositivaTexto) => void,
     ayuda: string
   ) => {
-    const cambiar = (campo: keyof DiapositivaTexto, dato: string | boolean | string[]) =>
+    const cambiar = (campo: keyof DiapositivaTexto, dato: string | boolean) =>
       asignar({ ...valor, [campo]: dato });
-
-    const puntos = valor.puntos || [];
-    const cambiarPunto = (i: number, texto: string) => {
-      const next = [...puntos];
-      next[i] = texto;
-      cambiar('puntos', next);
-    };
-    const agregarPunto = () => cambiar('puntos', [...puntos, '']);
-    const quitarPunto = (i: number) => cambiar('puntos', puntos.filter((_, k) => k !== i));
 
     return (
       <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
@@ -771,64 +800,6 @@ export const Presentacion = () => {
                 onChange={e => cambiar('titulo', e.target.value)}
                 placeholder={titulo === 'Portada' ? "Ej: Presentación de KPI's" : 'Ej: Gracias'}
               />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Subtítulo <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-              <input
-                className="form-control"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={valor.subtitulo || ''}
-                onChange={e => cambiar('subtitulo', e.target.value)}
-                placeholder={titulo === 'Portada' ? "Ej: KPI's: Key Performance Indicators" : 'Ej: ¿Preguntas?'}
-              />
-            </div>
-            {/* VIÑETAS: sirven sobre todo para escribir las conclusiones */}
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">
-                Puntos <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional, uno por línea)</small>
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                {puntos.map((punto, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <input
-                      className="form-control"
-                      style={{ flex: 1, minWidth: 0, boxSizing: 'border-box' }}
-                      value={punto}
-                      onChange={e => cambiarPunto(i, e.target.value)}
-                      placeholder={`Punto ${i + 1}`}
-                    />
-                    <button onClick={() => quitarPunto(i)} className="btn btn-outline" style={{ padding: '0.35rem', color: 'var(--danger)' }} title="Quitar punto">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button onClick={agregarPunto} className="btn btn-outline" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: 'var(--primary)', fontSize: '0.78rem' }}>
-                  <ListPlus size={15} /> Agregar punto
-                </button>
-              </div>
-            </div>
-
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Pie <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-              <input
-                className="form-control"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={valor.pie || ''}
-                onChange={e => cambiar('pie', e.target.value)}
-                placeholder="Ej: Preparado por Jesús Molero"
-              />
-            </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label">Logo y color del taller <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
-              <select
-                className="form-control"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={valor.taller || ''}
-                onChange={e => cambiar('taller', e.target.value)}
-              >
-                <option value="">Sin logo (color por defecto)</option>
-                {talleres.map(tl => <option key={tl.id} value={tl.nombre}>{tl.nombre}</option>)}
-              </select>
             </div>
             <div
               onClick={() => cambiar('mostrarPeriodo', !valor.mostrarPeriodo)}
@@ -938,8 +909,9 @@ export const Presentacion = () => {
           {panelAbierto && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
               {/* Raíz: todas las presentaciones */}
+              {/* Raíz: todas las presentaciones */}
               <button
-                onClick={() => { setSelAno(null); setSelTaller(null); setSelMes(null); }}
+                onClick={() => { setSelAno(null); setSelMes(null); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%',
                   background: !selAno ? 'var(--bg-highlight)' : 'none', border: 'none',
@@ -956,7 +928,7 @@ export const Presentacion = () => {
               {arbol.map(nodoAno => {
                 const claveAno = `ano:${nodoAno.ano}`;
                 const anoDesplegado = ramasAbiertas.includes(claveAno);
-                const anoActivo = selAno === nodoAno.ano && !selTaller;
+                const anoActivo = selAno === nodoAno.ano && !selMes;
                 return (
                   <div key={claveAno}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
@@ -968,7 +940,7 @@ export const Presentacion = () => {
                         {anoDesplegado ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </button>
                       <button
-                        onClick={() => { setSelAno(nodoAno.ano); setSelTaller(null); setSelMes(null); alternarRama(claveAno); }}
+                        onClick={() => { setSelAno(nodoAno.ano); setSelMes(null); alternarRama(claveAno); }}
                         style={{
                           display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1, minWidth: 0,
                           background: anoActivo ? 'var(--bg-highlight)' : 'none', border: 'none',
@@ -983,58 +955,25 @@ export const Presentacion = () => {
                       </button>
                     </div>
 
-                    {anoDesplegado && nodoAno.talleres.map(nodoTaller => {
-                      const claveTaller = `taller:${nodoAno.ano}:${nodoTaller.taller}`;
-                      const tallerDesplegado = ramasAbiertas.includes(claveTaller);
-                      const tallerActivo = selAno === nodoAno.ano && selTaller === nodoTaller.taller && !selMes;
+                    {anoDesplegado && nodoAno.meses.map(nodoMes => {
+                      const mesActivo = selAno === nodoAno.ano && selMes === nodoMes.mes;
                       return (
-                        <div key={claveTaller} style={{ paddingLeft: '1rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
-                            <button
-                              onClick={() => alternarRama(claveTaller)}
-                              style={{ background: 'none', border: 'none', padding: '0.25rem', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', flexShrink: 0 }}
-                              title={tallerDesplegado ? 'Contraer' : 'Desplegar'}
-                            >
-                              {tallerDesplegado ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                            </button>
-                            <button
-                              onClick={() => { setSelAno(nodoAno.ano); setSelTaller(nodoTaller.taller); setSelMes(null); alternarRama(claveTaller); }}
-                              style={{
-                                display: 'flex', alignItems: 'center', gap: '0.45rem', flex: 1, minWidth: 0,
-                                background: tallerActivo ? 'var(--bg-highlight)' : 'none', border: 'none',
-                                borderRadius: '6px', padding: '0.35rem 0.45rem', cursor: 'pointer',
-                                color: tallerActivo ? 'var(--text-main)' : 'var(--text-muted)',
-                                fontWeight: tallerActivo ? 700 : 500, fontSize: '0.8rem', textAlign: 'left'
-                              }}
-                            >
-                              <Store size={13} style={{ flexShrink: 0 }} />
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodoTaller.taller}</span>
-                              <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: 'var(--text-muted)' }}>{nodoTaller.total}</span>
-                            </button>
-                          </div>
-
-                          {tallerDesplegado && nodoTaller.meses.map(nodoMes => {
-                            const mesActivo = selAno === nodoAno.ano && selTaller === nodoTaller.taller && selMes === nodoMes.mes;
-                            return (
-                              <button
-                                key={`mes:${claveTaller}:${nodoMes.mes}`}
-                                onClick={() => { setSelAno(nodoAno.ano); setSelTaller(nodoTaller.taller); setSelMes(nodoMes.mes); }}
-                                style={{
-                                  display: 'flex', alignItems: 'center', gap: '0.45rem', width: 'calc(100% - 1.35rem)',
-                                  marginLeft: '1.35rem',
-                                  background: mesActivo ? 'rgba(29,140,248,0.15)' : 'none', border: 'none',
-                                  borderRadius: '6px', padding: '0.3rem 0.45rem', cursor: 'pointer',
-                                  color: mesActivo ? 'var(--primary)' : 'var(--text-muted)',
-                                  fontWeight: mesActivo ? 700 : 500, fontSize: '0.78rem', textAlign: 'left'
-                                }}
-                              >
-                                <CalendarRange size={12} style={{ flexShrink: 0 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodoMes.mes}</span>
-                                <span style={{ marginLeft: 'auto', fontSize: '0.68rem' }}>{nodoMes.total}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <button
+                          key={`mes:${claveAno}:${nodoMes.mes}`}
+                          onClick={() => { setSelAno(nodoAno.ano); setSelMes(nodoMes.mes); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '0.45rem', width: 'calc(100% - 1.5rem)',
+                            marginLeft: '1.5rem',
+                            background: mesActivo ? 'rgba(29,140,248,0.15)' : 'none', border: 'none',
+                            borderRadius: '6px', padding: '0.35rem 0.45rem', cursor: 'pointer',
+                            color: mesActivo ? 'var(--primary)' : 'var(--text-muted)',
+                            fontWeight: mesActivo ? 700 : 500, fontSize: '0.8rem', textAlign: 'left'
+                          }}
+                        >
+                          <CalendarRange size={13} style={{ flexShrink: 0 }} />
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nodoMes.mes}</span>
+                          <span style={{ marginLeft: 'auto', fontSize: '0.68rem' }}>{nodoMes.total}</span>
+                        </button>
                       );
                     })}
                   </div>
@@ -1073,6 +1012,7 @@ export const Presentacion = () => {
                 const tienePortada = normalizarTexto(p.portada).activa;
                 const tieneCierre = normalizarTexto(p.cierre).activa;
                 const esDestino = sobreId === p.id && arrastrandoId !== p.id;
+                const tallerCard = datosTaller(p.taller);
                 return (
                   <div
                     key={p.id}
@@ -1087,15 +1027,36 @@ export const Presentacion = () => {
                       margin: 0, display: 'flex', flexDirection: 'column', gap: '0.85rem',
                       opacity: arrastrandoId === p.id ? 0.45 : 1,
                       border: esDestino ? '2px dashed var(--primary)' : '1px solid var(--border)',
+                      borderLeft: `5px solid ${tallerCard.color}`,
                       cursor: puedoEditar ? 'grab' : 'default'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem', minWidth: 0 }}>
                         {puedoEditar && <GripVertical size={16} color="var(--text-muted)" style={{ flexShrink: 0, marginTop: '2px' }} />}
+                        {/* Logo del taller, tomado del módulo Talleres */}
+                        {tallerCard.logo ? (
+                          <div style={{
+                            width: '46px', height: '46px', borderRadius: '10px', flexShrink: 0,
+                            backgroundColor: '#ffffff', border: `2px solid ${tallerCard.color}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px'
+                          }}>
+                            <img src={tallerCard.logo} alt={tallerCard.nombre} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                          </div>
+                        ) : (
+                          <div style={{
+                            width: '46px', height: '46px', borderRadius: '10px', flexShrink: 0,
+                            backgroundColor: tallerCard.color, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}>
+                            <Store size={20} color="#ffffff" />
+                          </div>
+                        )}
                         <div style={{ minWidth: 0 }}>
-                          <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '1.05rem' }}>{p.nombre}</h3>
-                          <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <h3 style={{ margin: 0, color: tallerCard.color, fontSize: '0.95rem', lineHeight: 1.2 }}>
+                            {tallerCard.nombre || 'Sin taller'}
+                          </h3>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '0.15rem' }}>{p.nombre}</div>
+                          <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                             {p.descripcion || `${totalDiapositivas} ${totalDiapositivas === 1 ? 'diapositiva' : 'diapositivas'}`}
                           </p>
                         </div>
@@ -1180,12 +1141,12 @@ export const Presentacion = () => {
       {modalAbierto && (
         <div
           onClick={() => setModalAbierto(false)}
-          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '4vh 1rem', overflowY: 'auto' }}
+          style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '3vh 1rem', overflowY: 'auto' }}
         >
           <div
             onClick={e => e.stopPropagation()}
             className="animate-in fade-in"
-            style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', width: '100%', maxWidth: '940px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+            style={{ backgroundColor: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '12px', width: '100%', maxWidth: '1240px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1204,19 +1165,24 @@ export const Presentacion = () => {
               </button>
             </div>
 
-            <div style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
-                <div className="form-group" style={{ minWidth: 0 }}>
-                  <label className="form-label">Nombre</label>
-                  <input
+            <div style={{ padding: '1.25rem 1.5rem' }}>
+              {/* NOMBRE: se arma solo con el año, el taller y el mes */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(0, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
+                  <label className="form-label">Nombre <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(año · taller · mes)</small></label>
+                  <div
                     className="form-control"
-                    style={{ width: '100%', boxSizing: 'border-box' }}
-                    value={nombre}
-                    onChange={e => setNombre(e.target.value)}
-                    placeholder="Ej: Junta mensual de gerencia"
-                  />
+                    style={{
+                      width: '100%', boxSizing: 'border-box', backgroundColor: 'var(--bg-highlight)',
+                      color: nombre ? 'var(--text-main)' : 'var(--text-muted)', fontWeight: 700,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                    }}
+                    title={nombre}
+                  >
+                    {nombre || 'Elige el año, el taller y el mes'}
+                  </div>
                 </div>
-                <div className="form-group" style={{ minWidth: 0 }}>
+                <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
                   <label className="form-label">Descripción <small style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(opcional)</small></label>
                   <input
                     className="form-control"
@@ -1228,8 +1194,11 @@ export const Presentacion = () => {
                 </div>
               </div>
 
+              {/* TRES COLUMNAS: filtro y textos · módulos · orden */}
+              <div className="pres-editor">
+              <div>
               {/* FILTRO INICIAL: manda sobre todas las diapositivas y ordena la carpeta */}
-              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', marginTop: '1.25rem', overflow: 'hidden' }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 1rem', backgroundColor: 'var(--bg-highlight)' }}>
                   <Filter size={16} color="var(--primary)" />
                   <div>
@@ -1239,7 +1208,7 @@ export const Presentacion = () => {
                     </div>
                   </div>
                 </div>
-                <div style={{ padding: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '1rem' }}>
+                <div style={{ padding: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem' }}>
                   <div className="form-group" style={{ margin: 0, minWidth: 0 }}>
                     <label className="form-label">Año</label>
                     <input
@@ -1276,17 +1245,17 @@ export const Presentacion = () => {
                 </div>
               </div>
 
-              {/* PORTADA Y CONCLUSIÓN */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
-                {editorTexto('Portada', portada, setPortada, 'Abre la exposición antes del primer módulo. Escribe {mes}, {año} o {taller} y se sustituyen solos al reproducir')}
+              {/* PORTADA Y CONCLUSIÓN, debajo del filtro */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', marginTop: '0.9rem' }}>
+                {editorTexto('Portada', portada, setPortada, 'Abre la exposición. Escribe {mes}, {año} o {taller} y se sustituyen solos')}
                 {editorTexto('Conclusión', cierre, setCierre, 'Cierra la exposición después del último módulo')}
               </div>
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', marginTop: '1.25rem' }}>
                 {/* MÓDULOS DISPONIBLES */}
                 <div>
                   <h4 className="detail-section-title" style={{ marginTop: 0 }}>Módulos disponibles</h4>
-                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '420px', overflowY: 'auto' }}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '46vh', overflowY: 'auto' }}>
                     {disponiblesPorGrupo.map(g => (
                       <div key={g.id}>
                         <div style={{ padding: '0.55rem 1rem', backgroundColor: 'var(--bg-highlight)', fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-main)' }}>
@@ -1324,7 +1293,7 @@ export const Presentacion = () => {
                   <h4 className="detail-section-title" style={{ marginTop: 0 }}>
                     Orden de las diapositivas {vistas.length > 0 && <span style={{ color: 'var(--primary)' }}>({vistas.length})</span>}
                   </h4>
-                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '420px', overflowY: 'auto' }}>
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden', maxHeight: '46vh', overflowY: 'auto' }}>
                     {vistas.length === 0 ? (
                       <div style={{ padding: '2.5rem 1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                         Marca módulos a la izquierda para agregarlos.
@@ -1385,7 +1354,7 @@ export const Presentacion = () => {
                 <X size={16} /> Cancelar
               </button>
               <button className="btn btn-primary" onClick={guardar} disabled={guardando || !puedoEditar} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: (guardando || !puedoEditar) ? 0.55 : 1 }}>
-                <Save size={16} /> {guardando ? 'Guardando...' : editandoId ? 'Actualizar' : 'Crear'}
+                <Save size={16} /> {guardando ? 'Guardando...' : editandoId ? 'Actualizar' : 'Generar'}
               </button>
             </div>
           </div>

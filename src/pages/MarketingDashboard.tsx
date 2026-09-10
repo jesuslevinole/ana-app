@@ -8,7 +8,8 @@ import {
 import {
   useMarketingGastos, aporteMarketing, gastosMarketing, fondosMarketing
 } from '../hooks/useMarketingGastos';
-import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign } from 'lucide-react';
+import { PastillaProcedencia } from '../components/IconosMarketing';
+import { BarChart3, Download, Printer, Users, ClipboardX, Award, Megaphone, DollarSign, GripVertical, Palette } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
 import { TextoEditable } from '../components/TextoEditable';
 
@@ -30,16 +31,6 @@ const colorTextoSobre = (hex: string): string => {
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? '#111827' : '#ffffff';
 };
 
-// Máximo "redondo" para la escala de un eje (1, 2, 5 × 10ⁿ por división)
-const escalaMaxima = (valor: number, divisiones: number): number => {
-  if (!isFinite(valor) || valor <= 0) return divisiones;
-  const bruto = valor / divisiones;
-  const magnitud = Math.pow(10, Math.floor(Math.log10(bruto)));
-  const norm = bruto / magnitud;
-  const paso = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * magnitud;
-  return paso * divisiones;
-};
-
 // Paso "bonito" para el eje de dinero (más fino que 1-2-5 para que la
 // gráfica no quede con la mitad del espacio vacío)
 const pasoBonito = (bruto: number): number => {
@@ -52,7 +43,6 @@ const pasoBonito = (bruto: number): number => {
 };
 
 const COLOR_BARRA = '#1d8cf8';
-const COLOR_LINEA = '#f97316';
 
 export const MarketingDashboard = () => {
   const contexto = useContext(AppContext);
@@ -65,6 +55,56 @@ export const MarketingDashboard = () => {
   );
 
   const anoActual = new Date().getFullYear();
+
+  // --- Orden y color de la gráfica, guardados en Firestore para todos ---
+  const ORDEN_FUENTES = [...FUENTES_MARKETING.map(f => f.clave), 'sinFormulario'];
+  const COLOR_POR_DEFECTO = '#1d8cf8';
+  const ordenGuardado = contexto?.marketingOrden;
+  const colorGuardado = contexto?.marketingColor;
+
+  // Mientras no se toque nada manda lo guardado en la nube; al arrastrar o
+  // cambiar el color, la elección local toma el mando hasta recargar.
+  const [ordenLocal, setOrdenLocal] = useState<string[] | null>(null);
+  const [colorLocal, setColorLocal] = useState<string | null>(null);
+  const [arrastrando, setArrastrando] = useState<string | null>(null);
+  const [encima, setEncima] = useState<string | null>(null);
+
+  // El orden se reconcilia con el catálogo actual, por si se agregó una
+  // procedencia nueva después de haber guardado el orden.
+  const firmaOrdenGuardado = Array.isArray(ordenGuardado) ? ordenGuardado.join('|') : '';
+  const ordenFilas = useMemo(() => {
+    const base = ordenLocal ?? (firmaOrdenGuardado ? firmaOrdenGuardado.split('|') : []);
+    const validos = base.filter(c => ORDEN_FUENTES.includes(c));
+    const faltantes = ORDEN_FUENTES.filter(c => !validos.includes(c));
+    return [...validos, ...faltantes];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ordenLocal, firmaOrdenGuardado]);
+
+  const colorGrafica = colorLocal || colorGuardado || COLOR_POR_DEFECTO;
+
+  const guardarConfig = (cambios: { orden?: string[]; color?: string }) => {
+    const guardar = contexto?.guardarMarketingConfig;
+    if (typeof guardar === 'function') guardar(cambios);
+  };
+
+  const soltarFila = (destino: string) => {
+    const origen = arrastrando;
+    setArrastrando(null);
+    setEncima(null);
+    if (!origen || origen === destino) return;
+    const nuevo = [...ordenFilas];
+    const desde = nuevo.indexOf(origen);
+    const hacia = nuevo.indexOf(destino);
+    if (desde < 0 || hacia < 0) return;
+    nuevo.splice(hacia, 0, nuevo.splice(desde, 1)[0]);
+    setOrdenLocal(nuevo);
+    guardarConfig({ orden: nuevo });
+  };
+
+  const cambiarColor = (color: string) => {
+    setColorLocal(color);
+    guardarConfig({ color });
+  };
   // Filtro heredado de la presentación (taller, año, mes y semanas). Si no se
   // está presentando, cada control arranca con su valor de siempre.
   const filtroPres = useFiltroPresentacion();
@@ -117,13 +157,31 @@ export const MarketingDashboard = () => {
       },
     ].map(f => ({ ...f, pct: total > 0 ? (f.cantidad / total) * 100 : 0 }));
 
-    // Procedencia con más clientes (sin contar a los que no llenaron formulario)
-    const principal = filas
-      .filter(f => f.clave !== 'sinFormulario')
-      .sort((a, b) => b.cantidad - a.cantidad)[0] ?? null;
+    // PROCEDENCIA IDENTIFICADA: se sabe por qué medio llegó el cliente. Deja
+    // fuera a "No se sabe su procedencia" y a "Cliente sin formulario".
+    const identificadas = filas
+      .filter(f => f.clave !== 'sinFormulario' && f.clave !== 'sinProcedencia')
+      .map(f => ({ ...f, pctIdentificada: 0 }))
+      .sort((a, b) => b.cantidad - a.cantidad);
+
+    const totalIdentificada = identificadas.reduce((acc, f) => acc + f.cantidad, 0);
+    identificadas.forEach(f => {
+      f.pctIdentificada = totalIdentificada > 0 ? (f.cantidad / totalIdentificada) * 100 : 0;
+    });
+
+    // Sin procedencia conocida: los que no se sabe + los que no llenaron formulario
+    const sinProcedencia = filas.find(f => f.clave === 'sinProcedencia')?.cantidad ?? 0;
+    const sinIdentificar = sinProcedencia + sinFormulario;
+
+    // Procedencia con más clientes
+    const principal = identificadas[0] ?? null;
 
     return {
       filas,
+      identificadas,
+      totalIdentificada,
+      sinProcedencia,
+      sinIdentificar,
       total,
       conFormulario,
       sinFormulario,
@@ -131,6 +189,18 @@ export const MarketingDashboard = () => {
       periodos: regs.length,
     };
   }, [registros, tallerSeleccionado, ano, mes]);
+
+  // Filas en el orden configurado, para que la gráfica y la tabla coincidan
+  type FilaReporte = (typeof reporte.filas)[number];
+  const filasOrdenadas: FilaReporte[] = useMemo(() => {
+    const porClave = new Map(reporte.filas.map(f => [f.clave, f]));
+    const salida: FilaReporte[] = [];
+    ordenFilas.forEach(c => {
+      const fila = porClave.get(c);
+      if (fila) salida.push(fila);
+    });
+    return salida;
+  }, [reporte.filas, ordenFilas]);
 
   const hayDatos = reporte.total > 0;
   const pct = (n: number) => (reporte.total > 0 ? (n / reporte.total) * 100 : 0);
@@ -175,113 +245,145 @@ export const MarketingDashboard = () => {
   };
 
   // =====================================================================
-  //  GRÁFICA COMBINADA: barras (clientes) + línea (% del total)
+  //  PROCEDENCIA DE CLIENTES
+  //  Barras horizontales gruesas y cuadradas, en el color elegido. Cada fila
+  //  se puede arrastrar para reordenar (el orden se guarda para todos).
   // =====================================================================
+  const PALETA_GRAFICA = ['#1d8cf8', '#00d6b4', '#8965e0', '#ff8d72', '#ffbc11', '#2dce89', '#e14eca', '#f56036'];
+
   const renderGrafica = () => {
-    const filas = reporte.filas;
-    const n = filas.length;
-
-    const W = 1080, H = 560, pl = 74, pr = 84, pt = 54, pb = 168;
-    const iw = W - pl - pr, ih = H - pt - pb;
-
-    const divisiones = 6;
+    // Las filas se dibujan en el orden configurado
+    const filas = filasOrdenadas;
     const maxCantidad = Math.max(...filas.map(f => f.cantidad), 1);
-    const maxPct = Math.max(...filas.map(f => f.pct), 1);
-    const topCantidad = escalaMaxima(maxCantidad, divisiones);
-    const topPct = Math.min(escalaMaxima(maxPct, divisiones), 100);
-
-    const colW = iw / n;
-    const X = (i: number) => pl + colW * i + colW / 2;
-    const YCantidad = (v: number) => pt + ih - (v / topCantidad) * ih;
-    const YPct = (v: number) => pt + ih - (v / topPct) * ih;
-
-    const anchoBarra = Math.min(colW * 0.46, 56);
-    const poly = filas.map((f, i) => `${X(i).toFixed(1)},${YPct(f.pct).toFixed(1)}`).join(' ');
 
     return (
-      <div style={{ width: '100%', overflowX: 'auto' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ minWidth: '720px', display: 'block' }}>
-          <rect x="0" y="0" width={W} height={H} rx="12" fill="#232b36" />
+      <div style={{ width: '100%' }}>
+        {/* Barra de herramientas: color de la gráfica */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+          <small style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+            <GripVertical size={14} /> Arrastra una fila para cambiar el orden — se guarda para todos.
+          </small>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Palette size={15} color="var(--text-muted)" />
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Color</span>
+            {PALETA_GRAFICA.map(c => (
+              <button
+                key={c}
+                onClick={() => cambiarColor(c)}
+                title={`Usar el color ${c}`}
+                style={{
+                  width: '20px', height: '20px', borderRadius: '5px', cursor: 'pointer',
+                  backgroundColor: c, padding: 0,
+                  border: colorGrafica.toLowerCase() === c.toLowerCase() ? '2px solid var(--text-main)' : '1px solid var(--border)',
+                  boxShadow: colorGrafica.toLowerCase() === c.toLowerCase() ? `0 0 8px ${c}` : 'none'
+                }}
+              />
+            ))}
+            {/* Selector libre, por si la gerencia quiere un color exacto */}
+            <input
+              type="color"
+              value={colorGrafica}
+              onChange={e => cambiarColor(e.target.value)}
+              title="Elegir cualquier otro color"
+              style={{ width: '28px', height: '24px', padding: 0, border: '1px solid var(--border)', borderRadius: '5px', background: 'none', cursor: 'pointer' }}
+            />
+          </div>
+        </div>
 
-          {/* Leyenda */}
-          <g>
-            <rect x={pl} y={20} width="16" height="16" rx="3" fill={COLOR_BARRA} />
-            <text x={pl + 24} y={33} fontSize="15" fontWeight="700" fill="#e2e8f0">Clientes</text>
-            <line x1={pl + 116} y1={28} x2={pl + 156} y2={28} stroke={COLOR_LINEA} strokeWidth="4" strokeLinecap="round" />
-            <circle cx={pl + 136} cy={28} r="6" fill={COLOR_LINEA} stroke="#ffffff" strokeWidth="2" />
-            <text x={pl + 166} y={33} fontSize="15" fontWeight="700" fill="#e2e8f0">% del total</text>
-          </g>
+        {/* Encabezado de columnas */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 120px',
+          gap: '0.75rem', alignItems: 'end', padding: '0 0.9rem 0.6rem 0.9rem',
+          borderBottom: '1px solid var(--border)'
+        }}>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            Procedencia
+          </span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'right' }}>
+            Clientes
+          </span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: colorGrafica, textAlign: 'right', lineHeight: 1.25 }}>
+            % del total<br /><span style={{ fontWeight: 700, opacity: 0.75 }}>({reporte.total})</span>
+          </span>
+        </div>
 
-          {/* Rejilla y ejes */}
-          {Array.from({ length: divisiones + 1 }).map((_, k) => {
-            const vCant = (topCantidad / divisiones) * k;
-            const vPct = (topPct / divisiones) * k;
-            const yy = YCantidad(vCant);
-            return (
-              <g key={`grid-${k}`}>
-                <line x1={pl} y1={yy} x2={W - pr} y2={yy} stroke="#48515e" strokeWidth="1" opacity="0.65" />
-                <text x={pl - 12} y={yy + 5} textAnchor="end" fontSize="15" fontWeight="700" fill="#9fb0c4">
-                  {Math.round(vCant).toLocaleString('en-US')}
-                </text>
-                <text x={W - pr + 12} y={yy + 5} textAnchor="start" fontSize="15" fontWeight="700" fill={COLOR_LINEA}>
-                  {vPct.toFixed(vPct >= 10 ? 0 : 1)}%
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Barras: cantidad de clientes por procedencia */}
-          {filas.map((f, i) => {
-            const alto = Math.max(pt + ih - YCantidad(f.cantidad), 0);
-            const x = X(i) - anchoBarra / 2;
-            const y = YCantidad(f.cantidad);
-            return (
-              <g key={`bar-${f.clave}`}>
-                <title>{`${f.etiqueta}: ${f.cantidad} clientes (${f.pct.toFixed(2)}%)`}</title>
-                <rect x={x} y={y} width={anchoBarra} height={alto} rx="4" fill={COLOR_BARRA} opacity="0.95" />
-                {f.cantidad > 0 && (
-                  <text x={X(i)} y={y - 9} textAnchor="middle" fontSize="16" fontWeight="800" fill="#ffffff">
-                    {f.cantidad.toLocaleString('en-US')}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-
-          {/* Línea: porcentaje que representa cada procedencia */}
-          <polyline points={poly} fill="none" stroke={COLOR_LINEA} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-          {filas.map((f, i) => {
-            const cy = YPct(f.pct);
-            // El porcentaje exacto se lee en el eje derecho, en la tabla del
-            // reporte y al pasar el puntero sobre el punto: no se rotula aquí
-            // para no encimarse con las cifras de las barras.
-            return (
-              <g key={`pt-${f.clave}`}>
-                <title>{`${f.etiqueta}: ${f.pct.toFixed(2)}% del total`}</title>
-                <circle cx={X(i)} cy={cy} r="6" fill={COLOR_LINEA} stroke="#ffffff" strokeWidth="2" />
-              </g>
-            );
-          })}
-
-          {/* Eje X: nombre corto de cada procedencia (girado para que quepa) */}
-          {filas.map((f, i) => (
-            <text
-              key={`xl-${f.clave}`}
-              x={X(i)}
-              y={pt + ih + 18}
-              textAnchor="end"
-              fontSize="15"
-              fontWeight="700"
-              fill="#e2e8f0"
-              transform={`rotate(-38 ${X(i)} ${pt + ih + 18})`}
+        {/* Una fila por procedencia */}
+        {filas.map(f => {
+          const ancho = maxCantidad > 0 ? (f.cantidad / maxCantidad) * 100 : 0;
+          const apagada = f.cantidad === 0;
+          const esDestino = encima === f.clave && arrastrando !== f.clave;
+          return (
+            <div
+              key={f.clave}
+              draggable
+              onDragStart={() => setArrastrando(f.clave)}
+              onDragOver={e => { e.preventDefault(); if (encima !== f.clave) setEncima(f.clave); }}
+              onDragLeave={() => setEncima(actual => (actual === f.clave ? null : actual))}
+              onDrop={() => soltarFila(f.clave)}
+              onDragEnd={() => { setArrastrando(null); setEncima(null); }}
+              style={{
+                display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 120px',
+                gap: '0.75rem', alignItems: 'center', padding: '0.65rem 0.9rem',
+                borderBottom: '1px solid var(--border)',
+                borderTop: esDestino ? `2px dashed ${colorGrafica}` : '2px solid transparent',
+                backgroundColor: arrastrando === f.clave ? 'var(--bg-highlight)' : 'transparent',
+                opacity: arrastrando === f.clave ? 0.5 : (apagada ? 0.55 : 1),
+                cursor: 'grab'
+              }}
             >
-              {f.corta}
-            </text>
-          ))}
+              {/* Icono, nombre y barra */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <PastillaProcedencia clave={f.clave} size={34} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.35rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {f.etiqueta}
+                  </div>
+                  {/* Barra gruesa y de esquinas rectas */}
+                  <div style={{ height: '26px', backgroundColor: 'var(--bg-highlight)' }}>
+                    <div
+                      title={`${f.etiqueta}: ${f.cantidad} clientes`}
+                      style={{
+                        width: `${ancho}%`, height: '100%',
+                        backgroundColor: colorGrafica,
+                        transition: 'width 0.45s ease, background-color 0.2s'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
 
-          {/* Línea base del eje X */}
-          <line x1={pl} y1={pt + ih} x2={W - pr} y2={pt + ih} stroke="#94a3b8" strokeWidth="1.5" opacity="0.8" />
-        </svg>
+              <span style={{ textAlign: 'right', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-main)' }}>
+                {f.cantidad.toLocaleString('en-US')}
+              </span>
+              <span style={{ textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, color: colorGrafica }}>
+                {f.pct.toFixed(2)}%
+              </span>
+            </div>
+          );
+        })}
+
+        {/* Total general */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 90px 120px',
+          gap: '0.75rem', alignItems: 'center', padding: '0.85rem 0.9rem',
+          backgroundColor: 'var(--bg-highlight)'
+        }}>
+          <strong style={{ fontSize: '0.8rem', fontWeight: 900, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-main)' }}>
+            Total de clientes
+          </strong>
+          <span style={{ textAlign: 'right', fontSize: '1.05rem', fontWeight: 900, color: 'var(--text-main)' }}>
+            {reporte.total.toLocaleString('en-US')}
+          </span>
+          <span style={{ textAlign: 'right', fontSize: '0.95rem', fontWeight: 900, color: colorGrafica }}>
+            100.00%
+          </span>
+        </div>
+
+        <p style={{ margin: '0.85rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--danger)' }}>{reporte.sinIdentificar.toLocaleString('en-US')} clientes</strong>
+          {' '}({(reporte.total > 0 ? (reporte.sinIdentificar / reporte.total) * 100 : 0).toFixed(2)} %) no tienen su procedencia identificada.
+          Meta recomendada: reducir esta cifra mes a mes.
+        </p>
       </div>
     );
   };
@@ -317,6 +419,117 @@ export const MarketingDashboard = () => {
 
   const fmtDinero = (n: number) =>
     n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+  const fmtDinero2 = (n: number) =>
+    n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // =====================================================================
+  //  GASTO POR FACEBOOK
+  //  Lo invertido en Facebook mes a mes, cuántos clientes llegaron por ahí
+  //  y cuánto costó cada uno.
+  // =====================================================================
+  const serieFacebook = useMemo(() => {
+    const gastosTaller = gastos.filter(g => g.taller === tallerSeleccionado && String(g.ano) === ano);
+    const registrosTaller = registros.filter(r => r.taller === tallerSeleccionado && String(r.ano) === ano);
+
+    const meses = MESES
+      .map(m => {
+        const g = gastosTaller.find(x => x.mes === m);
+        const r = registrosTaller.find(x => x.mes === m);
+        const gasto = g ? g.facebook : 0;
+        const clientes = r ? cantidadFuente(r, 'facebook') : 0;
+        if (!g && !r) return null;
+        if (gasto === 0 && clientes === 0) return null;
+        return { mes: m, gasto, clientes, costoPorCliente: clientes > 0 ? gasto / clientes : null };
+      })
+      .filter((x): x is { mes: string; gasto: number; clientes: number; costoPorCliente: number | null } => x !== null);
+
+    const gastoTotal = meses.reduce((acc, m) => acc + m.gasto, 0);
+    const clientesTotal = meses.reduce((acc, m) => acc + m.clientes, 0);
+
+    return {
+      meses,
+      gastoTotal,
+      clientesTotal,
+      costoPorCliente: clientesTotal > 0 ? gastoTotal / clientesTotal : null,
+    };
+  }, [gastos, registros, tallerSeleccionado, ano]);
+
+  const renderGastoFacebook = () => {
+    const filas = serieFacebook.meses;
+    const maxGasto = Math.max(...filas.map(f => f.gasto), 1);
+
+    return (
+      <div className="card" style={{ marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+          <h3 className="detail-section-title" style={{ margin: 0, border: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <PastillaProcedencia clave="facebook" size={26} />
+            <TextoEditable clave="mkt.dash.seccion.gastoFacebook" defecto="Gasto por Facebook" />
+          </h3>
+          <span style={{
+            fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
+            color: 'var(--text-muted)', backgroundColor: 'var(--bg-highlight)',
+            border: '1px solid var(--border)', borderRadius: '999px', padding: '0.3rem 0.9rem'
+          }}>
+            {tallerSeleccionado} · {ano}
+          </span>
+        </div>
+
+        {filas.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+            No hay gasto de Facebook capturado para {tallerSeleccionado || 'este taller'} en {ano}.
+            Regístralo en "Marketing → Gastos".
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid #1877F2' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Invertido en Facebook</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1877F2' }}>{fmtDinero2(serieFacebook.gastoTotal)}</div>
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid var(--primary)' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Clientes por Facebook</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--primary)' }}>{serieFacebook.clientesTotal.toLocaleString('en-US')}</div>
+              </div>
+              <div style={{ backgroundColor: 'var(--bg-highlight)', borderRadius: '8px', padding: '0.7rem 0.9rem', borderBottom: '3px solid var(--success)' }}>
+                <div style={{ fontSize: '0.66rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.3rem' }}>Costo por cliente</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)' }}>
+                  {serieFacebook.costoPorCliente === null ? '—' : fmtDinero2(serieFacebook.costoPorCliente)}
+                </div>
+              </div>
+            </div>
+
+            {/* Barras del gasto mes a mes, en el color de Facebook */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              {filas.map(f => (
+                <div key={`fb-${f.mes}`} style={{ display: 'grid', gridTemplateColumns: '90px minmax(0, 1fr) 110px 90px 110px', gap: '0.75rem', alignItems: 'center' }}>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>{f.mes}</strong>
+                  <div style={{ height: '22px', backgroundColor: 'var(--bg-highlight)' }}>
+                    <div
+                      title={`${f.mes}: ${fmtDinero2(f.gasto)} en Facebook`}
+                      style={{ width: `${(f.gasto / maxGasto) * 100}%`, height: '100%', backgroundColor: '#1877F2', transition: 'width 0.45s ease' }}
+                    />
+                  </div>
+                  <span style={{ textAlign: 'right', fontSize: '0.88rem', fontWeight: 800, color: '#1877F2' }}>{fmtDinero2(f.gasto)}</span>
+                  <span style={{ textAlign: 'right', fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {f.clientes} {f.clientes === 1 ? 'cliente' : 'clientes'}
+                  </span>
+                  <span style={{ textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color: f.costoPorCliente === null ? 'var(--text-muted)' : 'var(--success)' }}>
+                    {f.costoPorCliente === null ? '—' : `${fmtDinero2(f.costoPorCliente)} c/u`}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <p style={{ margin: '1rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              El costo por cliente cruza lo invertido en Facebook (módulo Gastos) con los clientes que
+              marcaron Facebook como procedencia (módulo Registro).
+            </p>
+          </>
+        )}
+      </div>
+    );
+  };
 
   // Barras de aporte y gasto + línea de fondos disponibles
   const renderGastos = () => {
@@ -532,17 +745,19 @@ export const MarketingDashboard = () => {
             <div className="kpi-card logrado">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
               <div className="kpi-value">{reporte.total.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{reporte.periodos} {reporte.periodos === 1 ? 'periodo' : 'periodos'} capturados</small>
+              <small style={{ color: 'var(--text-muted)' }}>Clientes nuevos + sin procedencia</small>
             </div>
             <div className="kpi-card meta">
-              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.conFormulario" defecto="Con formulario" /> <Megaphone size={16} /></div>
-              <div className="kpi-value">{reporte.conFormulario.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.conFormulario).toFixed(2)} % del total</small>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.nuevos" defecto="Clientes nuevos" /> <Megaphone size={16} /></div>
+              <div className="kpi-value">{reporte.totalIdentificada.toLocaleString('en-US')}</div>
+              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.totalIdentificada).toFixed(2)} % · procedencia identificada</small>
             </div>
             <div className="kpi-card faltante">
-              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin formulario" /> <ClipboardX size={16} /></div>
-              <div className="kpi-value">{reporte.sinFormulario.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.sinFormulario).toFixed(2)} % del total</small>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin procedencia" /> <ClipboardX size={16} /></div>
+              <div className="kpi-value">{reporte.sinIdentificar.toLocaleString('en-US')}</div>
+              <small style={{ color: 'var(--text-muted)' }}>
+                {reporte.sinProcedencia.toLocaleString('en-US')} sin procedencia + {reporte.sinFormulario.toLocaleString('en-US')} sin formulario
+              </small>
             </div>
             <div className="kpi-card logrado">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.principal" defecto="Principal procedencia" /> <Award size={16} /></div>
@@ -550,7 +765,7 @@ export const MarketingDashboard = () => {
                 {reporte.principal ? reporte.principal.corta : '—'}
               </div>
               <small style={{ color: 'var(--text-muted)' }}>
-                {reporte.principal ? `${reporte.principal.cantidad} clientes · ${reporte.principal.pct.toFixed(2)} %` : 'Sin información'}
+                {reporte.principal ? `${reporte.principal.cantidad} clientes · ${reporte.principal.pctIdentificada.toFixed(2)} % de lo identificado` : 'Sin información'}
               </small>
             </div>
           </div>
@@ -610,18 +825,18 @@ export const MarketingDashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {reporte.filas.map(f => (
+                  {filasOrdenadas.map(f => (
                     <tr key={f.clave}>
                       <td>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                          <span style={{ width: '11px', height: '11px', borderRadius: '3px', backgroundColor: f.color, flexShrink: 0 }} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                          <PastillaProcedencia clave={f.clave} size={26} />
                           {f.etiqueta}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center', fontWeight: 700, color: f.cantidad > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>
                         {f.cantidad.toLocaleString('en-US')}
                       </td>
-                      <td style={{ textAlign: 'center', fontWeight: 700, color: f.pct > 0 ? COLOR_LINEA : 'var(--text-muted)' }}>
+                      <td style={{ textAlign: 'center', fontWeight: 700, color: f.pct > 0 ? colorGrafica : 'var(--text-muted)' }}>
                         {f.pct.toFixed(2)}%
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -642,6 +857,8 @@ export const MarketingDashboard = () => {
           </div>
 
           {/* GASTOS DE MARKETING (se ve al bajar) */}
+          {renderGastoFacebook()}
+
           {renderGastos()}
         </>
       )}

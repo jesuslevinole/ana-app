@@ -298,3 +298,11 @@ body { background-color: var(--bg-body); color: var(--text-main); }
 /* Giro del icono mientras se envia el correo de acceso (Usuarios) */
 @keyframes girar-icono { to { transform: rotate(360deg); } }
 .animate-spin { animation: girar-icono 0.9s linear infinite; }
+
+
+/* Editor de presentaciones: filtro y textos · módulos · orden.
+   Tres columnas para no tener que hacer scroll dentro del modal. */
+.pres-editor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; align-items: start; }
+@media (max-width: 1100px) {
+  .pres-editor { grid-template-columns: 1fr; }
+}
