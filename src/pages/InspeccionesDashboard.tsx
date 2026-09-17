@@ -483,13 +483,17 @@ export const InspeccionesDashboard = () => {
         {/* ENCABEZADO: logo a la izquierda + título grande con el color del taller */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '112px', marginBottom: '0.5rem' }}>
           {tallerLogo && (
-            <div style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '104px', height: '104px', borderRadius: '16px', backgroundColor: '#ffffff', border: `3px solid ${tallerColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '9px', boxShadow: '0 4px 12px rgba(0,0,0,0.35)', flexShrink: 0 }}>
-              <img src={tallerLogo} alt={tallerSeleccionado} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-            </div>
+            <img
+              src={tallerLogo}
+              alt={tallerSeleccionado}
+              style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', width: '104px', height: '104px', objectFit: 'contain', flexShrink: 0, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.45))' }}
+            />
           )}
           <div style={{ padding: tallerLogo ? '0 120px' : '0', display: 'flex', justifyContent: 'center' }}>
-            <h3 style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.5rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textAlign: 'center', lineHeight: 1.15, backgroundColor: tallerColor, padding: '0.55rem 1.6rem', borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.35)', border: '2px solid rgba(255,255,255,0.25)' }}>
-              {tallerSeleccionado} <span style={{ opacity: 0.85, fontWeight: 800 }}>· {ano}</span>
+            <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textAlign: 'center', lineHeight: 1.2, backgroundColor: tallerColor, padding: '0.55rem 1.6rem', borderRadius: '12px', boxShadow: '0 4px 14px rgba(0,0,0,0.35)', border: '2px solid rgba(255,255,255,0.25)' }}>
+              {tallerSeleccionado}
+              {/* El año va en su propio renglón, bajo el taller */}
+              <span style={{ display: 'block', fontSize: '1.1rem', fontWeight: 800, opacity: 0.88, marginTop: '0.15rem' }}>{ano}</span>
             </h3>
           </div>
         </div>

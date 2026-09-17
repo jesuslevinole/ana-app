@@ -81,4 +81,10 @@ export interface AppContextType {
 
   vista: VistaApp;
   setVista: (v: VistaApp) => void;
+
+  // Configuración compartida del Dashboard de Marketing: orden de las filas de
+  // la gráfica y color elegido para las barras.
+  marketingOrden?: string[];
+  marketingColor?: string;
+  guardarMarketingConfig?: (cambios: { orden?: string[]; color?: string }) => void;
 }
