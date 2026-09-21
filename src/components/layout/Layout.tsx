@@ -3,6 +3,7 @@ import { AppContext } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useEtiquetas } from '../../context/EtiquetasContext';
 import { CATALOGO_NAVEGACION } from '../../config/navegacion';
+import { VERSION_APP } from '../../config/version';
 import { TextoEditable } from '../TextoEditable';
 import { BarraHerramientas } from '../BarraHerramientas';
 import {
@@ -10,7 +11,7 @@ import {
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
   ClipboardList, LineChart, Sun, Moon, CalendarRange, FileBarChart,
   Settings, Users, ShieldCheck, Type, LogOut, AlertTriangle,
-  BarChart3, MonitorPlay, Presentation, DollarSign
+  BarChart3, MonitorPlay, Presentation, DollarSign, FileSpreadsheet
 } from 'lucide-react';
 
 // Clave de almacenamiento del tema elegido (claro / oscuro)
@@ -20,7 +21,7 @@ const STORAGE_TEMA = 'app_tema_v1';
 const ICONOS: Record<string, React.ComponentType<{ size?: number }>> = {
   Wrench, PieChart, FileText, GitCompare, Store, CalendarRange,
   ClipboardCheck, ClipboardList, LineChart, FileBarChart, Megaphone, Clock,
-  Settings, Users, ShieldCheck, Type, BarChart3, MonitorPlay, Presentation, DollarSign,
+  Settings, Users, ShieldCheck, Type, BarChart3, MonitorPlay, Presentation, DollarSign, FileSpreadsheet,
 };
 
 const iconoDe = (nombre: string) => ICONOS[nombre] || FileText;
@@ -95,7 +96,10 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       <aside className={`sidebar ${menuAbierto ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
           <div className="logo-box"><Calendar size={20} /></div>
-          <h2><TextoEditable clave="app.nombre" defecto="Sistema Metas" /></h2>
+          <div className="sidebar-titulo">
+            <h2><TextoEditable clave="app.nombre" defecto="Sistema Metas" /></h2>
+            <span className="sidebar-version">{VERSION_APP}</span>
+          </div>
         </div>
 
         <ul className="nav-menu">

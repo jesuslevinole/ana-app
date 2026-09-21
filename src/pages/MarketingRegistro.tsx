@@ -3,7 +3,8 @@ import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { MESES } from '../utils/formatters';
 import {
-  useMarketing, idMarketing, FUENTES_MARKETING, ETIQUETA_SIN_FORMULARIO,
+  useMarketing, idMarketing, FUENTES_MARKETING, ETIQUETA_SIN_FORMULARIO, TIPOS_REGISTRO,
+  type TipoRegistroMarketing,
   cantidadFuente, sumaFuentes, totalRegistroMarketing,
   type RegistroMarketing
 } from '../hooks/useMarketing';
@@ -41,6 +42,7 @@ export const MarketingRegistro = () => {
   const [filtroAno, setFiltroAno] = useState<string>(oPorDefecto(filtroPres?.ano, 'Todos'));
   const [filtroMes, setFiltroMes] = useState<string>(oPorDefecto(filtroPres?.mes, 'Todos'));
   const [filtroTaller, setFiltroTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
+  const [filtroTipo, setFiltroTipo] = useState<string>('Todos');
   const [busqueda, setBusqueda] = useState<string>('');
 
   // --- Estado del modal / formulario ---
@@ -49,6 +51,7 @@ export const MarketingRegistro = () => {
   const [taller, setTaller] = useState<string>('');
   const [ano, setAno] = useState<string>(String(anoActual));
   const [mes, setMes] = useState<string>(MESES[new Date().getMonth()] ?? 'Enero');
+  const [tipo, setTipo] = useState<TipoRegistroMarketing>('marketing');
   const [valores, setValores] = useState<Record<string, string>>({});
   const [sinFormulario, setSinFormulario] = useState<string>('');
 
@@ -65,6 +68,7 @@ export const MarketingRegistro = () => {
       .filter(r => filtroAno === 'Todos' || String(r.ano) === filtroAno)
       .filter(r => filtroMes === 'Todos' || r.mes === filtroMes)
       .filter(r => filtroTaller === 'Todos' || r.taller === filtroTaller)
+      .filter(r => filtroTipo === 'Todos' || r.tipo === filtroTipo)
       .filter(r => !texto || `${r.taller} ${r.mes} ${r.ano}`.toLowerCase().includes(texto))
       .sort((a, b) => {
         if (a.ano !== b.ano) return b.ano - a.ano;
@@ -72,7 +76,7 @@ export const MarketingRegistro = () => {
         if (im !== 0) return im;
         return a.taller.localeCompare(b.taller);
       });
-  }, [registros, filtroAno, filtroMes, filtroTaller, busqueda]);
+  }, [registros, filtroAno, filtroMes, filtroTaller, filtroTipo, busqueda]);
 
   // Totales de la lista visible (respetan los filtros activos)
   const totales = useMemo(() => {
@@ -86,6 +90,7 @@ export const MarketingRegistro = () => {
     setTaller(talleresOrdenados[0]?.nombre ?? '');
     setAno(String(anoActual));
     setMes(MESES[new Date().getMonth()] ?? 'Enero');
+    setTipo('marketing');
     setValores({});
     setSinFormulario('');
   };
@@ -101,6 +106,7 @@ export const MarketingRegistro = () => {
     setTaller(r.taller);
     setAno(String(r.ano));
     setMes(r.mes);
+    setTipo(r.tipo);
     const v: Record<string, string> = {};
     FUENTES_MARKETING.forEach(f => {
       const n = cantidadFuente(r, f.clave);
@@ -126,7 +132,7 @@ export const MarketingRegistro = () => {
   const sinFormularioModal = entero(sinFormulario);
   const totalModal = conFormularioModal + sinFormularioModal;
 
-  const idActual = taller ? idMarketing(taller, ano, mes) : '';
+  const idActual = taller ? idMarketing(taller, ano, mes, tipo) : '';
   const registroExistente = registros.find(r => r.id === idActual) || null;
   const sobrescribe = !editandoId && !!registroExistente;
 
@@ -138,10 +144,11 @@ export const MarketingRegistro = () => {
     FUENTES_MARKETING.forEach(f => { fuentes[f.clave] = entero(valores[f.clave] ?? ''); });
 
     const reg: RegistroMarketing = {
-      id: idMarketing(taller, ano, mes),
+      id: idMarketing(taller, ano, mes, tipo),
       taller,
       ano: parseInt(ano, 10),
       mes,
+      tipo,
       fuentes,
       sinFormulario: sinFormularioModal,
       conFormulario: conFormularioModal,
@@ -208,6 +215,13 @@ export const MarketingRegistro = () => {
             {talleresOrdenados.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
           </select>
         </div>
+        <div className="filter-group">
+          <label>Tipo</label>
+          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+            <option value="Todos">Marketing e inspecciones</option>
+            {TIPOS_REGISTRO.map(t => <option key={t.clave} value={t.clave}>{t.etiqueta}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* RESUMEN DE LO FILTRADO */}
@@ -236,7 +250,7 @@ export const MarketingRegistro = () => {
           <thead>
             {lista.length > 0 && (
               <tr style={{ backgroundColor: 'var(--bg-highlight)', borderBottom: '2px solid var(--border)' }}>
-                <td colSpan={3} style={{ padding: '0.85rem' }}>
+                <td colSpan={4} style={{ padding: '0.85rem' }}>
                   <strong style={{ color: 'var(--text-main)' }}><TextoEditable clave="mkt.reg.totalFila" defecto="Total" /> ({lista.length} registros)</strong>
                 </td>
                 <td style={{ textAlign: 'center', padding: '0.85rem', fontWeight: 800, color: 'var(--primary)' }}>{totales.conFormulario}</td>
@@ -248,6 +262,7 @@ export const MarketingRegistro = () => {
               <th style={{ width: '110px' }}><TextoEditable clave="mkt.reg.col.acciones" defecto="Acciones" /></th>
               <th><TextoEditable clave="mkt.reg.col.periodo" defecto="Periodo" /></th>
               <th><TextoEditable clave="mkt.reg.col.taller" defecto="Taller" /></th>
+              <th><TextoEditable clave="mkt.reg.col.tipo" defecto="Tipo" /></th>
               <th style={{ textAlign: 'center' }}><TextoEditable clave="mkt.reg.col.conFormulario" defecto="Con formulario" /></th>
               <th style={{ textAlign: 'center' }}><TextoEditable clave="mkt.reg.col.sinFormulario" defecto="Sin formulario" /></th>
               <th style={{ textAlign: 'center' }}><TextoEditable clave="mkt.reg.col.total" defecto="Total" /></th>
@@ -255,7 +270,7 @@ export const MarketingRegistro = () => {
           </thead>
           <tbody>
             {lista.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay registros que coincidan con los filtros.</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay registros que coincidan con los filtros.</td></tr>
             ) : (
               lista.map(r => (
                 <tr key={r.id}>
@@ -264,13 +279,23 @@ export const MarketingRegistro = () => {
                       <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--primary)', borderColor: 'transparent', backgroundColor: 'rgba(29, 140, 248, 0.1)', opacity: puedoEditar ? 1 : 0.4, cursor: puedoEditar ? 'pointer' : 'not-allowed' }} disabled={!puedoEditar} onClick={() => abrirEditar(r)} title={puedoEditar ? "Editar" : "Tu rol solo puede consultar"}>
                         <Pencil size={15} />
                       </button>
-                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger)', borderColor: 'transparent', backgroundColor: 'rgba(255, 76, 76, 0.1)', opacity: puedoEliminar ? 1 : 0.4, cursor: puedoEliminar ? 'pointer' : 'not-allowed' }} disabled={!puedoEliminar} onClick={() => { if (confirm(`¿Eliminar el registro de ${r.mes} ${r.ano} de ${r.taller}?`)) eliminarRegistro(r.id); }} title={puedoEliminar ? "Eliminar" : "Tu rol no puede eliminar"}>
+                      <button className="btn btn-outline" style={{ padding: '0.4rem', color: 'var(--danger)', borderColor: 'transparent', backgroundColor: 'rgba(255, 76, 76, 0.1)', opacity: puedoEliminar ? 1 : 0.4, cursor: puedoEliminar ? 'pointer' : 'not-allowed' }} disabled={!puedoEliminar} onClick={() => { if (confirm(`¿Eliminar el registro de ${r.tipo === 'inspecciones' ? 'inspecciones' : 'marketing'} de ${r.mes} ${r.ano} de ${r.taller}?`)) eliminarRegistro(r.id); }} title={puedoEliminar ? "Eliminar" : "Tu rol no puede eliminar"}>
                         <Trash2 size={15} />
                       </button>
                     </div>
                   </td>
                   <td><strong style={{ color: 'var(--text-main)' }}>{r.mes}</strong> <span style={{ color: 'var(--text-muted)' }}>{r.ano}</span></td>
                   <td>{r.taller}</td>
+                  <td>
+                    <span style={{
+                      fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
+                      borderRadius: '999px', padding: '0.2rem 0.65rem',
+                      color: r.tipo === 'inspecciones' ? '#8965e0' : 'var(--primary)',
+                      border: `1px solid ${r.tipo === 'inspecciones' ? '#8965e0' : 'var(--primary)'}`
+                    }}>
+                      {r.tipo === 'inspecciones' ? 'Inspecciones' : 'Marketing'}
+                    </span>
+                  </td>
                   <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--primary)' }}>{sumaFuentes(r)}</td>
                   <td style={{ textAlign: 'center', color: 'var(--danger)', fontWeight: 700 }}>{r.sinFormulario || 0}</td>
                   <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--text-main)' }}>{totalRegistroMarketing(r)}</td>
@@ -316,7 +341,7 @@ export const MarketingRegistro = () => {
               ) : (
                 <>
                   <h3 className="detail-section-title">Periodo</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                     <div className="form-group" style={{ minWidth: 0 }}>
                       <label className="form-label">Taller</label>
                       <select className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={taller} onChange={(e) => setTaller(e.target.value)}>
@@ -332,6 +357,19 @@ export const MarketingRegistro = () => {
                       <label className="form-label">Mes</label>
                       <select className="form-control" style={{ width: '100%', boxSizing: 'border-box' }} value={mes} onChange={(e) => setMes(e.target.value)}>
                         {MESES.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group" style={{ minWidth: 0 }}>
+                      <label className="form-label">Tipo de cliente</label>
+                      <select
+                        className="form-control"
+                        style={{ width: '100%', boxSizing: 'border-box' }}
+                        value={tipo}
+                        onChange={(e) => setTipo(e.target.value === 'inspecciones' ? 'inspecciones' : 'marketing')}
+                        disabled={!!editandoId}
+                        title={editandoId ? 'El tipo no se cambia al editar: elimina y vuelve a capturar si hace falta' : undefined}
+                      >
+                        {TIPOS_REGISTRO.map(t => <option key={t.clave} value={t.clave}>{t.etiqueta}</option>)}
                       </select>
                     </div>
                   </div>
@@ -384,7 +422,7 @@ export const MarketingRegistro = () => {
                   {sobrescribe && registroExistente && (
                     <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <Info size={14} color="var(--primary)" />
-                      Ya existe un registro de {mes} {ano} para {taller} con {totalRegistroMarketing(registroExistente)} clientes. Al guardar se actualizará.
+                      Ya existe un registro de {tipo === 'inspecciones' ? 'inspecciones' : 'marketing'} de {mes} {ano} para {taller} con {totalRegistroMarketing(registroExistente)} clientes. Al guardar se actualizará.
                     </p>
                   )}
                 </>

@@ -25,13 +25,14 @@ export interface FuenteMarketing {
 // aparecerá automáticamente en el formulario, la tabla y el dashboard.
 export const FUENTES_MARKETING: FuenteMarketing[] = [
   { clave: 'clientesRegulares', etiqueta: 'Clientes regulares', corta: 'Regulares', color: '#1d8cf8' },
+  { clave: 'pasandoSign', etiqueta: 'Pasando y vieron sign / viven cerca', corta: 'Sign / cerca', color: '#ffbc11' },
   { clave: 'recomendadosAmigos', etiqueta: 'Recomendados por amigos o clientes', corta: 'Recom. amigos', color: '#00d6b4' },
   { clave: 'recomendadosTagTitle', etiqueta: 'Recomendados por Tag and Title', corta: 'Tag and Title', color: '#ff8d72' },
-  { clave: 'busquedaGoogle', etiqueta: 'Búsqueda en Google o mapa', corta: 'Google / mapa', color: '#d048b6' },
-  { clave: 'pasandoSign', etiqueta: 'Pasando y vieron sign / viven cerca', corta: 'Sign / cerca', color: '#ffbc11' },
-  { clave: 'facebook', etiqueta: 'Facebook', corta: 'Facebook', color: '#51cbce' },
-  { clave: 'instagram', etiqueta: 'Instagram', corta: 'Instagram', color: '#8965e0' },
-  { clave: 'tiktok', etiqueta: 'Tik-Tok', corta: 'Tik-Tok', color: '#2dce89' },
+  { clave: 'busquedaGoogle', etiqueta: 'Búsqueda en Google o mapa', corta: 'Google / mapa', color: '#4285F4' },
+  { clave: 'facebook', etiqueta: 'Facebook', corta: 'Facebook', color: '#1877F2' },
+  { clave: 'instagram', etiqueta: 'Instagram', corta: 'Instagram', color: '#E1306C' },
+  { clave: 'tiktok', etiqueta: 'Tik-Tok', corta: 'Tik-Tok', color: '#25F4EE' },
+  { clave: 'chatgpt', etiqueta: 'ChatGPT', corta: 'ChatGPT', color: '#10A37F' },
   { clave: 'sinProcedencia', etiqueta: 'No se sabe su procedencia', corta: 'Sin procedencia', color: '#f56036' },
 ];
 
@@ -41,11 +42,21 @@ export const ETIQUETA_SIN_FORMULARIO = 'Cliente sin formulario';
 export const CORTA_SIN_FORMULARIO = 'Sin formulario';
 export const COLOR_SIN_FORMULARIO = '#c72e6b';
 
+// Tipo de cliente del conteo: los de servicio normal (marketing) o los que
+// llegaron a hacerse una inspección. Cada taller/mes puede tener uno de cada.
+export type TipoRegistroMarketing = 'marketing' | 'inspecciones';
+
+export const TIPOS_REGISTRO: { clave: TipoRegistroMarketing; etiqueta: string }[] = [
+  { clave: 'marketing', etiqueta: 'Marketing' },
+  { clave: 'inspecciones', etiqueta: 'Inspecciones' },
+];
+
 export interface RegistroMarketing {
-  id: string;                        // `${taller}__${ano}__${mes}`
+  id: string;                        // `${taller}__${ano}__${mes}` (+ `__inspecciones`)
   taller: string;
   ano: number;
   mes: string;                       // nombre del mes (debe coincidir con MESES)
+  tipo: TipoRegistroMarketing;       // los registros antiguos cuentan como 'marketing'
   fuentes: Record<string, number>;   // { [clave de fuente]: cantidad }
   sinFormulario: number;             // clientes atendidos sin formulario
   conFormulario: number;             // suma de todas las fuentes
@@ -53,8 +64,11 @@ export interface RegistroMarketing {
   actualizadoEn?: string;
 }
 
-export const idMarketing = (taller: string, ano: number | string, mes: string) =>
-  `${taller}__${ano}__${mes}`;
+// El id de marketing conserva el formato de siempre para no duplicar los
+// registros ya capturados; el de inspecciones lleva un sufijo propio.
+export const idMarketing = (
+  taller: string, ano: number | string, mes: string, tipo: TipoRegistroMarketing = 'marketing'
+) => `${taller}__${ano}__${mes}${tipo === 'inspecciones' ? '__inspecciones' : ''}`;
 
 // Cantidad de una fuente dentro de un registro (0 si no fue capturada)
 export const cantidadFuente = (reg: RegistroMarketing, clave: string): number => {
@@ -87,6 +101,7 @@ export const useMarketing = () => {
             ...bruto,
             id: d.id,
             fuentes: bruto.fuentes && typeof bruto.fuentes === 'object' ? bruto.fuentes : {},
+            tipo: bruto.tipo === 'inspecciones' ? 'inspecciones' : 'marketing',
             sinFormulario: typeof bruto.sinFormulario === 'number' ? bruto.sinFormulario : 0,
           } as RegistroMarketing;
         });

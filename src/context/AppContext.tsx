@@ -9,6 +9,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [talleres, setTalleres] = useState<Taller[]>([]);
   const [inspeccionesOrden, setInspeccionesOrden] = useState<string[]>([]);
+  const [marketingOrden, setMarketingOrden] = useState<string[]>([]);
+  const [marketingColor, setMarketingColor] = useState<string>('');
   const [vista, setVista] = useState<VistaApp>('talleres'); // Iniciamos en talleres para que veas el cambio
   const [registroEditando, setRegistroEditando] = useState<Registro | null>(null);
 
@@ -53,10 +55,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       console.error("🔥 Error al leer 'config/inspeccionesDashboard' de Firebase:", error);
     });
 
+    // Suscripción a la configuración compartida del Dashboard de Marketing
+    const unsubscribeMarketing = onSnapshot(doc(db, 'config', 'marketingDashboard'), (snap) => {
+      const data = snap.data();
+      if (data && Array.isArray(data.orden)) {
+        setMarketingOrden(data.orden.filter((x: unknown) => typeof x === 'string') as string[]);
+      }
+      if (data && typeof data.color === 'string') setMarketingColor(data.color);
+    }, (error) => {
+      console.error("🔥 Error al leer 'config/marketingDashboard' de Firebase:", error);
+    });
+
     return () => {
       unsubscribeRegistros();
       unsubscribeTalleres();
       unsubscribeConfig();
+      unsubscribeMarketing();
     };
   }, []);
 
@@ -66,6 +80,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       await setDoc(doc(db, 'config', 'inspeccionesDashboard'), { orden }, { merge: true });
     } catch (error) {
       console.error("Error al guardar el orden del dashboard de inspecciones:", error);
+    }
+  };
+
+  // Guarda (compartido para todos) el orden y el color de la gráfica de Marketing
+  const guardarMarketingConfig = async (cambios: { orden?: string[]; color?: string }) => {
+    try {
+      await setDoc(doc(db, 'config', 'marketingDashboard'), cambios, { merge: true });
+    } catch (error) {
+      console.error("Error al guardar la configuración del dashboard de marketing:", error);
     }
   };
 
@@ -112,6 +135,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       registros, agregarRegistro, eliminarRegistro, registroEditando, setRegistroEditando, 
       talleres, agregarTaller, eliminarTaller,
       inspeccionesOrden, guardarInspeccionesOrden,
+      marketingOrden, marketingColor, guardarMarketingConfig,
       vista, setVista 
     } as AppContextType}>
       {children}
