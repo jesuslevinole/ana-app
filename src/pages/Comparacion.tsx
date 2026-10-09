@@ -2,6 +2,7 @@ import { useState, useMemo, useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
+import { TextoEditable } from '../components/TextoEditable';
 
 const TRIMESTRES = {
   'Q1': ['Enero', 'Febrero', 'Marzo'],
@@ -363,8 +364,8 @@ export const Comparacion = () => {
         <div className="page-title">
           <GitCompare size={24} color="var(--primary)" />
           <div>
-            <h2>Análisis Comparativo</h2>
-            <p className="page-subtitle">Rendimiento paralelo y crecimiento</p>
+            <h2><TextoEditable clave="comp.titulo" defecto="Informe Ejecutivo Trimestral" /></h2>
+            <p className="page-subtitle"><TextoEditable clave="comp.subtitulo" defecto="Rendimiento paralelo y crecimiento" /></p>
           </div>
         </div>
       </div>
@@ -372,7 +373,7 @@ export const Comparacion = () => {
       {/* CONTROLES DE FILTRO GLOBALES */}
       <div className="filter-bar" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
         <div className="filter-group">
-          <label>Taller a Evaluar</label>
+          <label><TextoEditable clave="comp.filtro.taller" defecto="Taller a Evaluar" /></label>
           <select value={taller} onChange={(e) => setTaller(e.target.value)}>
             <option value="Todos">Consolidado Global</option>
             {talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
@@ -380,7 +381,7 @@ export const Comparacion = () => {
         </div>
         
         <div className="filter-group" style={{ borderLeft: '1px solid var(--border)', paddingLeft: '2rem' }}>
-          <label style={{ color: 'var(--primary)' }}>Período Base (T1)</label>
+          <label style={{ color: 'var(--primary)' }}><TextoEditable clave="comp.filtro.base" defecto="Período Base (T1)" /></label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <select value={ano1} onChange={(e) => setAno1(e.target.value)} style={{ flex: 1 }}>{anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}</select>
             <select value={trimestre1} onChange={(e) => setTrimestre1(e.target.value as keyof typeof TRIMESTRES)} style={{ flex: 1 }}>
@@ -390,7 +391,7 @@ export const Comparacion = () => {
         </div>
 
         <div className="filter-group" style={{ borderLeft: '1px solid var(--border)', paddingLeft: '2rem' }}>
-          <label style={{ color: 'var(--danger)' }}>Período a Comparar (T2)</label>
+          <label style={{ color: 'var(--danger)' }}><TextoEditable clave="comp.filtro.comparar" defecto="Período a Comparar (T2)" /></label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <select value={ano2} onChange={(e) => setAno2(e.target.value)} style={{ flex: 1 }}>{anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}</select>
             <select value={trimestre2} onChange={(e) => setTrimestre2(e.target.value as keyof typeof TRIMESTRES)} style={{ flex: 1 }}>
@@ -413,9 +414,9 @@ export const Comparacion = () => {
             <table className="table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>Mes / Contexto</th>
-                  <th style={{ textAlign: 'right' }}>Ventas</th>
-                  <th style={{ textAlign: 'center' }}>% Part.</th>
+                  <th><TextoEditable clave="comp.col.mesContexto" defecto="Mes / Contexto" /></th>
+                  <th style={{ textAlign: 'right' }}><TextoEditable clave="comp.col.ventas" defecto="Ventas" /></th>
+                  <th style={{ textAlign: 'center' }}><TextoEditable clave="comp.col.pctPart" defecto="% Part." /></th>
                 </tr>
               </thead>
               <tbody>
@@ -440,7 +441,7 @@ export const Comparacion = () => {
               </tbody>
               <tfoot>
                 <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                  <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}>TOTAL {trimestre1}</strong></td>
+                  <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}><TextoEditable clave="comp.fila.total" defecto="TOTAL" /> {trimestre1}</strong></td>
                   <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--primary)' }}>{miFormatearMoneda(periodo1.total)}</td>
                   <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{periodo1.total > 0 ? '100.00%' : '0.00%'}</td>
                 </tr>
@@ -451,7 +452,7 @@ export const Comparacion = () => {
           {/* Gráfico período base (T1) */}
           <div className="card" style={{ order: 3 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
-              <h3 className="detail-section-title" style={{ border: 'none', margin: 0 }}>Desglose {trimestre1}</h3>
+              <h3 className="detail-section-title" style={{ border: 'none', margin: 0 }}><TextoEditable clave="comp.seccion.desglose" defecto="Desglose" /> {trimestre1}</h3>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                 <select value={tipoGrafico1} onChange={(e) => setTipoGrafico1(e.target.value as TipoGrafico)} style={{ backgroundColor: 'var(--bg-body)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '0.3rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', outline: 'none', cursor: 'pointer' }}>
                   <option value="barras">Barras</option>
@@ -486,14 +487,14 @@ export const Comparacion = () => {
           {/* Tabla comparación (T1 vs T2) */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', order: 2 }}>
             <div className="report-header" style={{ borderTop: '3px solid var(--text-muted)' }}>
-              CRECIMIENTO: {base.label} VS {reciente.label}
+              <TextoEditable clave="comp.seccion.crecimiento" defecto="CRECIMIENTO" />: {base.label} VS {reciente.label}
             </div>
             <table className="table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>Período Analizado</th>
-                  <th style={{ textAlign: 'right' }}>Ventas Totales</th>
-                  <th style={{ textAlign: 'center' }}>% Part.</th>
+                  <th><TextoEditable clave="comp.col.periodoAnalizado" defecto="Período Analizado" /></th>
+                  <th style={{ textAlign: 'right' }}><TextoEditable clave="comp.col.ventasTotales" defecto="Ventas Totales" /></th>
+                  <th style={{ textAlign: 'center' }}><TextoEditable clave="comp.col.pctPart" defecto="% Part." /></th>
                 </tr>
               </thead>
               <tbody>
@@ -518,7 +519,7 @@ export const Comparacion = () => {
               </tbody>
               <tfoot>
                 <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
-                  <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}>TOTAL COMPARADO</strong></td>
+                  <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}><TextoEditable clave="comp.fila.totalComparado" defecto="TOTAL COMPARADO" /></strong></td>
                   <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>{miFormatearMoneda(totalAmbosPeriodos)}</td>
                   <td style={{ textAlign: 'center', padding: '1rem', fontWeight: 700 }}>{totalAmbosPeriodos > 0 ? '100.00%' : '0.00%'}</td>
                 </tr>
@@ -590,21 +591,21 @@ export const Comparacion = () => {
           {/* META ANUAL POR AÑO: suma de metas mensuales, logrado, faltante y % alcanzado (arriba de la comparación) */}
           <div className="card" style={{ padding: 0, overflow: 'hidden', order: 0, gridColumn: '1 / -1' }}>
             <div className="report-header" style={{ borderTop: '3px solid #ffbc11' }}>
-              META ANUAL POR AÑO &nbsp;·&nbsp; {taller === 'Todos' ? 'CONSOLIDADO GLOBAL' : taller.toUpperCase()}
+              <TextoEditable clave="comp.seccion.metaAnual" defecto="META ANUAL POR AÑO" /> &nbsp;·&nbsp; {taller === 'Todos' ? 'CONSOLIDADO GLOBAL' : taller.toUpperCase()}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table className="table" style={{ width: '100%' }}>
                 <thead>
                   <tr>
-                    <th>Año</th>
+                    <th><TextoEditable clave="comp.col.ano" defecto="Año" /></th>
                     <th style={{ textAlign: 'right' }}>
-                      Meta anual
-                      <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}>(meta agregada desde registros)</small>
+                      <TextoEditable clave="comp.col.metaAnual" defecto="Meta anual" />
+                      <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}><TextoEditable clave="comp.col.metaAnualNota" defecto="(meta agregada desde registros)" /></small>
                     </th>
-                    <th style={{ textAlign: 'right' }}>Meta anual alcanzada</th>
-                    <th style={{ textAlign: 'right' }}>Meta anual faltante</th>
-                    <th style={{ textAlign: 'center', minWidth: '160px' }}>Porcentaje alcanzado</th>
-                    <th style={{ textAlign: 'center', minWidth: '160px' }}>Porcentaje faltante</th>
+                    <th style={{ textAlign: 'right' }}><TextoEditable clave="comp.col.alcanzada" defecto="Meta anual alcanzada" /></th>
+                    <th style={{ textAlign: 'right' }}><TextoEditable clave="comp.col.faltante" defecto="Meta anual faltante" /></th>
+                    <th style={{ textAlign: 'center', minWidth: '160px' }}><TextoEditable clave="comp.col.pctAlcanzado" defecto="Porcentaje alcanzado" /></th>
+                    <th style={{ textAlign: 'center', minWidth: '160px' }}><TextoEditable clave="comp.col.pctFaltante" defecto="Porcentaje faltante" /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -650,7 +651,7 @@ export const Comparacion = () => {
               </table>
             </div>
             <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-              La meta anual es la suma de las metas mensuales registradas del año. "Faltante" es lo que resta por lograr para alcanzarla y "% Alcanzado" es el avance hasta el momento (logrado ÷ meta anual).
+              <TextoEditable clave="comp.notaMetaAnual" defecto='La meta anual es la suma de las metas mensuales registradas del año. "Faltante" es lo que resta por lograr para alcanzarla y "% Alcanzado" es el avance hasta el momento (logrado ÷ meta anual).' />
             </p>
           </div>
 
