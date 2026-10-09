@@ -6,7 +6,7 @@ import { MESES } from '../utils/formatters';
 import { PORCENTAJE_MARKETING } from '../hooks/useMarketingGastos';
 import { useMarketingDesglose, idDesglose, facebookDeTaller, type DesgloseMes } from '../hooks/useMarketingDesglose';
 import { TextoEditable } from '../components/TextoEditable';
-import { Receipt, Pencil, Save, X, Info } from 'lucide-react';
+import { Receipt, Pencil, Save, X, Info, Power, PowerOff } from 'lucide-react';
 
 // =========================================================================
 //  MARKETING · DESGLOSE DE EXPENSES
@@ -25,7 +25,7 @@ const fmtMoneda = (n: number) =>
 
 export const MarketingDesglose = () => {
   const contexto = useContext(AppContext);
-  const { desgloses, guardarDesglose } = useMarketingDesglose();
+  const { desgloses, guardarDesglose, desactivados, alternarTaller } = useMarketingDesglose();
   const filtroPres = useFiltroPresentacion();
   const { puedeEditar } = useAuth();
   const puedoEditar = puedeEditar('marketingDesglose');
@@ -53,6 +53,9 @@ export const MarketingDesglose = () => {
 
   const esMesEspecifico = filtroMes !== 'Todos';
 
+  // --- Pestañas: talleres activos (suman al total) y desactivados ---
+  const [pestana, setPestana] = useState<'activos' | 'desactivados'>('activos');
+
   // Documentos de desglose que caen dentro del filtro (1 si es un mes, varios si es todo el año)
   const desglosesFiltrados = useMemo(
     () => desgloses
@@ -75,12 +78,17 @@ export const MarketingDesglose = () => {
     });
   }, [talleresOrdenados, registros, desglosesFiltrados, filtroAno, filtroMes, esMesEspecifico]);
 
-  const totales = useMemo(() => filas.reduce((acc, f) => ({
+  // Los talleres desactivados se muestran en su pestaña y NO suman al total
+  const filasActivas = useMemo(() => filas.filter(f => !desactivados.includes(f.taller)), [filas, desactivados]);
+  const filasInactivas = useMemo(() => filas.filter(f => desactivados.includes(f.taller)), [filas, desactivados]);
+  const filasVisibles = pestana === 'activos' ? filasActivas : filasInactivas;
+
+  const totales = useMemo(() => filasActivas.reduce((acc, f) => ({
     gross: acc.gross + f.gross,
     aporte: acc.aporte + f.aporte,
     facebook: acc.facebook + f.facebook,
     fondos: acc.fondos + f.fondos,
-  }), { gross: 0, aporte: 0, facebook: 0, fondos: 0 }), [filas]);
+  }), { gross: 0, aporte: 0, facebook: 0, fondos: 0 }), [filasActivas]);
 
   const hayDatos = filas.some(f => f.gross > 0 || f.facebook > 0);
 
@@ -93,9 +101,14 @@ export const MarketingDesglose = () => {
     [desgloses, filtroAno, filtroMes, esMesEspecifico]
   );
 
+  const talleresActivos = useMemo(
+    () => talleresOrdenados.filter(t => !desactivados.includes(t.nombre)),
+    [talleresOrdenados, desactivados]
+  );
+
   const abrirFormulario = () => {
     const iniciales: Record<string, string> = {};
-    talleresOrdenados.forEach(t => {
+    talleresActivos.forEach(t => {
       const v = facebookDeTaller(desgloseDelMes, t.nombre);
       iniciales[t.nombre] = v > 0 ? String(v) : '';
     });
@@ -110,7 +123,7 @@ export const MarketingDesglose = () => {
 
   const guardar = () => {
     const facebook: Record<string, number> = { ...(desgloseDelMes?.facebook || {}) };
-    talleresOrdenados.forEach(t => { facebook[t.nombre] = dec(valoresForm[t.nombre] || ''); });
+    talleresActivos.forEach(t => { facebook[t.nombre] = dec(valoresForm[t.nombre] || ''); });
     const reg: DesgloseMes = {
       id: idDesglose(filtroAno, filtroMes),
       ano: parseInt(filtroAno, 10),
@@ -167,10 +180,42 @@ export const MarketingDesglose = () => {
         </div>
       </div>
 
+      {/* PESTAÑAS: ACTIVOS / DESACTIVADOS */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        <button
+          onClick={() => setPestana('activos')}
+          className="btn"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+            border: `1px solid ${pestana === 'activos' ? 'var(--primary)' : 'var(--border)'}`,
+            backgroundColor: pestana === 'activos' ? 'var(--primary)' : 'var(--bg-panel)',
+            color: pestana === 'activos' ? '#fff' : 'var(--text-muted)'
+          }}
+        >
+          <Power size={15} /> <TextoEditable clave="mkt.desglose.tab.activos" defecto="Talleres activos" /> ({filasActivas.length})
+        </button>
+        <button
+          onClick={() => setPestana('desactivados')}
+          className="btn"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.55rem 1.1rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+            border: `1px solid ${pestana === 'desactivados' ? 'var(--danger)' : 'var(--border)'}`,
+            backgroundColor: pestana === 'desactivados' ? 'var(--danger)' : 'var(--bg-panel)',
+            color: pestana === 'desactivados' ? '#fff' : 'var(--text-muted)'
+          }}
+        >
+          <PowerOff size={15} /> <TextoEditable clave="mkt.desglose.tab.desactivados" defecto="Desactivados" /> ({filasInactivas.length})
+        </button>
+      </div>
+
       {/* TABLA ESTILO EXCEL */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="report-header" style={{ borderTop: '3px solid var(--danger)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <span><TextoEditable clave="mkt.desglose.seccion" defecto="DESGLOSE · TOTAL DE EXPENSES" /></span>
+        <div className="report-header" style={{ borderTop: `3px solid ${pestana === 'activos' ? 'var(--danger)' : 'var(--text-muted)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <span>
+            {pestana === 'activos'
+              ? <TextoEditable clave="mkt.desglose.seccion" defecto="DESGLOSE · TOTAL DE EXPENSES" />
+              : <TextoEditable clave="mkt.desglose.seccionDesactivados" defecto="TALLERES DESACTIVADOS · NO SUMAN AL TOTAL" />}
+          </span>
           <span style={{
             fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase',
             color: 'var(--text-muted)', backgroundColor: 'var(--bg-highlight)',
@@ -184,6 +229,7 @@ export const MarketingDesglose = () => {
           <table className="table" style={{ width: '100%', minWidth: '720px' }}>
             <thead>
               <tr>
+                {puedoEditar && <th style={{ width: '70px', textAlign: 'center' }}><TextoEditable clave="mkt.desglose.col.estado" defecto="Estado" /></th>}
                 <th><TextoEditable clave="mkt.desglose.col.sucursal" defecto="Sucursal" /></th>
                 <th style={{ textAlign: 'right' }}>
                   <TextoEditable clave="mkt.desglose.col.gross" defecto="Gross" />
@@ -197,8 +243,20 @@ export const MarketingDesglose = () => {
               </tr>
             </thead>
             <tbody>
-              {filas.map(f => (
-                <tr key={f.taller}>
+              {filasVisibles.map(f => (
+                <tr key={f.taller} style={{ opacity: pestana === 'desactivados' ? 0.65 : 1 }}>
+                  {puedoEditar && (
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        onClick={() => alternarTaller(f.taller)}
+                        className="btn btn-outline"
+                        title={pestana === 'activos' ? 'Desactivar: pasa a la pestaña Desactivados y deja de sumar al total' : 'Activar: vuelve al desglose y suma al total'}
+                        style={{ padding: '0.35rem 0.5rem', color: pestana === 'activos' ? 'var(--success)' : 'var(--text-muted)' }}
+                      >
+                        {pestana === 'activos' ? <Power size={16} /> : <PowerOff size={16} />}
+                      </button>
+                    </td>
+                  )}
                   <td><strong style={{ color: 'var(--text-main)' }}>{f.taller}</strong></td>
                   <td style={{ textAlign: 'right', fontWeight: 600, color: f.gross > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>
                     {f.gross > 0 ? fmtMoneda(f.gross) : '—'}
@@ -214,13 +272,18 @@ export const MarketingDesglose = () => {
                   </td>
                 </tr>
               ))}
-              {filas.length === 0 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>No hay talleres registrados.</td></tr>
+              {filasVisibles.length === 0 && (
+                <tr>
+                  <td colSpan={puedoEditar ? 6 : 5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                    {pestana === 'activos' ? 'No hay talleres activos.' : 'No hay talleres desactivados.'}
+                  </td>
+                </tr>
               )}
             </tbody>
-            {filas.length > 0 && (
+            {pestana === 'activos' && filasActivas.length > 0 && (
               <tfoot>
                 <tr style={{ backgroundColor: 'var(--bg-highlight)', borderTop: '2px solid var(--border)' }}>
+                  {puedoEditar && <td></td>}
                   <td style={{ padding: '1rem' }}><strong style={{ fontSize: '1rem' }}><TextoEditable clave="mkt.desglose.fila.total" defecto="TOTAL" /></strong></td>
                   <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{fmtMoneda(totales.gross)}</td>
                   <td style={{ textAlign: 'right', padding: '1rem', fontWeight: 800, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{fmtMoneda(totales.aporte)}</td>
@@ -234,7 +297,9 @@ export const MarketingDesglose = () => {
 
         <p style={{ margin: 0, padding: '0.75rem 1.25rem', fontSize: '0.72rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
           <Info size={13} style={{ flexShrink: 0 }} />
-          <TextoEditable clave="mkt.desglose.nota" defecto={`El Gross es el logrado mensual capturado en Taller → Registros; el ${PORCENTAJE_MARKETING} % es lo disponible para marketing. Facebook se captura a mano y los fondos son el aporte menos lo gastado en Facebook.`} />
+          {pestana === 'activos'
+            ? <TextoEditable clave="mkt.desglose.nota" defecto={`El Gross es el logrado mensual capturado en Taller → Registros; el ${PORCENTAJE_MARKETING} % es lo disponible para marketing. Facebook se captura a mano y los fondos son el aporte menos lo gastado en Facebook.`} />
+            : <TextoEditable clave="mkt.desglose.notaDesactivados" defecto="Estos talleres no suman al total del desglose ni aparecen en el formulario de Facebook. Actívalos de nuevo con el botón de encendido." />}
         </p>
       </div>
 
@@ -261,7 +326,7 @@ export const MarketingDesglose = () => {
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {talleresOrdenados.map(t => (
+              {talleresActivos.map(t => (
                 <div key={t.id} className="form-group" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <label className="form-label" style={{ flex: 1, margin: 0 }}>{t.nombre}</label>
                   <input
@@ -276,8 +341,8 @@ export const MarketingDesglose = () => {
                   />
                 </div>
               ))}
-              {talleresOrdenados.length === 0 && (
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>No hay talleres registrados.</p>
+              {talleresActivos.length === 0 && (
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>No hay talleres activos.</p>
               )}
             </div>
 
