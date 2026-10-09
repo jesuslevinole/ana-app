@@ -11,7 +11,7 @@ import {
   GitCompare, Store, ChevronDown, Wrench, ClipboardCheck, Megaphone, Clock,
   ClipboardList, LineChart, Sun, Moon, CalendarRange, FileBarChart,
   Settings, Users, ShieldCheck, Type, LogOut, AlertTriangle,
-  BarChart3, MonitorPlay, Presentation, DollarSign, FileSpreadsheet
+  BarChart3, MonitorPlay, Presentation, DollarSign, FileSpreadsheet, Receipt
 } from 'lucide-react';
 
 // Clave de almacenamiento del tema elegido (claro / oscuro)
@@ -21,7 +21,7 @@ const STORAGE_TEMA = 'app_tema_v1';
 const ICONOS: Record<string, React.ComponentType<{ size?: number }>> = {
   Wrench, PieChart, FileText, GitCompare, Store, CalendarRange,
   ClipboardCheck, ClipboardList, LineChart, FileBarChart, Megaphone, Clock,
-  Settings, Users, ShieldCheck, Type, BarChart3, MonitorPlay, Presentation, DollarSign, FileSpreadsheet,
+  Settings, Users, ShieldCheck, Type, BarChart3, MonitorPlay, Presentation, DollarSign, FileSpreadsheet, Receipt,
 };
 
 const iconoDe = (nombre: string) => ICONOS[nombre] || FileText;

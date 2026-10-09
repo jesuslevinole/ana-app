@@ -24,6 +24,7 @@ import { ReporteAnualGeneral } from './ReporteAnualGeneral';
 import { ReporteAnualInspecciones } from './ReporteAnualInspecciones';
 import { MarketingRegistro } from './MarketingRegistro';
 import { MarketingGastos } from './MarketingGastos';
+import { MarketingDesglose } from './MarketingDesglose';
 import { MarketingDashboard } from './MarketingDashboard';
 import { ReporteProcedencia } from './ReporteProcedencia';
 
@@ -59,6 +60,7 @@ const COMPONENTES: Record<string, () => ReactNode> = {
   reporteAnualInspecciones: () => <ReporteAnualInspecciones />,
   marketing: () => <MarketingRegistro />,
   marketingGastos: () => <MarketingGastos />,
+  marketingDesglose: () => <MarketingDesglose />,
   marketingDashboard: () => <MarketingDashboard />,
   marketingReporte: () => <ReporteProcedencia />,
 };

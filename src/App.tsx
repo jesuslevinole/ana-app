@@ -21,6 +21,7 @@ import { Roles } from './pages/Roles';
 import { Personalizacion } from './pages/Personalizacion';
 import { MarketingRegistro } from './pages/MarketingRegistro';
 import { MarketingGastos } from './pages/MarketingGastos';
+import { MarketingDesglose } from './pages/MarketingDesglose';
 import { MarketingDashboard } from './pages/MarketingDashboard';
 import { ReporteProcedencia } from './pages/ReporteProcedencia';
 import { Presentacion } from './pages/Presentacion';
@@ -81,6 +82,7 @@ const EnrutadorVistas = () => {
           {vista === 'personalizacion' && <Personalizacion />}
           {vista === 'marketing' && <MarketingRegistro />}
           {vista === 'marketingGastos' && <MarketingGastos />}
+          {vista === 'marketingDesglose' && <MarketingDesglose />}
           {vista === 'marketingDashboard' && <MarketingDashboard />}
           {vista === 'marketingReporte' && <ReporteProcedencia />}
           {vista === 'presentacion' && <Presentacion />}

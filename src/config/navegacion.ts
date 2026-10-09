@@ -83,6 +83,7 @@ export const CATALOGO_NAVEGACION: GrupoCatalogo[] = [
     items: [
       { vista: 'marketing', claveEtiqueta: 'vista.marketing', etiqueta: 'Registro', icono: 'ClipboardList' },
       { vista: 'marketingGastos', claveEtiqueta: 'vista.marketingGastos', etiqueta: 'Gastos', icono: 'DollarSign' },
+      { vista: 'marketingDesglose', claveEtiqueta: 'vista.marketingDesglose', etiqueta: 'Desglose', icono: 'Receipt' },
       { vista: 'marketingDashboard', claveEtiqueta: 'vista.marketingDashboard', etiqueta: 'Dashboard', icono: 'BarChart3', soloLectura: true },
       { vista: 'marketingReporte', claveEtiqueta: 'vista.marketingReporte', etiqueta: 'Reporte', icono: 'FileSpreadsheet', soloLectura: true },
     ],
