@@ -226,14 +226,14 @@ export const MarketingDesglose = () => {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="table" style={{ width: '100%', minWidth: '720px' }}>
+          <table className="table tabla-desglose" style={{ width: '100%', minWidth: '720px' }}>
             <thead>
               <tr>
                 {puedoEditar && <th style={{ width: '70px', textAlign: 'center' }}><TextoEditable clave="mkt.desglose.col.estado" defecto="Estado" /></th>}
                 <th><TextoEditable clave="mkt.desglose.col.sucursal" defecto="Sucursal" /></th>
                 <th style={{ textAlign: 'right' }}>
                   <TextoEditable clave="mkt.desglose.col.gross" defecto="Gross" />
-                  <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
+                  <small style={{ display: 'block', fontWeight: 500, textTransform: 'none', color: 'inherit', opacity: 0.75, fontSize: '0.68rem' }}>
                     <TextoEditable clave="mkt.desglose.col.grossNota" defecto="(logrado del mes en Registros)" />
                   </small>
                 </th>
