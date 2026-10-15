@@ -179,6 +179,11 @@ export const MarketingDashboard = () => {
     const sinProcedencia = filas.find(f => f.clave === 'sinProcedencia')?.cantidad ?? 0;
     const sinIdentificar = sinProcedencia + sinFormulario;
 
+    // CLIENTES NUEVOS: todos los de procedencia identificada MENOS los clientes
+    // regulares (sign, amigos, Google, Facebook, Instagram, Tik-Tok, etc.).
+    const regulares = filas.find(f => f.clave === 'clientesRegulares')?.cantidad ?? 0;
+    const nuevos = totalIdentificada - regulares;
+
     // Procedencia con más clientes
     const principal = identificadas[0] ?? null;
 
@@ -186,6 +191,8 @@ export const MarketingDashboard = () => {
       filas,
       identificadas,
       totalIdentificada,
+      regulares,
+      nuevos,
       sinProcedencia,
       sinIdentificar,
       total,
@@ -770,12 +777,12 @@ export const MarketingDashboard = () => {
             <div className="kpi-card logrado">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
               <div className="kpi-value">{reporte.total.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>Clientes nuevos + sin procedencia</small>
+              <small style={{ color: 'var(--text-muted)' }}>Regulares + nuevos + sin procedencia</small>
             </div>
             <div className="kpi-card meta">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.nuevos" defecto="Clientes nuevos" /> <Megaphone size={16} /></div>
-              <div className="kpi-value">{reporte.totalIdentificada.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.totalIdentificada).toFixed(2)} % · procedencia identificada</small>
+              <div className="kpi-value">{reporte.nuevos.toLocaleString('en-US')}</div>
+              <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.nuevos).toFixed(2)} % del total · sin contar {reporte.regulares.toLocaleString('en-US')} regulares</small>
             </div>
             <div className="kpi-card faltante">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin procedencia" /> <ClipboardX size={16} /></div>

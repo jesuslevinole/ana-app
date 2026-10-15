@@ -95,7 +95,7 @@ export const MarketingGastos = () => {
   // --- Clientes (vienen del módulo Marketing → Registro) ---
   // Se calculan con los MISMOS filtros de la página:
   //   · Total de clientes:   acumulado del AÑO filtrado (ignora el filtro de mes)
-  //   · Clientes nuevos:     los del periodo que NO son "Clientes regulares"
+  //   · Clientes nuevos:     identificados del periodo, sin regulares ni "sin procedencia"
   //   · Clientes atendidos:  total del periodo filtrado (con y sin formulario)
   const { registros: registrosMarketing } = useMarketing();
   const clientes = useMemo(() => {
@@ -106,7 +106,8 @@ export const MarketingGastos = () => {
 
     return {
       totalAno: delAno.reduce((acc, r) => acc + totalRegistroMarketing(r), 0),
-      nuevos: delPeriodo.reduce((acc, r) => acc + Math.max(0, sumaFuentes(r) - cantidadFuente(r, 'clientesRegulares')), 0),
+      // Nuevos = procedencia identificada SIN regulares y SIN "no se sabe su procedencia"
+      nuevos: delPeriodo.reduce((acc, r) => acc + Math.max(0, sumaFuentes(r) - cantidadFuente(r, 'clientesRegulares') - cantidadFuente(r, 'sinProcedencia')), 0),
       atendidos: delPeriodo.reduce((acc, r) => acc + totalRegistroMarketing(r), 0),
       periodos: delPeriodo.length,
     };
