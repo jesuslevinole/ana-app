@@ -43,6 +43,7 @@ export const MarketingDesglose = () => {
   // --- Filtros (abren con el filtro global de la presentación si existe) ---
   const [filtroAno, setFiltroAno] = useState<string>(oPorDefecto(filtroPres?.ano, String(anoActual)));
   const [filtroMes, setFiltroMes] = useState<string>(oPorDefecto(filtroPres?.mes, mesActual));
+  const [filtroTaller, setFiltroTaller] = useState<string>(oPorDefecto(filtroPres?.taller, 'Todos'));
 
   const anosDisponibles = useMemo(() => {
     const set = new Set<string>(registros.map(r => String(r.ano)));
@@ -64,9 +65,15 @@ export const MarketingDesglose = () => {
     [desgloses, filtroAno, filtroMes, esMesEspecifico]
   );
 
+  // Talleres dentro del filtro (todos, o solo el seleccionado)
+  const talleresFiltrados = useMemo(
+    () => talleresOrdenados.filter(t => filtroTaller === 'Todos' || t.nombre === filtroTaller),
+    [talleresOrdenados, filtroTaller]
+  );
+
   // --- Filas del reporte: una por taller ---
   const filas = useMemo(() => {
-    return talleresOrdenados.map(t => {
+    return talleresFiltrados.map(t => {
       const gross = registros
         .filter(r => r.taller === t.nombre)
         .filter(r => String(r.ano) === filtroAno)
@@ -76,7 +83,7 @@ export const MarketingDesglose = () => {
       const facebook = desglosesFiltrados.reduce((acc, d) => acc + facebookDeTaller(d, t.nombre), 0);
       return { taller: t.nombre, gross, aporte, facebook, fondos: aporte - facebook };
     });
-  }, [talleresOrdenados, registros, desglosesFiltrados, filtroAno, filtroMes, esMesEspecifico]);
+  }, [talleresFiltrados, registros, desglosesFiltrados, filtroAno, filtroMes, esMesEspecifico]);
 
   // Los talleres desactivados se muestran en su pestaña y NO suman al total
   const filasActivas = useMemo(() => filas.filter(f => !desactivados.includes(f.taller)), [filas, desactivados]);
@@ -102,8 +109,8 @@ export const MarketingDesglose = () => {
   );
 
   const talleresActivos = useMemo(
-    () => talleresOrdenados.filter(t => !desactivados.includes(t.nombre)),
-    [talleresOrdenados, desactivados]
+    () => talleresFiltrados.filter(t => !desactivados.includes(t.nombre)),
+    [talleresFiltrados, desactivados]
   );
 
   const abrirFormulario = () => {
@@ -134,7 +141,10 @@ export const MarketingDesglose = () => {
     setModalAbierto(false);
   };
 
-  const etiquetaPeriodo = esMesEspecifico ? `${filtroMes} ${filtroAno}` : `Año ${filtroAno} (acumulado)`;
+  const etiquetaPeriodo = [
+    filtroTaller !== 'Todos' ? filtroTaller : '',
+    esMesEspecifico ? `${filtroMes} ${filtroAno}` : `Año ${filtroAno} (acumulado)`,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="animate-in fade-in">
@@ -169,6 +179,13 @@ export const MarketingDesglose = () => {
           <label><TextoEditable clave="mkt.desglose.filtro.ano" defecto="Año" /></label>
           <select value={filtroAno} onChange={(e) => setFiltroAno(e.target.value)}>
             {anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div className="filter-group">
+          <label><TextoEditable clave="mkt.desglose.filtro.taller" defecto="Taller" /></label>
+          <select value={filtroTaller} onChange={(e) => setFiltroTaller(e.target.value)}>
+            <option value="Todos">Todos los talleres</option>
+            {talleresOrdenados.map(t => <option key={t.id} value={t.nombre}>{t.nombre}</option>)}
           </select>
         </div>
         <div className="filter-group">
