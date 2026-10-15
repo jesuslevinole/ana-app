@@ -777,7 +777,7 @@ export const MarketingDashboard = () => {
             <div className="kpi-card logrado">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.total" defecto="Total de clientes" /> <Users size={16} /></div>
               <div className="kpi-value">{reporte.total.toLocaleString('en-US')}</div>
-              <small style={{ color: 'var(--text-muted)' }}>Regulares + nuevos + sin procedencia</small>
+              <small style={{ color: 'var(--text-muted)' }}>Regulares + nuevos + sin procedencia + sin formulario</small>
             </div>
             <div className="kpi-card meta">
               <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.nuevos" defecto="Clientes nuevos" /> <Megaphone size={16} /></div>
@@ -785,10 +785,10 @@ export const MarketingDashboard = () => {
               <small style={{ color: 'var(--text-muted)' }}>{pct(reporte.nuevos).toFixed(2)} % del total · sin contar {reporte.regulares.toLocaleString('en-US')} regulares</small>
             </div>
             <div className="kpi-card faltante">
-              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin procedencia" /> <ClipboardX size={16} /></div>
-              <div className="kpi-value">{reporte.sinIdentificar.toLocaleString('en-US')}</div>
+              <div className="kpi-title"><TextoEditable clave="mkt.dash.kpi.sinFormulario" defecto="Sin formulario" /> <ClipboardX size={16} /></div>
+              <div className="kpi-value">{reporte.sinFormulario.toLocaleString('en-US')}</div>
               <small style={{ color: 'var(--text-muted)' }}>
-                {reporte.sinProcedencia.toLocaleString('en-US')} sin procedencia + {reporte.sinFormulario.toLocaleString('en-US')} sin formulario
+                {pct(reporte.sinFormulario).toFixed(2)} % del total · aparte hay {reporte.sinProcedencia.toLocaleString('en-US')} sin procedencia
               </small>
             </div>
             <div className="kpi-card logrado">
