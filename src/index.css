@@ -336,3 +336,49 @@ body { background-color: var(--bg-body); color: var(--text-main); }
   }
   @page { size: landscape; margin: 12mm; }
 }
+
+/* =========================================
+   TEMA PASTEL · PAN MARY (Dashboard de Taller)
+   Se activa solo cuando el taller filtrado es Pan Mary. Redefine las
+   variables de color dentro del dashboard, así todo lo que usa var(--...)
+   cambia a rosa pastel sin tocar el resto de la app ni otros talleres.
+   ========================================= */
+.tema-panmary {
+  --bg-body: #fdf0f4;
+  --bg-panel: #fffafb;
+  --bg-highlight: #fbe4eb;
+  --sidebar-hover: #f9dce6;
+  --text-main: #4a2c3a;
+  --text-muted: #9b7585;
+  --primary: #d6658a;
+  --primary-hover: #c4527a;
+  --success: #4fa383;
+  --danger: #e0707a;
+  --danger-hover: #cc5a65;
+  --border: #f3d0dc;
+  color-scheme: light;
+  color: var(--text-main);
+  background: linear-gradient(180deg, #fde4ec 0%, #fbd9e4 100%);
+  border-radius: 18px;
+  padding: 1.75rem;
+  box-shadow: inset 0 0 0 1px #f6c6d5;
+}
+.tema-panmary .card,
+.tema-panmary .kpi-card,
+.tema-panmary .filter-bar { border-radius: 14px; box-shadow: 0 6px 18px rgba(214, 101, 138, 0.12); }
+.tema-panmary .table th { background-color: #fbe4eb; color: #9b5a72; }
+
+/* Taza de café: ola del café y vapor */
+@keyframes panmary-ola { from { transform: translateX(0); } to { transform: translateX(-80px); } }
+@keyframes panmary-vapor {
+  0% { transform: translateY(8px); opacity: 0; }
+  30% { opacity: 0.85; }
+  100% { transform: translateY(-22px); opacity: 0; }
+}
+.taza-ola { animation: panmary-ola 3.2s linear infinite; }
+.taza-vapor { animation: panmary-vapor 3s ease-in-out infinite; }
+.taza-vapor.v2 { animation-delay: 1s; }
+.taza-vapor.v3 { animation-delay: 2s; }
+@media (prefers-reduced-motion: reduce) {
+  .taza-ola, .taza-vapor { animation: none; }
+}

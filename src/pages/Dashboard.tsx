@@ -9,6 +9,53 @@ import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacio
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
+// =========================================================================
+//  TEMAS DEL DASHBOARD
+//  El estándar es el de siempre. "Pan Mary" (panadería) usa rosa pastel con
+//  gráficas planas y suaves, siguiendo el modelo de dashboard de panadería
+//  que pidió la gerencia. Los colores de fondo/texto del tema pastel viven en
+//  index.css (.tema-panmary); aquí solo van los de las gráficas.
+// =========================================================================
+const TEMA_ESTANDAR = {
+  coloresOps: ['#1d8cf8', '#00d6b4', '#ffbc11', '#d048b6', '#51cbce', '#8965e0', '#2dce89'],
+  coloresMeses: ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849'],
+  faltante: '#ff4c4c',
+  meta: '#1d8cf8',
+  alcanzado: '#22c55e',
+  falta: '#ef4444',
+  alcanzadoSobrio: '#15803d',
+  faltaSobrio: '#991b1b',
+  acento: '#ffbc11',
+  cincoSemanas: '#F7E733',
+  textoBadge: '#fff',
+  sombraTextoBadge: '0 1px 2px rgba(0,0,0,0.3)',
+  sombra: 'rgba(0,0,0,0.4)',
+  mascaraAnillo: 'radial-gradient(circle, transparent 40%, black 41%)',
+  radioBarra: '4px 4px 0 0',
+};
+
+const TEMA_PAN_MARY: typeof TEMA_ESTANDAR = {
+  // Rosa, menta, mantequilla, lavanda, melocotón, cielo, café con leche...
+  coloresOps: ['#f4a6bd', '#a8d8c4', '#f6dc8c', '#c9b6e4', '#f8c4a4', '#a9cbe8', '#d4b59e'],
+  coloresMeses: ['#f4a6bd', '#a8d8c4', '#f8c4a4', '#c9b6e4', '#f6dc8c', '#a9cbe8', '#d4b59e', '#b9cfa5', '#f2a39b', '#e0b0d5', '#9fb7d9', '#e9d3b0'],
+  faltante: '#dcbfc9',          // lo que falta se ve como "porción vacía"
+  meta: '#d6658a',
+  alcanzado: '#4fa383',
+  falta: '#e0707a',
+  alcanzadoSobrio: '#4fa383',
+  faltaSobrio: '#d9606c',
+  acento: '#d6658a',
+  cincoSemanas: '#b8860b',
+  textoBadge: '#4a2c3a',
+  sombraTextoBadge: 'none',
+  sombra: 'rgba(214, 101, 138, 0.22)',
+  mascaraAnillo: 'radial-gradient(circle, transparent 55%, black 56%)', // anillo delgado
+  radioBarra: '10px 10px 0 0',
+};
+
+// El tema pastel se activa por el nombre del taller (basta con que diga "Pan Mary")
+const esTallerPanMary = (nombre: string) => /pan\s*mary/i.test(nombre || '');
+
 // --- NUEVOS FORMATEADORES LOCALES PARA CUMPLIR TUS REGLAS ---
 const miFormatearFecha = (fechaStr: string) => {
   if (!fechaStr || fechaStr === '-') return fechaStr;
@@ -51,12 +98,13 @@ export const Dashboard = () => {
 
   // Estados de Control del Gráfico Superior (Operaciones)
   const [tipoGrafico, setTipoGrafico] = useState<TipoGrafico>('anillo');
-  const [is3D, setIs3D] = useState<boolean>(true);
+  // En Pan Mary las gráficas abren planas (2D), como el modelo; se puede volver a 3D
+  const [is3D, setIs3D] = useState<boolean>(() => !esTallerPanMary(oPorDefecto(filtroPres?.taller, 'Todos')));
   const [hoveredOp, setHoveredOp] = useState<string | null>(null);
 
   // Estados de Control del Gráfico Inferior (Mensual)
   const [tipoGraficoMensual, setTipoGraficoMensual] = useState<TipoGrafico>('barras');
-  const [is3DMensual, setIs3DMensual] = useState<boolean>(true);
+  const [is3DMensual, setIs3DMensual] = useState<boolean>(() => !esTallerPanMary(oPorDefecto(filtroPres?.taller, 'Todos')));
   const [hoveredMes, setHoveredMes] = useState<string | null>(null);
 
   // --- NUEVO: Estado y referencia para exportar el reporte como IMAGEN PNG ---
@@ -212,8 +260,107 @@ export const Dashboard = () => {
       </svg>
     );
   };
+  // =========================================================================
+  //  TAZA DE CAFÉ (tema Pan Mary): reemplaza al velocímetro. El café sube con
+  //  una ola animada según el % alcanzado de la meta anual; al 100 % la taza
+  //  queda llena. Las líneas punteadas marcan 25 / 50 / 75 / 100 %.
+  // =========================================================================
+  const renderTazaCafe = (pctCrudo: number) => {
+    const pct = Math.max(0, Math.min(pctCrudo, 100));
+    const W = 420, H = 394;
+    const yBorde = 96;                       // borde superior de la taza
+    const yFondo = 292;                      // fondo interior
+    const altoInterior = yFondo - (yBorde + 6);
+    const ySuperficie = yFondo - (pct / 100) * altoInterior;   // nivel del café
+    const cuerpo = 'M 72 96 L 308 96 L 289 268 Q 285 292 260 292 L 120 292 Q 95 292 91 268 Z';
+    // Borde izquierdo de la taza a una altura dada (la taza es cónica)
+    const bordeIzq = (y: number) => 72 + ((y - 96) * 19) / 172;
+    // Ola con crestas cada 80 px: se desplaza 80 px en bucle sin saltos
+    let ola = 'M 0 0 Q 20 -7 40 0';
+    for (let x = 80; x <= 560; x += 40) ola += ` T ${x} 0`;
+    const liquido = `${ola} L 560 240 L 0 240 Z`;
+    const colorTaza = '#d98aa5';
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} width="420" height={H} style={{ display: 'block', maxWidth: '100%' }}>
+        <defs>
+          <clipPath id="pm-taza-interior"><path d={cuerpo} /></clipPath>
+          <linearGradient id="pm-cafe" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#c99774" />
+            <stop offset="55%" stopColor="#9a6446" />
+            <stop offset="100%" stopColor="#6e432d" />
+          </linearGradient>
+        </defs>
+
+        <g transform="translate(20 0)">
+          {/* VAPOR y corazoncito: solo cuando ya hay café */}
+          {pct > 0 && (
+            <>
+              <g fill="none" stroke="#e7a9bd" strokeWidth="4" strokeLinecap="round">
+                <path className="taza-vapor" d="M 150 82 q -10 -12 0 -24 q 10 -12 0 -24" />
+                <path className="taza-vapor v2" d="M 190 80 q -10 -12 0 -24 q 10 -12 0 -24" />
+                <path className="taza-vapor v3" d="M 230 82 q -10 -12 0 -24 q 10 -12 0 -24" />
+              </g>
+              <g className="taza-vapor v2">
+                <path transform="translate(252 40) scale(0.9)" fill="#f4a6bd"
+                  d="M12 21s-7-4.35-9.5-8.5C1 9.5 3 6 6.5 6 8.5 6 10 7.5 12 9c2-1.5 3.5-3 5.5-3C21 6 23 9.5 21.5 12.5 19 16.65 12 21 12 21z" />
+              </g>
+            </>
+          )}
+
+          {/* PLATO */}
+          <ellipse cx="190" cy="308" rx="140" ry="10" fill="rgba(214, 101, 138, 0.18)" />
+          <ellipse cx="190" cy="298" rx="150" ry="16" fill="#f8d3df" stroke={colorTaza} strokeWidth="4" />
+
+          {/* ASA */}
+          <path d="M 300 128 C 374 120 380 246 288 238" fill="none" stroke={colorTaza} strokeWidth="20" strokeLinecap="round" />
+          <path d="M 300 128 C 374 120 380 246 288 238" fill="none" stroke="#fff8fa" strokeWidth="8" strokeLinecap="round" />
+
+          {/* INTERIOR: vacío + café que sube */}
+          <g clipPath="url(#pm-taza-interior)">
+            <rect x="60" y="90" width="260" height="210" fill="#fff8fa" />
+            {pct > 0 && (
+              <g style={{ transform: `translateY(${ySuperficie}px)`, transition: 'transform 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}>
+                <g className="taza-ola">
+                  <path d={liquido} fill="#f3dcc2" />
+                  <path d={liquido} fill="url(#pm-cafe)" transform="translate(-40 10)" />
+                </g>
+              </g>
+            )}
+            {/* Marcas de medición */}
+            {[25, 50, 75, 100].map(m => {
+              const y = yFondo - (m / 100) * altoInterior;
+              const x1 = bordeIzq(y) + 6;
+              return <line key={`marca-${m}`} x1={x1} x2={x1 + 26} y1={y} y2={y} stroke="#ffffff" strokeOpacity="0.85" strokeWidth="2" strokeDasharray="5 4" />;
+            })}
+          </g>
+
+          {/* CONTORNO DE LA TAZA */}
+          <path d={cuerpo} fill="none" stroke={colorTaza} strokeWidth="6" strokeLinejoin="round" />
+          <line x1="64" y1="96" x2="316" y2="96" stroke={colorTaza} strokeWidth="9" strokeLinecap="round" />
+
+          {/* Etiquetas de la escala */}
+          {[25, 50, 75, 100].map(m => {
+            const y = yFondo - (m / 100) * altoInterior;
+            return <text key={`etq-${m}`} x={bordeIzq(y) - 10} y={y + 4} textAnchor="end" fontSize="12" fontWeight="800" fill="var(--text-muted)">{m}%</text>;
+          })}
+        </g>
+
+        {/* PORCENTAJE */}
+        <text x={W / 2} y={364} textAnchor="middle" fontSize="40" fontWeight="900" fill="var(--text-main)">{pctCrudo.toFixed(2)}%</text>
+        <text x={W / 2} y={386} textAnchor="middle" fontSize="12" fontWeight="800" fill="var(--text-muted)" letterSpacing="1.5">
+          {pctCrudo >= 100 ? '¡TAZA LLENA · META CUMPLIDA!' : 'ALCANCE ACTUAL'}
+        </text>
+      </svg>
+    );
+  };
+
   const talleresDisponibles = useMemo(() => [...talleres].sort((a, b) => (a.orden || 0) - (b.orden || 0)).map(t => t.nombre), [talleres]);
   const tallerActivo = useMemo(() => filtroTaller === 'Todos' ? null : talleres.find(t => t.nombre === filtroTaller) || null, [filtroTaller, talleres]);
+
+  // --- TEMA: rosa pastel para Pan Mary, estándar para los demás talleres ---
+  const esPanMary = esTallerPanMary(filtroTaller);
+  const tema = esPanMary ? TEMA_PAN_MARY : TEMA_ESTANDAR;
 
   // Lógica de Filtrado Principal
   const registrosFiltrados = useMemo(() => {
@@ -246,7 +393,7 @@ export const Dashboard = () => {
     if (totalVendido === 0 && metaTotal === 0) return null;
 
     const baseCalculo = Math.max(metaTotal, totalVendido);
-    const colores = ['#1d8cf8', '#00d6b4', '#ffbc11', '#d048b6', '#51cbce', '#8965e0', '#2dce89'];
+    const colores = tema.coloresOps;
     let acumuladoGrados = 0;
     
     const operacionesConSectores = listaOperaciones.map((op, index) => {
@@ -275,7 +422,7 @@ export const Dashboard = () => {
       const porcentajeFaltante = (faltante / baseCalculo) * 100;
       const gradosFaltante = (porcentajeFaltante / 100) * 360;
       const midAngleFaltante = acumuladoGrados + (gradosFaltante / 2);
-      const colorFaltante = '#ff4c4c'; 
+      const colorFaltante = tema.faltante;
       const inicioFaltante = acumuladoGrados;
       acumuladoGrados += gradosFaltante;
       operacionesConSectores.push({
@@ -294,7 +441,7 @@ export const Dashboard = () => {
     }
 
     return { operaciones: operacionesConSectores, gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`, totalVendido, excedenteObj };
-  }, [registrosFiltrados]);
+  }, [registrosFiltrados, tema]);
 
   // Lógica de Reporte Mensual
   const reporteMensual = useMemo(() => {
@@ -335,7 +482,7 @@ export const Dashboard = () => {
     if (mesesConVentas.length === 0) return null;
 
     const totalVentasMensuales = mesesConVentas.reduce((acc, d) => acc + d.ventas, 0);
-    const colores = ['#1d8cf8', '#00d6b4', '#ff8d72', '#d048b6', '#ffbc11', '#51cbce', '#8965e0', '#2dce89', '#f56036', '#c72e6b', '#2a86ff', '#e2d849'];
+    const colores = tema.coloresMeses;
     let acumuladoGrados = 0;
 
     const operacionesConSectores = mesesConVentas.map((op, index) => {
@@ -348,7 +495,7 @@ export const Dashboard = () => {
     });
 
     return { operaciones: operacionesConSectores, gradient: `conic-gradient(${operacionesConSectores.map(o => o.gradientPart).join(', ')})`, totalVendido: totalVentasMensuales };
-  }, [reporteMensual]);
+  }, [reporteMensual, tema]);
 
   // --- RENDERIZADOR GRÁFICO SUPERIOR ---
   const renderGrafico = () => {
@@ -357,7 +504,7 @@ export const Dashboard = () => {
     const maxVendido = Math.max(...operaciones.map(o => o.vendido));
 
     if (tipoGrafico === 'torta' || tipoGrafico === 'anillo') {
-      const mascaraDonut = tipoGrafico === 'anillo' ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
+      const mascaraDonut = tipoGrafico === 'anillo' ? tema.mascaraAnillo : 'none';
       return (
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: is3D ? '1.5rem auto 4rem auto' : '2rem 0 3rem 0', width: '100%', height: '470px' }}>
           {is3D ? (
@@ -370,7 +517,7 @@ export const Dashboard = () => {
                 ))}
               </div>
             </div>
-          ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} /> )}
+          ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: `0 4px 15px ${tema.sombra}`, transition: 'all 0.5s' } as React.CSSProperties} /> )}
           
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
             {operaciones.map((op, index) => {
@@ -423,7 +570,7 @@ export const Dashboard = () => {
                   </svg>
                   
                   <div onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
-                    style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
+                    style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : `0 4px 10px ${tema.sombra}`, zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
                     <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -445,7 +592,7 @@ export const Dashboard = () => {
             const isDimmed = hoveredOp !== null && !isHovered;
             return (
               <div key={op.id} onMouseEnter={() => setHoveredOp(op.id)} onMouseLeave={() => setHoveredOp(null)}
-                style={{ width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3D ? '2px' : '4px 4px 0 0', boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
+                style={{ width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3D ? '2px' : tema.radioBarra, boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -492,7 +639,7 @@ export const Dashboard = () => {
     const maxVendido = Math.max(...operaciones.map(o => o.vendido));
 
     if (tipoGraficoMensual === 'torta' || tipoGraficoMensual === 'anillo') {
-      const mascaraDonut = tipoGraficoMensual === 'anillo' ? 'radial-gradient(circle, transparent 40%, black 41%)' : 'none';
+      const mascaraDonut = tipoGraficoMensual === 'anillo' ? tema.mascaraAnillo : 'none';
       return (
         <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: is3DMensual ? '1.5rem auto 4rem auto' : '2rem 0 3rem 0', width: '100%', height: '470px' }}>
           {is3DMensual ? (
@@ -505,7 +652,7 @@ export const Dashboard = () => {
                 ))}
               </div>
             </div>
-          ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'all 0.5s' } as React.CSSProperties} /> )}
+          ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: `0 4px 15px ${tema.sombra}`, transition: 'all 0.5s' } as React.CSSProperties} /> )}
           
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
             {operaciones.map((op, index) => {
@@ -558,7 +705,7 @@ export const Dashboard = () => {
                   </svg>
                   
                   <div onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
-                    style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : '0 4px 10px rgba(0,0,0,0.4)', zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
+                    style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : `0 4px 10px ${tema.sombra}`, zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
                     <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -580,7 +727,7 @@ export const Dashboard = () => {
             const isDimmed = hoveredMes !== null && !isHovered;
             return (
               <div key={op.id} onMouseEnter={() => setHoveredMes(op.id)} onMouseLeave={() => setHoveredMes(null)}
-                style={{ width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3DMensual ? '2px' : '4px 4px 0 0', boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
+                style={{ width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3DMensual ? '2px' : tema.radioBarra, boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
                    <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
@@ -1076,7 +1223,7 @@ export const Dashboard = () => {
       {/* =========================================================================
           1. VISTA WEB ORIGINAL (INTACTA E INTERACTIVA)
       ========================================================================= */}
-      <div className="web-only-dashboard animate-in fade-in">
+      <div className={`web-only-dashboard animate-in fade-in${esPanMary ? ' tema-panmary' : ''}`}>
         <div className="page-header">
           <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
             {tallerActivo && tallerActivo.logo ? (
@@ -1110,7 +1257,7 @@ export const Dashboard = () => {
         <div className="filter-bar">
           <div className="filter-group"><label>Año</label><select value={filtroAno} onChange={(e) => setFiltroAno(e.target.value)}><option value="Todos">Todos los años</option>{anosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}</select></div>
           <div className="filter-group"><label>Mes</label><select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)}><option value="Todos">Todos los meses</option>{MESES.map(m => <option key={m} value={m}>{m}</option>)}</select></div>
-          <div className="filter-group"><label>Taller</label><select value={filtroTaller} onChange={(e) => setFiltroTaller(e.target.value)}><option value="Todos">Todos los talleres</option>{talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+          <div className="filter-group"><label>Taller</label><select value={filtroTaller} onChange={(e) => { setFiltroTaller(e.target.value); if (esTallerPanMary(e.target.value)) { setIs3D(false); setIs3DMensual(false); } }}><option value="Todos">Todos los talleres</option>{talleresDisponibles.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
         </div>
 
 
@@ -1186,7 +1333,7 @@ export const Dashboard = () => {
                                 {op.isFaltante ? (
                                   <>
                                     <td style={{ textAlign: 'center', padding: '1.5rem 0.75rem' }}>
-                                      <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '46px', height: '46px', borderRadius: '12px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)', boxShadow: `0 4px 14px ${op.color}55` }}>
+                                      <span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '46px', height: '46px', borderRadius: '12px', color: tema.textoBadge, textShadow: tema.sombraTextoBadge, boxShadow: `0 4px 14px ${op.color}55` }}>
                                         <AlertTriangle size={24} />
                                       </span>
                                     </td>
@@ -1199,7 +1346,7 @@ export const Dashboard = () => {
                                   </>
                                 ) : (
                                   <>
-                                    <td style={{ textAlign: 'center' }}><span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{op.semanaIndex}</span></td>
+                                    <td style={{ textAlign: 'center' }}><span className="op-badge" style={{ backgroundColor: op.color, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800, color: tema.textoBadge, textShadow: tema.sombraTextoBadge }}>{op.semanaIndex}</span></td>
                                     <td><div style={{fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600}}>{miFormatearFecha(op.desde)}</div><div style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>{miFormatearFecha(op.hasta)}</div></td>
                                     <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--text-main)' }}>{miFormatearMoneda(op.vendido)}</td>
                                     <td style={{ textAlign: 'center' }}><span style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '0.85rem' }}>{op.porcentajeStr}%</span></td>
@@ -1212,7 +1359,7 @@ export const Dashboard = () => {
                           {analisisOperaciones.excedenteObj && (
                             <tr style={{ backgroundColor: 'rgba(16, 185, 129, 0.05)' }}>
                               <td style={{ textAlign: 'center' }}>
-                                <span className="op-badge" style={{ backgroundColor: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                                <span className="op-badge" style={{ backgroundColor: 'var(--success)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '6px', color: tema.textoBadge, textShadow: tema.sombraTextoBadge }}>
                                   <TrendingUp size={12} />
                                 </span>
                               </td>
@@ -1256,7 +1403,7 @@ export const Dashboard = () => {
 
 
             {/* META ANUAL: dentro del apartado del Reporte Mensual Consolidado */}
-            <div className="card" style={{ marginTop: '1.5rem', borderTop: '3px solid #ffbc11' }}>
+            <div className="card" style={{ marginTop: '1.5rem', borderTop: `3px solid ${tema.acento}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>
                   Meta Anual {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'Todos los talleres' : filtroTaller}
@@ -1265,35 +1412,35 @@ export const Dashboard = () => {
 
               {/* TRES TARJETAS: META (azul) · ALCANZADA (verde) · FALTANTE (rojo) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #1d8cf8', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#1d8cf8', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #1d8cf855' }}>
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: `3px solid ${tema.meta}`, display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: tema.meta, color: '#ffffff', flexShrink: 0, boxShadow: `0 3px 10px ${tema.meta}55` }}>
                     <Target size={22} />
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#1d8cf8', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: tema.meta, whiteSpace: 'nowrap' }}>
                       {resumenMetaAnual.metaAnual > 0 ? miFormatearMoneda(resumenMetaAnual.metaAnual) : '—'}
                     </div>
                   </div>
                 </div>
-                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #22c55e', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#22c55e', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #22c55e55' }}>
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: `3px solid ${tema.alcanzado}`, display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: tema.alcanzado, color: '#ffffff', flexShrink: 0, boxShadow: `0 3px 10px ${tema.alcanzado}55` }}>
                     <CheckCircle2 size={22} />
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Meta anual alcanzada</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: tema.alcanzado, whiteSpace: 'nowrap' }}>
                       {resumenMetaAnual.tieneDatos ? miFormatearMoneda(resumenMetaAnual.logrado) : '—'}
                     </div>
                   </div>
                 </div>
-                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: '3px solid #ef4444', display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#ef4444', color: '#ffffff', flexShrink: 0, boxShadow: '0 3px 10px #ef444455' }}>
+                <div style={{ backgroundColor: 'var(--bg-body)', borderRadius: '10px', padding: '0.9rem 1.1rem', borderBottom: `3px solid ${tema.falta}`, display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', borderRadius: '50%', backgroundColor: tema.falta, color: '#ffffff', flexShrink: 0, boxShadow: `0 3px 10px ${tema.falta}55` }}>
                     <AlertCircle size={22} />
                   </span>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: '0.2rem' }}>Faltante por alcanzar</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: resumenMetaAnual.faltante === 0 && resumenMetaAnual.tieneDatos ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 900, color: resumenMetaAnual.faltante === 0 && resumenMetaAnual.tieneDatos ? tema.alcanzado : tema.falta, whiteSpace: 'nowrap' }}>
                       {!resumenMetaAnual.tieneDatos ? '—' : resumenMetaAnual.faltante === 0 ? 'Meta alcanzada ✓' : miFormatearMoneda(resumenMetaAnual.faltante)}
                     </div>
                   </div>
@@ -1304,7 +1451,7 @@ export const Dashboard = () => {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1.5rem' }}>
                 {/* TÍTULO */}
                 <div style={{ textAlign: 'center', marginBottom: '0.25rem' }}>
-                  <div style={{ fontSize: '1.15rem', fontWeight: 900, color: '#ffbc11', letterSpacing: '2px' }}>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 900, color: tema.acento, letterSpacing: '2px' }}>
                     NIVEL ACTUAL DE ALCANCE
                   </div>
                   <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '1.2px', marginTop: '0.15rem' }}>
@@ -1313,17 +1460,17 @@ export const Dashboard = () => {
                   <div style={{ width: '100%', height: '1px', background: 'linear-gradient(90deg, transparent, var(--border), transparent)', marginTop: '0.6rem' }} />
                 </div>
 
-                {renderGaugeMeta(resumenMetaAnual.pct)}
+                {esPanMary ? renderTazaCafe(resumenMetaAnual.pct) : renderGaugeMeta(resumenMetaAnual.pct)}
 
                 {/* RESUMEN: ALCANZADO / FALTANTE en tonos sobrios */}
                 <div style={{ display: 'flex', alignItems: 'stretch', border: '1px solid var(--border)', borderRadius: '12px', overflow: 'hidden', marginTop: '0.5rem', backgroundColor: 'var(--bg-body)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.4rem' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', backgroundColor: 'rgba(21,128,61,0.18)', border: '2px solid #15803d', flexShrink: 0 }}>
-                      <Target size={19} color="#15803d" />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', backgroundColor: `${tema.alcanzadoSobrio}2e`, border: `2px solid ${tema.alcanzadoSobrio}`, flexShrink: 0 }}>
+                      <Target size={19} color={tema.alcanzadoSobrio} />
                     </span>
                     <div>
                       <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1px' }}>ALCANZADO</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#15803d', lineHeight: 1.1 }}>{resumenMetaAnual.pct.toFixed(2)}%</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 900, color: tema.alcanzadoSobrio, lineHeight: 1.1 }}>{resumenMetaAnual.pct.toFixed(2)}%</div>
                       <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>DEL OBJETIVO</div>
                     </div>
                   </div>
@@ -1331,12 +1478,12 @@ export const Dashboard = () => {
                   <div style={{ width: '1px', backgroundColor: 'var(--border)' }} />
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.85rem 1.4rem' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', backgroundColor: 'rgba(153,27,27,0.18)', border: '2px solid #991b1b', flexShrink: 0 }}>
-                      <TrendingUp size={19} color="#991b1b" />
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '38px', height: '38px', borderRadius: '50%', backgroundColor: `${tema.faltaSobrio}2e`, border: `2px solid ${tema.faltaSobrio}`, flexShrink: 0 }}>
+                      <TrendingUp size={19} color={tema.faltaSobrio} />
                     </span>
                     <div>
                       <div style={{ fontSize: '0.68rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '1px' }}>FALTANTE</div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#991b1b', lineHeight: 1.1 }}>{Math.max(100 - resumenMetaAnual.pct, 0).toFixed(2)}%</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 900, color: tema.faltaSobrio, lineHeight: 1.1 }}>{Math.max(100 - resumenMetaAnual.pct, 0).toFixed(2)}%</div>
                       <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>PARA LLEGAR AL 100%</div>
                     </div>
                   </div>
@@ -1358,7 +1505,7 @@ export const Dashboard = () => {
                     const semanasFila = getSemanas(fila.mes, fila.numSemanas);
                     const esCinco = semanasFila >= 5;
                     return (
-                    <tr key={fila.mes} style={esCinco ? { backgroundColor: 'rgba(247, 231, 51, 0.13)', borderLeft: '3px solid #F7E733' } : undefined}>
+                    <tr key={fila.mes} style={esCinco ? { backgroundColor: 'rgba(247, 231, 51, 0.13)', borderLeft: `3px solid ${tema.cincoSemanas}` } : undefined}>
                       <td style={{ textAlign: 'center' }}>
                         <input
                           type="number"
@@ -1369,10 +1516,10 @@ export const Dashboard = () => {
                             guardarSemanas(fila.mes, isNaN(v) ? 0 : Math.max(0, v));
                           }}
                           title="Semanas del mes. Es igual para todos los talleres: se captura una sola vez y se comparte con todos los usuarios."
-                          style={{ width: '56px', textAlign: 'center', backgroundColor: esCinco ? 'rgba(247, 231, 51, 0.22)' : 'var(--bg-body)', color: esCinco ? '#F7E733' : 'var(--text-main)', border: `1px solid ${esCinco ? '#F7E733' : 'var(--border)'}`, borderRadius: '6px', padding: '0.3rem', fontSize: '0.85rem', fontWeight: 800, outline: 'none' }}
+                          style={{ width: '56px', textAlign: 'center', backgroundColor: esCinco ? 'rgba(247, 231, 51, 0.22)' : 'var(--bg-body)', color: esCinco ? tema.cincoSemanas : 'var(--text-main)', border: `1px solid ${esCinco ? tema.cincoSemanas : 'var(--border)'}`, borderRadius: '6px', padding: '0.3rem', fontSize: '0.85rem', fontWeight: 800, outline: 'none' }}
                         />
                       </td>
-                      <td><strong style={esCinco ? { color: '#F7E733' } : undefined}>{fila.mes}</strong>{esCinco && <span style={{ marginLeft: '0.5rem', fontSize: '0.6rem', fontWeight: 800, color: '#F7E733', border: '1px solid #F7E733', borderRadius: '10px', padding: '2px 6px', letterSpacing: '0.5px' }}>5 SEM</span>}</td>
+                      <td><strong style={esCinco ? { color: tema.cincoSemanas } : undefined}>{fila.mes}</strong>{esCinco && <span style={{ marginLeft: '0.5rem', fontSize: '0.6rem', fontWeight: 800, color: tema.cincoSemanas, border: `1px solid ${tema.cincoSemanas}`, borderRadius: '10px', padding: '2px 6px', letterSpacing: '0.5px' }}>5 SEM</span>}</td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{fila.meta > 0 ? miFormatearMoneda(fila.meta) : '-'}</td>
                       <td style={{ textAlign: 'right', fontWeight: fila.ventas > 0 ? 600 : 400, color: fila.ventas > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>{fila.ventas > 0 ? miFormatearMoneda(fila.ventas) : '-'}</td>
                       <td style={{ textAlign: 'center' }}>{fila.meta > 0 && <span style={{ color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem' }}>{fila.pctVentas.toFixed(2)}%</span>}</td>
