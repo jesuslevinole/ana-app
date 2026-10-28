@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useContext, type ReactNode } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { CATALOGO_NAVEGACION, TODAS_LAS_VISTAS } from '../config/navegacion';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -749,6 +750,7 @@ export const Presentacion = () => {
         position: 'fixed', inset: 0, zIndex: 2000,
         backgroundColor: 'var(--bg-body)', display: 'flex', flexDirection: 'column'
       }}>
+        <TemaTaller taller={reproduciendo.taller} />
         {/* BARRA SUPERIOR */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',

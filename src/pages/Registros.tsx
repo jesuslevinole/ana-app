@@ -1,4 +1,5 @@
 import { useState, useContext, useMemo, useEffect } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
 import { useAuth } from '../context/AuthContext';
@@ -285,6 +286,7 @@ export const Registros = () => {
 
   return (
     <div className="animate-in fade-in">
+      <TemaTaller taller={filtroTaller} />
       {/* HEADER PRINCIPAL */}
       <div className="page-header" style={{ alignItems: 'center' }}>
         <div className="page-title">

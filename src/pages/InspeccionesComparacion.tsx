@@ -1,4 +1,5 @@
 import { useState, useContext, useMemo } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
@@ -88,6 +89,7 @@ export const InspeccionesComparacion = () => {
 
   return (
     <div className="animate-in fade-in">
+      <TemaTaller taller={tallerSeleccionado} />
       {/* ENCABEZADO */}
       <div className="page-header">
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

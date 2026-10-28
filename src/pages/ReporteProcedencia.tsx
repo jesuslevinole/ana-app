@@ -1,4 +1,5 @@
 import { useState, useContext, useMemo, useRef } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
@@ -71,6 +72,7 @@ export const ReporteProcedencia = () => {
 
   return (
     <div className="animate-in fade-in">
+      <TemaTaller taller={tallerSel} />
       {/* ENCABEZADO */}
       <div className="page-header">
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

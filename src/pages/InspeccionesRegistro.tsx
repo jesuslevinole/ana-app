@@ -1,4 +1,5 @@
 import { useState, useContext, useMemo, useEffect } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { MESES } from '../utils/formatters';
@@ -337,6 +338,7 @@ export const InspeccionesRegistro = () => {
 
   return (
     <div className="animate-in fade-in">
+      <TemaTaller taller={filtroTaller} />
       {/* ENCABEZADO ESTILO "GESTIÓN DE REGISTROS" */}
       <div className="page-header">
         <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

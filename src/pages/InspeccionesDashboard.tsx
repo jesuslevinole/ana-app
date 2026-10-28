@@ -1,4 +1,5 @@
 import { useState, useContext, useMemo, useRef, useEffect } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useInspecciones } from '../hooks/useInspecciones';
@@ -900,6 +901,7 @@ export const InspeccionesDashboard = () => {
 
   return (
     <div className="animate-in fade-in">
+      <TemaTaller taller={tallerSeleccionado} />
       <style>{`
         .insp-kpis { gap: 0.85rem !important; }
         .insp-kpis.kpi-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; }

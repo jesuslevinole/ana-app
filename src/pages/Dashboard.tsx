@@ -1,4 +1,5 @@
 import { useState, useMemo, useContext, useRef, useEffect } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { MESES } from '../utils/formatters';
 import { useMetasAnuales } from '../hooks/useMetasAnuales';
@@ -6,15 +7,17 @@ import { useSemanasEditadas } from '../hooks/useSemanasEditadas';
 import { TextoEditable } from '../components/TextoEditable';
 import { PieChart as PieIcon, Target, TrendingUp, AlertTriangle, Printer, Filter, Download, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
+import { esTallerPanMary } from '../context/temaTaller';
 
 type TipoGrafico = 'torta' | 'anillo' | 'barras' | 'lineas';
 
 // =========================================================================
 //  TEMAS DEL DASHBOARD
-//  El estándar es el de siempre. "Pan Mary" (panadería) usa rosa pastel con
-//  gráficas planas y suaves, siguiendo el modelo de dashboard de panadería
-//  que pidió la gerencia. Los colores de fondo/texto del tema pastel viven en
-//  index.css (.tema-panmary); aquí solo van los de las gráficas.
+//  El estándar es el de siempre. "Pan Mary" (panadería) usa rosa pastel
+//  apagado con gráficas planas y suaves, siguiendo el modelo de dashboard de
+//  panadería que pidió la gerencia. Los colores de fondo, menú y texto del
+//  tema viven en index.css (:root[data-tema='panmary']) y se aplican a toda la
+//  app; aquí solo van los de las gráficas.
 // =========================================================================
 const TEMA_ESTANDAR = {
   coloresOps: ['#1d8cf8', '#00d6b4', '#ffbc11', '#d048b6', '#51cbce', '#8965e0', '#2dce89'],
@@ -35,26 +38,23 @@ const TEMA_ESTANDAR = {
 };
 
 const TEMA_PAN_MARY: typeof TEMA_ESTANDAR = {
-  // Rosa, menta, mantequilla, lavanda, melocotón, cielo, café con leche...
-  coloresOps: ['#f4a6bd', '#a8d8c4', '#f6dc8c', '#c9b6e4', '#f8c4a4', '#a9cbe8', '#d4b59e'],
-  coloresMeses: ['#f4a6bd', '#a8d8c4', '#f8c4a4', '#c9b6e4', '#f6dc8c', '#a9cbe8', '#d4b59e', '#b9cfa5', '#f2a39b', '#e0b0d5', '#9fb7d9', '#e9d3b0'],
-  faltante: '#dcbfc9',          // lo que falta se ve como "porción vacía"
-  meta: '#d6658a',
-  alcanzado: '#4fa383',
-  falta: '#e0707a',
-  alcanzadoSobrio: '#4fa383',
-  faltaSobrio: '#d9606c',
-  acento: '#d6658a',
-  cincoSemanas: '#b8860b',
-  textoBadge: '#4a2c3a',
+  // Tonos empolvados: rosa, salvia, mantequilla, lavanda, durazno, azul polvo, café con leche
+  coloresOps: ['#dcaebc', '#b3cfc2', '#e8d4a2', '#c9bfdb', '#e9c3ae', '#b5c8db', '#d2bfae'],
+  coloresMeses: ['#dcaebc', '#b3cfc2', '#e9c3ae', '#c9bfdb', '#e8d4a2', '#b5c8db', '#d2bfae', '#c2d0ae', '#e3aaa3', '#d8b3cf', '#a9bad3', '#e4d3b8'],
+  faltante: '#e6d8dd',          // lo que falta se ve como "porción vacía"
+  meta: '#b07a8c',
+  alcanzado: '#6f9e8b',
+  falta: '#c27c7c',
+  alcanzadoSobrio: '#6f9e8b',
+  faltaSobrio: '#b86f74',
+  acento: '#b07a8c',
+  cincoSemanas: '#a07c2c',
+  textoBadge: '#4a3a41',
   sombraTextoBadge: 'none',
-  sombra: 'rgba(214, 101, 138, 0.22)',
+  sombra: 'rgba(176, 122, 140, 0.18)',
   mascaraAnillo: 'radial-gradient(circle, transparent 55%, black 56%)', // anillo delgado
   radioBarra: '10px 10px 0 0',
 };
-
-// El tema pastel se activa por el nombre del taller (basta con que diga "Pan Mary")
-const esTallerPanMary = (nombre: string) => /pan\s*mary/i.test(nombre || '');
 
 // --- NUEVOS FORMATEADORES LOCALES PARA CUMPLIR TUS REGLAS ---
 const miFormatearFecha = (fechaStr: string) => {
@@ -279,16 +279,16 @@ export const Dashboard = () => {
     let ola = 'M 0 0 Q 20 -7 40 0';
     for (let x = 80; x <= 560; x += 40) ola += ` T ${x} 0`;
     const liquido = `${ola} L 560 240 L 0 240 Z`;
-    const colorTaza = '#d98aa5';
+    const colorTaza = '#c495a4';
 
     return (
       <svg viewBox={`0 0 ${W} ${H}`} width="420" height={H} style={{ display: 'block', maxWidth: '100%' }}>
         <defs>
           <clipPath id="pm-taza-interior"><path d={cuerpo} /></clipPath>
           <linearGradient id="pm-cafe" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#c99774" />
-            <stop offset="55%" stopColor="#9a6446" />
-            <stop offset="100%" stopColor="#6e432d" />
+            <stop offset="0%" stopColor="#c49a7c" />
+            <stop offset="55%" stopColor="#97684e" />
+            <stop offset="100%" stopColor="#6e4834" />
           </linearGradient>
         </defs>
 
@@ -296,33 +296,33 @@ export const Dashboard = () => {
           {/* VAPOR y corazoncito: solo cuando ya hay café */}
           {pct > 0 && (
             <>
-              <g fill="none" stroke="#e7a9bd" strokeWidth="4" strokeLinecap="round">
+              <g fill="none" stroke="#d9b4c0" strokeWidth="4" strokeLinecap="round">
                 <path className="taza-vapor" d="M 150 82 q -10 -12 0 -24 q 10 -12 0 -24" />
                 <path className="taza-vapor v2" d="M 190 80 q -10 -12 0 -24 q 10 -12 0 -24" />
                 <path className="taza-vapor v3" d="M 230 82 q -10 -12 0 -24 q 10 -12 0 -24" />
               </g>
               <g className="taza-vapor v2">
-                <path transform="translate(252 40) scale(0.9)" fill="#f4a6bd"
+                <path transform="translate(252 40) scale(0.9)" fill="#dcaebc"
                   d="M12 21s-7-4.35-9.5-8.5C1 9.5 3 6 6.5 6 8.5 6 10 7.5 12 9c2-1.5 3.5-3 5.5-3C21 6 23 9.5 21.5 12.5 19 16.65 12 21 12 21z" />
               </g>
             </>
           )}
 
           {/* PLATO */}
-          <ellipse cx="190" cy="308" rx="140" ry="10" fill="rgba(214, 101, 138, 0.18)" />
-          <ellipse cx="190" cy="298" rx="150" ry="16" fill="#f8d3df" stroke={colorTaza} strokeWidth="4" />
+          <ellipse cx="190" cy="308" rx="140" ry="10" fill="rgba(176, 122, 140, 0.16)" />
+          <ellipse cx="190" cy="298" rx="150" ry="16" fill="#efdfe4" stroke={colorTaza} strokeWidth="4" />
 
           {/* ASA */}
           <path d="M 300 128 C 374 120 380 246 288 238" fill="none" stroke={colorTaza} strokeWidth="20" strokeLinecap="round" />
-          <path d="M 300 128 C 374 120 380 246 288 238" fill="none" stroke="#fff8fa" strokeWidth="8" strokeLinecap="round" />
+          <path d="M 300 128 C 374 120 380 246 288 238" fill="none" stroke="#fdf8f9" strokeWidth="8" strokeLinecap="round" />
 
           {/* INTERIOR: vacío + café que sube */}
           <g clipPath="url(#pm-taza-interior)">
-            <rect x="60" y="90" width="260" height="210" fill="#fff8fa" />
+            <rect x="60" y="90" width="260" height="210" fill="#fdf8f9" />
             {pct > 0 && (
               <g style={{ transform: `translateY(${ySuperficie}px)`, transition: 'transform 1.2s cubic-bezier(0.22, 1, 0.36, 1)' }}>
                 <g className="taza-ola">
-                  <path d={liquido} fill="#f3dcc2" />
+                  <path d={liquido} fill="#efdcc6" />
                   <path d={liquido} fill="url(#pm-cafe)" transform="translate(-40 10)" />
                 </g>
               </g>
@@ -1139,6 +1139,7 @@ export const Dashboard = () => {
 
   return (
     <>
+      <TemaTaller taller={filtroTaller} />
       {/* MAGIA CSS: ESTILOS QUE SEPARAN LA WEB DE LA IMPRESIÓN */}
       <style>{`
         @media screen {
@@ -1223,7 +1224,7 @@ export const Dashboard = () => {
       {/* =========================================================================
           1. VISTA WEB ORIGINAL (INTACTA E INTERACTIVA)
       ========================================================================= */}
-      <div className={`web-only-dashboard animate-in fade-in${esPanMary ? ' tema-panmary' : ''}`}>
+      <div className="web-only-dashboard animate-in fade-in">
         <div className="page-header">
           <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
             {tallerActivo && tallerActivo.logo ? (
@@ -1245,7 +1246,7 @@ export const Dashboard = () => {
                 <FileText size={18} /> {generandoPDF ? 'Generando PDF...' : 'PDF Ejecutivo (Todos los Talleres)'}
               </button>
             )}
-            <button onClick={generarImagen} disabled={!filtrosCompletos || generandoImagen} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (!filtrosCompletos || generandoImagen) ? 'not-allowed' : 'pointer', opacity: (!filtrosCompletos || generandoImagen) ? 0.55 : 1, background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.35)' }} title={!filtrosCompletos ? 'Seleccione Año, Mes y Taller para habilitar' : 'Descargar reporte como imagen PNG'}>
+            <button onClick={generarImagen} disabled={!filtrosCompletos || generandoImagen} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600, color: '#fff', border: 'none', cursor: (!filtrosCompletos || generandoImagen) ? 'not-allowed' : 'pointer', opacity: (!filtrosCompletos || generandoImagen) ? 0.55 : 1, background: esPanMary ? 'linear-gradient(135deg, #8db3a2 0%, #6f9e8b 100%)' : 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', boxShadow: esPanMary ? '0 4px 12px rgba(111, 158, 139, 0.3)' : '0 4px 12px rgba(22, 163, 74, 0.35)' }} title={!filtrosCompletos ? 'Seleccione Año, Mes y Taller para habilitar' : 'Descargar reporte como imagen PNG'}>
               <Download size={18} /> {generandoImagen ? 'Generando...' : 'Generar Imagen'}
             </button>
             <button onClick={() => abrirAjustePDF('print')} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem', borderRadius: '8px', fontWeight: 600 }}>

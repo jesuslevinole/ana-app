@@ -1,4 +1,5 @@
 import { useState, useMemo, useContext } from 'react';
+import { TemaTaller } from '../components/TemaTaller';
 import { AppContext } from '../context/AppContext';
 import { GitCompare, TrendingUp, TrendingDown } from 'lucide-react';
 import { useFiltroPresentacion, oPorDefecto } from '../context/filtroPresentacion';
@@ -360,6 +361,7 @@ export const Comparacion = () => {
 
   return (
     <div className="animate-in fade-in">
+      <TemaTaller taller={taller} />
       <div className="page-header">
         <div className="page-title">
           <GitCompare size={24} color="var(--primary)" />
