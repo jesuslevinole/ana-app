@@ -1194,6 +1194,23 @@ export const Dashboard = () => {
     respaldo: '#22c55e', respaldoFondo: 'rgba(34,197,94,0.15)', respaldoBorde: 'rgba(34,197,94,0.4)',
   };
 
+  // Colores del PDF (Exportar PDF): estándar o Pan Mary (rosa empolvado)
+  const pdf = esPanMary ? {
+    encabezado: '#efdfe4', encabezadoTitulo: '#4a3a41', encabezadoTexto: '#8c7880',
+    seccionTexto: '#5a464e', seccionLinea: '#b07a8c',
+    borde: '#ecdfe3', fondoSuave: '#fbf6f7', sombra: 'rgba(176,122,140,0.12)',
+    th: '#f3e8eb', thLinea: '#dcc6cd', tdLinea: '#f3e9ec', filaPar: '#fdf9fa',
+    etiqueta: '#8c7880', acento: '#b07a8c', ok: '#5e9a83', mal: '#c06a6f', neutro: '#6b5860', texto: '#4a3a41',
+    barra: '#c495a4', base: '#dcc6cd',
+  } : {
+    encabezado: '#1e293b', encabezadoTitulo: '#ffffff', encabezadoTexto: '#cbd5e1',
+    seccionTexto: '#1e293b', seccionLinea: '#1d8cf8',
+    borde: '#e2e8f0', fondoSuave: '#f8fafc', sombra: 'rgba(15,23,42,0.10)',
+    th: '#f1f5f9', thLinea: '#cbd5e1', tdLinea: '#f1f5f9', filaPar: '#fcfcfc',
+    etiqueta: '#64748b', acento: '#1d8cf8', ok: '#10b981', mal: '#f56036', neutro: '#475569', texto: '#1e293b',
+    barra: '#1d8cf8', base: '#cbd5e1',
+  };
+
   return (
     <>
       <TemaTaller taller={filtroTaller} />
@@ -1229,41 +1246,41 @@ export const Dashboard = () => {
           .print-only-report .report-header {
             display: flex !important; flex-direction: column !important;
             justify-content: center !important; align-items: center !important; text-align: center !important;
-            background-color: #1e293b !important; color: #ffffff !important;
+            background-color: ${pdf.encabezado} !important; color: ${pdf.encabezadoTitulo} !important;
             padding: 16px !important; margin: 0 0 16px 0 !important; border-radius: 0 0 10px 10px !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
-          .print-only-report .report-header h1 { color: #ffffff !important; font-size: 20pt !important; margin: 0 !important; letter-spacing: 0.5px !important; }
-          .print-only-report .report-header p { color: #cbd5e1 !important; margin: 4px 0 0 0 !important;}
+          .print-only-report .report-header h1 { color: ${pdf.encabezadoTitulo} !important; font-size: 20pt !important; margin: 0 !important; letter-spacing: 0.5px !important; }
+          .print-only-report .report-header p { color: ${pdf.encabezadoTexto} !important; margin: 4px 0 0 0 !important;}
 
           /* CAMBIO 2: TÍTULOS DE SECCIÓN CENTRADOS */
           .print-only-report .section-executive-title {
-            display: block !important; font-size: 11pt !important; font-weight: 800 !important; color: #1e293b !important;
+            display: block !important; font-size: 11pt !important; font-weight: 800 !important; color: ${pdf.seccionTexto} !important;
             text-transform: uppercase !important; margin: 0 0 12px 0 !important; letter-spacing: 0.5px !important;
             text-align: center !important;
-            border-bottom: 2px solid #1d8cf8 !important; padding: 0 0 6px 0 !important;
+            border-bottom: 2px solid ${pdf.seccionLinea} !important; padding: 0 0 6px 0 !important;
             page-break-after: avoid !important;
           }
           .print-only-report .kpi-print-row {
             display: flex !important; gap: 15px !important; margin-bottom: 16px !important; page-break-inside: avoid !important;
           }
           .print-only-report .kpi-item {
-            flex: 1 !important; border: 1px solid #e2e8f0 !important; padding: 16px 12px !important; text-align: center !important;
-            background: #f8fafc !important; border-radius: 10px !important;
-            box-shadow: 0 2px 5px rgba(15,23,42,0.10) !important;
+            flex: 1 !important; border: 1px solid ${pdf.borde} !important; padding: 16px 12px !important; text-align: center !important;
+            background: ${pdf.fondoSuave} !important; border-radius: 10px !important;
+            box-shadow: 0 2px 5px ${pdf.sombra} !important;
             -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
           .print-only-report .kpi-val { font-size: 18pt !important; font-weight: 900 !important; margin-top: 7px !important; }
           
           .print-only-report .card-print {
-            border: 1px solid #e2e8f0 !important; border-radius: 10px !important; margin-bottom: 0 !important;
+            border: 1px solid ${pdf.borde} !important; border-radius: 10px !important; margin-bottom: 0 !important;
             padding: 12px 15px !important; page-break-inside: avoid !important; overflow: hidden !important;
           }
           
           .print-only-report table { width: 100% !important; border-collapse: collapse !important; }
-          .print-only-report th { background: #f1f5f9 !important; padding: 6px !important; border-bottom: 2px solid #cbd5e1 !important; font-size: 8pt !important; text-align: left; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .print-only-report td { padding: 6px !important; border-bottom: 1px solid #f1f5f9 !important; font-size: 8pt !important; }
-          .print-only-report tr:nth-child(even) { background: #fcfcfc !important; }
+          .print-only-report th { background: ${pdf.th} !important; padding: 6px !important; border-bottom: 2px solid ${pdf.thLinea} !important; font-size: 8pt !important; text-align: left; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .print-only-report td { padding: 6px !important; border-bottom: 1px solid ${pdf.tdLinea} !important; font-size: 8pt !important; }
+          .print-only-report tr:nth-child(even) { background: ${pdf.filaPar} !important; }
 
           /* CAMBIO 1: forzar impresión de colores en SVG y barras para que nada se vea vacío */
           .print-only-report svg circle, .print-only-report svg rect, .print-only-report svg path,
@@ -1664,22 +1681,22 @@ export const Dashboard = () => {
 
           <h3 className="section-executive-title">KPI's: Key Performance Indicators - Indicadores clave de desempeño</h3>
           <div className="kpi-print-row">
-            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>🎯 META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
-            <div className="kpi-item" style={{borderLeft:'4px solid #1d8cf8'}}><div style={{fontSize:'9.5pt', color:'#1d8cf8', fontWeight: 700}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:'#1d8cf8'}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
+            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:pdf.etiqueta, fontWeight: 700}}>🎯 META PROGRAMADA</div><div className="kpi-val">{miFormatearMoneda(kpis.metaTotal)}</div></div>
+            <div className="kpi-item" style={{borderLeft:`4px solid ${pdf.acento}`}}><div style={{fontSize:'9.5pt', color:pdf.acento, fontWeight: 700}}>LOGRADO A LA FECHA</div><div className="kpi-val" style={{color:pdf.acento}}>{miFormatearMoneda(kpis.logradoTotal)}</div></div>
             
-            <div className="kpi-item" style={kpis.isExcedente ? {borderLeft:'4px solid #10b981'} : {}}>
-              <div style={{fontSize:'9.5pt', color: kpis.isExcedente ? '#10b981' : '#f56036', fontWeight: 800}}>{kpis.isExcedente ? '📈 EXCEDENTE' : '📉 DÉFICIT / FALTANTE'}</div>
-              <div className="kpi-val" style={{color: kpis.isExcedente ? '#10b981' : '#f56036'}}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
-              <div style={{fontSize:'9pt', fontWeight: 800, marginTop: '3px', color: kpis.isExcedente ? '#10b981' : '#f56036'}}>{signoTendencia}</div>
+            <div className="kpi-item" style={kpis.isExcedente ? {borderLeft:`4px solid ${pdf.ok}`} : {}}>
+              <div style={{fontSize:'9.5pt', color: kpis.isExcedente ? pdf.ok : pdf.mal, fontWeight: 800}}>{kpis.isExcedente ? '📈 EXCEDENTE' : '📉 DÉFICIT / FALTANTE'}</div>
+              <div className="kpi-val" style={{color: kpis.isExcedente ? pdf.ok : pdf.mal}}>{miFormatearMoneda(kpis.faltanteTotal)}</div>
+              <div style={{fontSize:'9pt', fontWeight: 800, marginTop: '3px', color: kpis.isExcedente ? pdf.ok : pdf.mal}}>{signoTendencia}</div>
             </div>
             
-            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:'#64748b', fontWeight: 700}}>✅ % CUMPLIMIENTO</div><div className="kpi-val" style={{color: colorCumplimiento(kpis.porcentajeGlobal)}}>{kpis.porcentajeGlobal}%</div></div>
+            <div className="kpi-item"><div style={{fontSize:'9.5pt', color:pdf.etiqueta, fontWeight: 700}}>✅ % CUMPLIMIENTO</div><div className="kpi-val" style={{color: colorPctImagen(kpis.porcentajeGlobal)}}>{kpis.porcentajeGlobal}%</div></div>
           </div>
 
           {/* TIRA DE INDICADORES PDF: 📅 DIARIO / 📊 SEMANAL (mismos valores guardados que la imagen) */}
           <div className="kpi-print-row">
-            <div className="kpi-item" style={{borderLeft:'4px solid #475569'}}><div style={{fontSize:'9.5pt', color:'#475569', fontWeight: 700}}>📅 DIARIO</div><div className="kpi-val" style={{color:'#475569'}}>{miFormatearMoneda(diarioIndicador)}</div></div>
-            <div className="kpi-item" style={{borderLeft:'4px solid #475569'}}><div style={{fontSize:'9.5pt', color:'#475569', fontWeight: 700}}>📊 SEMANAL</div><div className="kpi-val" style={{color:'#475569'}}>{miFormatearMoneda(semanalIndicador)}</div></div>
+            <div className="kpi-item" style={{borderLeft:`4px solid ${pdf.neutro}`}}><div style={{fontSize:'9.5pt', color:pdf.neutro, fontWeight: 700}}>📅 DIARIO</div><div className="kpi-val" style={{color:pdf.neutro}}>{miFormatearMoneda(diarioIndicador)}</div></div>
+            <div className="kpi-item" style={{borderLeft:`4px solid ${pdf.neutro}`}}><div style={{fontSize:'9.5pt', color:pdf.neutro, fontWeight: 700}}>📊 SEMANAL</div><div className="kpi-val" style={{color:pdf.neutro}}>{miFormatearMoneda(semanalIndicador)}</div></div>
           </div>
 
           {/* GRILLA DE 2 COLUMNAS PARA CONDENSAR EL PDF (ambas columnas del MISMO tamaño) */}
@@ -1693,16 +1710,16 @@ export const Dashboard = () => {
                     <tr key={`print-${op.id}`}>
                       <td style={{textAlign:'center', fontWeight:700}}>{op.semanaIndex}</td>
                       <td>{op.isFaltante ? 'Faltante de Cierre' : `${miFormatearFecha(op.desde)} al ${miFormatearFecha(op.hasta)}`}</td>
-                      <td style={{textAlign:'right', fontWeight:700, color: op.isFaltante ? '#f56036' : '#1e293b'}}>{miFormatearMoneda(op.vendido)}</td>
+                      <td style={{textAlign:'right', fontWeight:700, color: op.isFaltante ? pdf.mal : pdf.texto}}>{miFormatearMoneda(op.vendido)}</td>
                       <td style={{textAlign:'center'}}>{op.porcentajeStr}%</td>
                     </tr>
                   ))}
                   {analisisOperaciones?.excedenteObj && (
                     <tr>
                       <td style={{textAlign:'center', fontWeight:700}}>-</td>
-                      <td style={{color: '#10b981', fontWeight: 700}}>Excedente Logrado</td>
-                      <td style={{textAlign:'right', fontWeight:700, color: '#10b981'}}>{miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}</td>
-                      <td style={{textAlign:'center', color: '#10b981', fontWeight: 700}}>+{analisisOperaciones.excedenteObj.porcentaje.toFixed(2)}%</td>
+                      <td style={{color: pdf.ok, fontWeight: 700}}>Excedente Logrado</td>
+                      <td style={{textAlign:'right', fontWeight:700, color: pdf.ok}}>{miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}</td>
+                      <td style={{textAlign:'center', color: pdf.ok, fontWeight: 700}}>+{analisisOperaciones.excedenteObj.porcentaje.toFixed(2)}%</td>
                     </tr>
                   )}
                 </tbody>
@@ -1758,7 +1775,7 @@ export const Dashboard = () => {
                           <g key={`vin-${op.id}`}>
                             <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={op.color} strokeWidth={1.6} strokeDasharray="0.1,3" strokeLinecap="round" />
                             <circle cx={x1} cy={y1} r={2.4} fill={op.color} />
-                            <text x={tx} y={y2 + 3} textAnchor={derecha ? 'start' : 'end'} fontSize="9" fontWeight="800" fill={op.color}>{op.porcentajeStr}%</text>
+                            <text x={tx} y={y2 + 3} textAnchor={derecha ? 'start' : 'end'} fontSize="9" fontWeight="800" fill={colorTextoGrafica(op.color)}>{op.porcentajeStr}%</text>
                           </g>
                         );
                       }
@@ -1768,14 +1785,14 @@ export const Dashboard = () => {
                 </svg>
                 <div style={{ width: '100%' }}>
                   {(segmentosMeta?.leyenda || []).map(op => (
-                    <div key={`leg-${op.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0', fontSize: '7.5pt', borderBottom: '1px solid #f1f5f9' }}>
+                    <div key={`leg-${op.id}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0', fontSize: '7.5pt', borderBottom: `1px solid ${pdf.tdLinea}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
                         <span className="swatch" style={{ width: '9px', height: '9px', borderRadius: '2px', backgroundColor: op.color, display: 'inline-block', flexShrink: 0 }}></span>
-                        <span style={{ color: '#475569', fontWeight: 600, whiteSpace: 'nowrap' }}>{op.tipo === 'faltante' ? 'Faltante' : op.tipo === 'sobrante' ? 'Sobrante' : `Semana ${op.idx}`}</span>
+                        <span style={{ color: pdf.neutro, fontWeight: 600, whiteSpace: 'nowrap' }}>{op.tipo === 'faltante' ? 'Faltante' : op.tipo === 'sobrante' ? 'Sobrante' : `Semana ${op.idx}`}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}>
-                        <span style={{ color: '#1e293b', fontWeight: 700 }}>{miFormatearMoneda(op.valor)}</span>
-                        <span style={{ color: op.color, fontWeight: 800, minWidth: '40px', textAlign: 'right' }}>{op.pct.toFixed(2)}%</span>
+                        <span style={{ color: pdf.texto, fontWeight: 700 }}>{miFormatearMoneda(op.valor)}</span>
+                        <span style={{ color: colorTextoGrafica(op.color), fontWeight: 800, minWidth: '40px', textAlign: 'right' }}>{op.pct.toFixed(2)}%</span>
                       </div>
                     </div>
                   ))}
@@ -1799,18 +1816,18 @@ export const Dashboard = () => {
                     <td style={{textAlign:'right'}}>{f.meta > 0 ? miFormatearMoneda(f.meta) : '-'}</td>
                     <td style={{textAlign:'right', fontWeight:700}}>{f.ventas > 0 ? miFormatearMoneda(f.ventas) : '-'}</td>
                     <td style={{textAlign:'center'}}>{f.meta > 0 ? `${f.pctVentas.toFixed(2)}%` : '-'}</td>
-                    <td style={{textAlign:'right', color: f.isExcedente ? '#10b981' : '#f56036'}}>{f.meta > 0 ? miFormatearMoneda(f.porCumplir) : '-'}</td>
+                    <td style={{textAlign:'right', color: f.isExcedente ? pdf.ok : pdf.mal}}>{f.meta > 0 ? miFormatearMoneda(f.porCumplir) : '-'}</td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot style={{background:'#f8fafc'}}>
+              <tfoot style={{background: pdf.fondoSuave}}>
                 <tr>
                   <td style={{textAlign:'center', fontWeight: 900}}>{totalSemanasMostrado}</td>
                   <td style={{fontWeight: 900}}>TOTAL</td>
                   <td style={{textAlign:'right', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.meta)}</td>
-                  <td style={{textAlign:'right', color:'#1d8cf8', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
+                  <td style={{textAlign:'right', color:pdf.acento, fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.ventas)}</td>
                   <td style={{textAlign:'center', fontWeight: 900}}>{reporteMensual.totales.meta > 0 ? ((reporteMensual.totales.ventas/reporteMensual.totales.meta)*100).toFixed(2) : 0}%</td>
-                  <td style={{textAlign:'right', color: reporteMensual.totales.isExcedente ? '#10b981' : '#f56036', fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.porCumplir)}</td>
+                  <td style={{textAlign:'right', color: reporteMensual.totales.isExcedente ? pdf.ok : pdf.mal, fontWeight: 900}}>{miFormatearMoneda(reporteMensual.totales.porCumplir)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -1821,20 +1838,20 @@ export const Dashboard = () => {
             <h3 className="section-executive-title">Tendencia de Desempeño</h3>
             <div className="chart-print-box" style={{ flexDirection: 'column' }}>
               <div style={{ width: '100%', position: 'relative' }}>
-                <div style={{ height: '170px', display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '22px 12px 0 12px', borderBottom: '2px solid #cbd5e1' }}>
+                <div style={{ height: '170px', display: 'flex', alignItems: 'flex-end', gap: '12px', padding: '22px 12px 0 12px', borderBottom: `2px solid ${pdf.base}` }}>
                   {tendenciaPDF.map(m => {
                     const h = (m.ventas / maxTendenciaPDF) * 100;
                     return (
                       <div key={`bar-${m.mes}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                        <span style={{ fontSize: '6.5pt', fontWeight: 800, color: '#1e293b', marginBottom: '3px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(m.ventas)}</span>
-                        <div className="bar-pdf" style={{ width: '100%', maxWidth: '44px', height: `${h}%`, backgroundColor: '#1d8cf8', borderRadius: '4px 4px 0 0' }}></div>
+                        <span style={{ fontSize: '6.5pt', fontWeight: 800, color: pdf.texto, marginBottom: '3px', whiteSpace: 'nowrap' }}>{miFormatearMoneda(m.ventas)}</span>
+                        <div className="bar-pdf" style={{ width: '100%', maxWidth: '44px', height: `${h}%`, backgroundColor: pdf.barra, borderRadius: '4px 4px 0 0' }}></div>
                       </div>
                     );
                   })}
                 </div>
                 <div style={{ display: 'flex', gap: '12px', padding: '5px 12px 0 12px' }}>
                   {tendenciaPDF.map(m => (
-                    <div key={`lbl-${m.mes}`} style={{ flex: 1, textAlign: 'center', fontSize: '7pt', fontWeight: 700, color: '#64748b' }}>{m.mes.substring(0,3)}</div>
+                    <div key={`lbl-${m.mes}`} style={{ flex: 1, textAlign: 'center', fontSize: '7pt', fontWeight: 700, color: pdf.etiqueta }}>{m.mes.substring(0,3)}</div>
                   ))}
                 </div>
               </div>

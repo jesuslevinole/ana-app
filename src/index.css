@@ -325,8 +325,13 @@ body { background-color: var(--bg-body); color: var(--text-main); }
 /* En la vista del reporte la hoja sí se ve en pantalla */
 .zona-impresion--visible { display: block; }
 @media print {
-  body * { visibility: hidden; }
-  .zona-impresion, .zona-impresion * { visibility: visible; }
+  /* Solo en las páginas que tienen una hoja .zona-impresion (Marketing) se
+     oculta el resto. El Dashboard de Taller y el de Inspecciones traen su
+     propio reporte de impresión: si esta regla les aplicara, saldrían en blanco. */
+  body:has(.zona-impresion) * { visibility: hidden; }
+  /* Misma base (body:has) para que la hoja le gane a la regla de arriba */
+  body:has(.zona-impresion) .zona-impresion,
+  body:has(.zona-impresion) .zona-impresion * { visibility: visible; }
   .zona-impresion {
     display: block;
     position: absolute;
