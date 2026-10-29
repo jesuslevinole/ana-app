@@ -294,7 +294,7 @@ export const Dashboard = () => {
     let ola = 'M 0 0 Q 20 -7 40 0';
     for (let x = 80; x <= 560; x += 40) ola += ` T ${x} 0`;
     const liquido = `${ola} L 560 240 L 0 240 Z`;
-    const colorTaza = '#e3a1b5';
+    const colorTaza = '#eb70b8';   // fucsia: contorno, borde, asa y plato
 
     return (
       <svg viewBox={`0 0 ${W} ${H}`} width="420" height={H} style={{ display: 'block', maxWidth: '100%' }}>
@@ -311,13 +311,13 @@ export const Dashboard = () => {
           {/* VAPOR y corazoncito: solo cuando ya hay café */}
           {pct > 0 && (
             <>
-              <g fill="none" stroke="#e3a1b5" strokeWidth="4" strokeLinecap="round">
+              <g fill="none" stroke={colorTaza} strokeWidth="4" strokeLinecap="round">
                 <path className="taza-vapor" d="M 150 82 q -10 -12 0 -24 q 10 -12 0 -24" />
                 <path className="taza-vapor v2" d="M 190 80 q -10 -12 0 -24 q 10 -12 0 -24" />
                 <path className="taza-vapor v3" d="M 230 82 q -10 -12 0 -24 q 10 -12 0 -24" />
               </g>
               <g className="taza-vapor v2">
-                <path transform="translate(252 40) scale(0.9)" fill="#e3a1b5"
+                <path transform="translate(252 40) scale(0.9)" fill={colorTaza}
                   d="M12 21s-7-4.35-9.5-8.5C1 9.5 3 6 6.5 6 8.5 6 10 7.5 12 9c2-1.5 3.5-3 5.5-3C21 6 23 9.5 21.5 12.5 19 16.65 12 21 12 21z" />
               </g>
             </>
@@ -346,7 +346,7 @@ export const Dashboard = () => {
             {[25, 50, 75, 100].map(m => {
               const y = yFondo - (m / 100) * altoInterior;
               const x1 = bordeIzq(y) + 6;
-              return <line key={`marca-${m}`} x1={x1} x2={x1 + 26} y1={y} y2={y} stroke="#ffffff" strokeOpacity="0.85" strokeWidth="2" strokeDasharray="5 4" />;
+              return <line key={`marca-${m}`} x1={x1} x2={x1 + 26} y1={y} y2={y} stroke={colorTaza} strokeOpacity="0.9" strokeWidth="2" strokeDasharray="5 4" />;
             })}
           </g>
 
@@ -1345,7 +1345,7 @@ export const Dashboard = () => {
           </div>
         ) : (
           <>
-            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%' }}><TextoEditable clave="dash.seccion.kpi" defecto="KPI's: Key Performance Indicators - Indicadores clave de desempeño" /></h3>
+            <h3 className="detail-section-title" style={{ marginTop: '0.5rem', marginBottom: '1rem', textAlign: 'center', width: '100%', ...(esPanMary ? { color: 'var(--fucsia)', borderBottomColor: 'var(--fucsia)' } : {}) }}><TextoEditable clave="dash.seccion.kpi" defecto="KPI's: Key Performance Indicators - Indicadores clave de desempeño" /></h3>
             <div className="kpi-grid">
               <div className="kpi-card meta">
                 <div className="kpi-title"><TextoEditable clave="dash.kpi.metaTotal" defecto="Meta Total" /> <Target size={16} /></div>
@@ -1479,7 +1479,7 @@ export const Dashboard = () => {
 
 
             {/* META ANUAL: dentro del apartado del Reporte Mensual Consolidado */}
-            <div className="card" style={{ marginTop: '1.5rem', borderTop: `3px solid ${tema.acento}` }}>
+            <div className="card" style={{ marginTop: '1.5rem', borderTop: `3px solid ${esPanMary ? 'var(--fucsia)' : tema.acento}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <h3 className="detail-section-title" style={{ margin: 0, border: 'none' }}>
                   Meta Anual {resumenMetaAnual.ano} &nbsp;·&nbsp; {filtroTaller === 'Todos' ? 'Todos los talleres' : filtroTaller}

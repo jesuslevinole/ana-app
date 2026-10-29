@@ -367,8 +367,9 @@ body { background-color: var(--bg-body); color: var(--text-main); }
 
   /* Líneas en rosa (tablas, separadores, contornos de campos) */
   --border: rgba(227, 161, 181, 0.32);
-  /* Rosa de los recuadros */
-  --rosa-recuadro: rgba(227, 161, 181, 0.6);
+  /* Fucsia de los contornos de los recuadros */
+  --fucsia: #eb70b8;
+  --rosa-recuadro: var(--fucsia);
 
   color-scheme: dark;
 }
