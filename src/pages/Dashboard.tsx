@@ -38,10 +38,11 @@ const TEMA_ESTANDAR = {
 };
 
 const TEMA_PAN_MARY: typeof TEMA_ESTANDAR = {
-  // Tonos empolvados: rosa, salvia, mantequilla, lavanda, durazno, azul polvo, café con leche
-  coloresOps: ['#dcaebc', '#b3cfc2', '#e8d4a2', '#c9bfdb', '#e9c3ae', '#b5c8db', '#d2bfae'],
-  coloresMeses: ['#dcaebc', '#b3cfc2', '#e9c3ae', '#c9bfdb', '#e8d4a2', '#b5c8db', '#d2bfae', '#c2d0ae', '#e3aaa3', '#d8b3cf', '#a9bad3', '#e4d3b8'],
-  faltante: '#e6d8dd',          // lo que falta se ve como "porción vacía"
+  // Tonos empolvados con cuerpo suficiente para leerse sobre fondo claro:
+  // salvia, mostaza, lavanda, durazno, azul polvo, café con leche, rosa
+  coloresOps: ['#8fbca8', '#e0bf6e', '#a99ad3', '#e3a585', '#88aed3', '#c4a586', '#d391a6'],
+  coloresMeses: ['#d391a6', '#8fbca8', '#e3a585', '#a99ad3', '#e0bf6e', '#88aed3', '#c4a586', '#a9c38f', '#de9a92', '#c79ac0', '#8ea6c9', '#d6bf98'],
+  faltante: '#cfa9b6',          // rosa viejo: se distingue del fondo y de las semanas
   meta: '#b07a8c',
   alcanzado: '#6f9e8b',
   falta: '#c27c7c',
@@ -49,12 +50,26 @@ const TEMA_PAN_MARY: typeof TEMA_ESTANDAR = {
   faltaSobrio: '#b86f74',
   acento: '#b07a8c',
   cincoSemanas: '#a07c2c',
-  textoBadge: '#4a3a41',
+  textoBadge: '#3b2a31',
   sombraTextoBadge: 'none',
   sombra: 'rgba(176, 122, 140, 0.18)',
-  mascaraAnillo: 'radial-gradient(circle, transparent 55%, black 56%)', // anillo delgado
+  mascaraAnillo: 'radial-gradient(circle, transparent 45%, black 46%)',
   radioBarra: '10px 10px 0 0',
 };
+
+// Mezcla dos colores hex (t de 0 a 1). Se usa para oscurecer los pastel cuando
+// van como TEXTO, para que se lean (html2canvas no entiende color-mix()).
+const mezclarHex = (a: string, b: string, t: number) => {
+  const rgb = (h: string) => {
+    const x = h.replace('#', '');
+    const n = x.length === 3 ? x.split('').map(c => c + c).join('') : x;
+    return [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16));
+  };
+  const ca = rgb(a), cb = rgb(b);
+  if (ca.some(isNaN) || cb.some(isNaN)) return a;
+  return '#' + ca.map((v, i) => Math.round(v + (cb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+};
+const oscurecerHex = (c: string) => mezclarHex(c, '#3b2a31', 0.45);
 
 // --- NUEVOS FORMATEADORES LOCALES PARA CUMPLIR TUS REGLAS ---
 const miFormatearFecha = (fechaStr: string) => {
@@ -361,6 +376,8 @@ export const Dashboard = () => {
   // --- TEMA: rosa pastel para Pan Mary, estándar para los demás talleres ---
   const esPanMary = esTallerPanMary(filtroTaller);
   const tema = esPanMary ? TEMA_PAN_MARY : TEMA_ESTANDAR;
+  // Los colores pastel, como texto, se oscurecen un poco para que se lean
+  const colorTextoGrafica = (c: string) => (esPanMary ? oscurecerHex(c) : c);
 
   // Lógica de Filtrado Principal
   const registrosFiltrados = useMemo(() => {
@@ -518,6 +535,14 @@ export const Dashboard = () => {
               </div>
             </div>
           ) : ( <div style={{ width: '240px', height: '240px', borderRadius: '50%', background: gradient, WebkitMaskImage: mascaraDonut, maskImage: mascaraDonut, boxShadow: `0 4px 15px ${tema.sombra}`, transition: 'all 0.5s' } as React.CSSProperties} /> )}
+
+          {/* Pan Mary: el centro del anillo dice cuánto se ha cumplido */}
+          {esPanMary && !is3D && tipoGrafico === 'anillo' && (
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none', zIndex: 5 }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '1.5px', color: 'var(--text-muted)' }}>CUMPLIDO</div>
+              <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--primary)', lineHeight: 1.1 }}>{kpis.porcentajeGlobal}%</div>
+            </div>
+          )}
           
           <div style={{ position: 'absolute', top: '50%', left: '50%', width: 0, height: 0, zIndex: 100 }}>
             {operaciones.map((op, index) => {
@@ -573,7 +598,7 @@ export const Dashboard = () => {
                     style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : `0 4px 10px ${tema.sombra}`, zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
                   </div>
                 </div>
               );
@@ -595,7 +620,7 @@ export const Dashboard = () => {
                 style={{ width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3D ? '2px' : tema.radioBarra, boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -622,7 +647,7 @@ export const Dashboard = () => {
                 style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%', transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)', boxShadow: is3D ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -708,7 +733,7 @@ export const Dashboard = () => {
                     style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : `0 4px 10px ${tema.sombra}`, zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
                   </div>
                 </div>
               );
@@ -730,7 +755,7 @@ export const Dashboard = () => {
                 style={{ width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3DMensual ? '2px' : tema.radioBarra, boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -757,7 +782,7 @@ export const Dashboard = () => {
                 style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%', transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)', boxShadow: is3DMensual ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -871,8 +896,8 @@ export const Dashboard = () => {
   // El círculo completo representa max(meta, vendido). Cuando hay sobrante,
   // las semanas llenan hasta la meta y el excedente se corta en verde.
   // =========================================================================
-  const COLOR_FALTANTE = '#ef4444'; // rojo
-  const COLOR_SOBRANTE = '#22c55e'; // verde
+  const COLOR_FALTANTE = esPanMary ? '#cfa9b6' : '#ef4444'; // rojo (rosa viejo en Pan Mary)
+  const COLOR_SOBRANTE = esPanMary ? '#7fae98' : '#22c55e'; // verde (salvia en Pan Mary)
 
   const segmentosMeta = useMemo(() => {
     if (!analisisOperaciones) return null;
@@ -928,7 +953,7 @@ export const Dashboard = () => {
     if (sobrante > 0) leyenda.push({ id: 'sobrante', idx: 0, tipo: 'sobrante', color: COLOR_SOBRANTE, valor: sobrante, pct: (sobrante / base) * 100 });
 
     return { segs, leyenda, meta, vendido, base, faltante, sobrante };
-  }, [analisisOperaciones, kpis]);
+  }, [analisisOperaciones, kpis, esPanMary]);
 
   // Carga dinámica de html2canvas desde CDN (no requiere instalarlo en package.json)
   const cargarHtml2Canvas = (): Promise<any> => {
@@ -1136,6 +1161,38 @@ export const Dashboard = () => {
     pct >= 90 ? (fondoOscuro ? '#22c55e' : '#16a34a')
     : pct >= 70 ? (fondoOscuro ? '#fbbf24' : '#d97706')
     : (fondoOscuro ? '#f87171' : '#dc2626');
+
+  // Semáforo de la IMAGEN: en Pan Mary va en tonos empolvados (fondo claro)
+  const colorPctImagen = (pct: number, fondoOscuro = false) =>
+    !esPanMary ? colorCumplimiento(pct, fondoOscuro)
+    : pct >= 90 ? '#5e9a83' : pct >= 70 ? '#b8902f' : '#c06a6f';
+
+  // Colores de la IMAGEN PNG: estándar (azul marino / verde / rojo) o Pan Mary (rosa empolvado)
+  const img = esPanMary ? {
+    encabezado: 'linear-gradient(135deg, #f7ebef 0%, #eedce2 60%, #e5cdd5 130%)',
+    acentoBarra: 'linear-gradient(180deg, #c495a4 0%, #b07a8c 100%)',
+    titulo: '#4a3a41', mes: '#b07a8c', fechas: '#8c7880', etiqueta: '#8c7880', divisor: 'rgba(74,58,65,0.15)',
+    sube: '#5e9a83', baja: '#c06a6f',
+    tira: '#fbf6f7', borde: '#ecdfe3', tiraEtiqueta: '#8c7880', tiraMeta: '#4a3a41', tiraValor: '#6b5860',
+    tablaCabecera: '#b98d9c', tablaCabeceraTexto: '#fdf6f8', filaPar: '#ffffff', filaImpar: '#fcf7f8', filaBorde: '#f3e9ec',
+    texto: '#4a3a41', periodo: '#5a464e', textoBadge: '#3b2a31', etiquetaCentro: '#a08c94',
+    ok: { fondo: 'rgba(111,158,139,0.10)', borde: '#b9d6c8', solido: '#6f9e8b', sombra: 'rgba(111,158,139,0.35)', texto: '#4f8370' },
+    mal: { fondo: 'rgba(194,124,124,0.09)', borde: '#e5bcbc', solido: '#c27c7c', sombra: 'rgba(194,124,124,0.35)', texto: '#b0646a' },
+    pie: '#b98d9c', pieTexto: '#fdf6f8',
+    respaldo: '#6f9e8b', respaldoFondo: 'rgba(111,158,139,0.15)', respaldoBorde: 'rgba(111,158,139,0.4)',
+  } : {
+    encabezado: 'linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #14532d 140%)',
+    acentoBarra: 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)',
+    titulo: '#ffffff', mes: '#22c55e', fechas: '#e2e8f0', etiqueta: '#94a3b8', divisor: 'rgba(255,255,255,0.15)',
+    sube: '#22c55e', baja: '#f87171',
+    tira: '#f8fafc', borde: '#e2e8f0', tiraEtiqueta: '#475569', tiraMeta: '#0f172a', tiraValor: '#475569',
+    tablaCabecera: '#0f172a', tablaCabeceraTexto: '#cbd5e1', filaPar: '#ffffff', filaImpar: '#f8fafc', filaBorde: '#f1f5f9',
+    texto: '#0f172a', periodo: '#334155', textoBadge: '#fff', etiquetaCentro: '#94a3b8',
+    ok: { fondo: 'rgba(34,197,94,0.09)', borde: '#86efac', solido: '#16a34a', sombra: 'rgba(22,163,74,0.45)', texto: '#15803d' },
+    mal: { fondo: 'rgba(239,68,68,0.08)', borde: '#fca5a5', solido: '#ef4444', sombra: 'rgba(239,68,68,0.45)', texto: '#dc2626' },
+    pie: '#0f172a', pieTexto: '#94a3b8',
+    respaldo: '#22c55e', respaldoFondo: 'rgba(34,197,94,0.15)', respaldoBorde: 'rgba(34,197,94,0.4)',
+  };
 
   return (
     <>
@@ -1797,52 +1854,52 @@ export const Dashboard = () => {
           style={{
             position: 'fixed', left: '-10000px', top: 0, zIndex: -50, pointerEvents: 'none',
             width: '1120px', backgroundColor: '#ffffff',
-            fontFamily: 'Arial, Helvetica, sans-serif', color: '#0f172a',
+            fontFamily: 'Arial, Helvetica, sans-serif', color: img.texto,
             borderRadius: '16px', overflow: 'hidden',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.15)', border: `1px solid ${img.borde}`,
           }}
         >
           {/* ENCABEZADO */}
-          <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #14532d 140%)', padding: '26px 32px', display: 'flex', alignItems: 'center', gap: '22px', position: 'relative' }}>
-            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: 'linear-gradient(180deg, #22c55e 0%, #16a34a 100%)' }} />
+          <div style={{ background: img.encabezado, padding: '26px 32px', display: 'flex', alignItems: 'center', gap: '22px', position: 'relative' }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: img.acentoBarra }} />
             {tallerActivo && tallerActivo.logo ? (
               <div style={{ width: '120px', height: '64px', borderRadius: '10px', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '6px', boxShadow: '0 4px 10px rgba(0,0,0,0.25)' }}>
                 <img src={tallerActivo.logo} alt={tallerActivo.nombre} crossOrigin="anonymous" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
               </div>
             ) : (
-              <div style={{ width: '64px', height: '64px', borderRadius: '14px', background: 'rgba(34,197,94,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid rgba(34,197,94,0.4)' }}>
-                <PieIcon size={34} color="#22c55e" />
+              <div style={{ width: '64px', height: '64px', borderRadius: '14px', background: img.respaldoFondo, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: `1px solid ${img.respaldoBorde}` }}>
+                <PieIcon size={34} color={img.respaldo} />
               </div>
             )}
 
             <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-              <div style={{ fontSize: '28px', fontWeight: 900, color: '#ffffff', letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.15 }}>
+              <div style={{ fontSize: '28px', fontWeight: 900, color: img.titulo, letterSpacing: '0.5px', textTransform: 'uppercase', lineHeight: 1.15 }}>
                 {tallerActivo ? tallerActivo.nombre : 'Consolidado'}
               </div>
-              <div style={{ fontSize: '42px', fontWeight: 900, color: '#22c55e', letterSpacing: '2px', textTransform: 'uppercase', lineHeight: 1.05, marginTop: '4px' }}>
+              <div style={{ fontSize: '42px', fontWeight: 900, color: img.mes, letterSpacing: '2px', textTransform: 'uppercase', lineHeight: 1.05, marginTop: '4px' }}>
                 {filtroMes.toUpperCase()}
               </div>
-              <div style={{ fontSize: '16px', color: '#e2e8f0', fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '16px', color: img.fechas, fontWeight: 600, marginTop: '8px', letterSpacing: '0.5px' }}>
                 {datosReporteImagen.rangoDesde} &nbsp;AL&nbsp; {datosReporteImagen.rangoHasta} &nbsp;·&nbsp; AÑO FISCAL {filtroAno}
               </div>
             </div>
 
-            <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: '22px' }}>
-              <div style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 700, letterSpacing: '1px' }}>✅ CUMPLIMIENTO</div>
-              <div style={{ fontSize: '50px', color: colorCumplimiento(kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.05 }}>{kpis.porcentajeGlobal}%</div>
-              <div style={{ fontSize: '19px', color: kpis.isExcedente ? '#22c55e' : '#f87171', fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? '📈' : '📉'} {kpis.isExcedente ? '+' : '-'}{kpis.porcentajeFaltanteExcedente}%</div>
+            <div style={{ textAlign: 'right', flexShrink: 0, borderLeft: `1px solid ${img.divisor}`, paddingLeft: '22px' }}>
+              <div style={{ fontSize: '14px', color: img.etiqueta, fontWeight: 700, letterSpacing: '1px' }}>✅ CUMPLIMIENTO</div>
+              <div style={{ fontSize: '50px', color: colorPctImagen(kpis.porcentajeGlobal, true), fontWeight: 900, whiteSpace: 'nowrap', marginTop: '2px', lineHeight: 1.05 }}>{kpis.porcentajeGlobal}%</div>
+              <div style={{ fontSize: '19px', color: kpis.isExcedente ? img.sube : img.baja, fontWeight: 800, marginTop: '2px' }}>{kpis.isExcedente ? '📈' : '📉'} {kpis.isExcedente ? '+' : '-'}{kpis.porcentajeFaltanteExcedente}%</div>
             </div>
           </div>
 
           {/* TIRA DE INDICADORES: DIARIO / SEMANAL / CUMPLIMIENTO */}
-          <div style={{ display: 'flex', backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', backgroundColor: img.tira, borderBottom: `1px solid ${img.borde}` }}>
             {[
-              { label: '🎯 META', valor: miFormatearMoneda(kpis.metaTotal), color: '#0f172a' },
-              { label: '📅 DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: '#475569' },
-              { label: '📊 SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: '#475569' },
+              { label: '🎯 META', valor: miFormatearMoneda(kpis.metaTotal), color: img.tiraMeta },
+              { label: '📅 DIARIO', valor: miFormatearMoneda(datosReporteImagen.diario), color: img.tiraValor },
+              { label: '📊 SEMANAL', valor: miFormatearMoneda(datosReporteImagen.semanal), color: img.tiraValor },
             ].map((chip, i) => (
-              <div key={chip.label} style={{ flex: 1, padding: '18px 20px', textAlign: 'center', borderRight: i < 2 ? '1px solid #e2e8f0' : 'none' }}>
-                <div style={{ fontSize: '16px', color: '#475569', fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
+              <div key={chip.label} style={{ flex: 1, padding: '18px 20px', textAlign: 'center', borderRight: i < 2 ? `1px solid ${img.borde}` : 'none' }}>
+                <div style={{ fontSize: '16px', color: img.tiraEtiqueta, fontWeight: 800, letterSpacing: '1px' }}>{chip.label}</div>
                 <div style={{ fontSize: '29px', color: chip.color, fontWeight: 900, marginTop: '6px', whiteSpace: 'nowrap' }}>{chip.valor}</div>
               </div>
             ))}
@@ -1852,8 +1909,8 @@ export const Dashboard = () => {
           <div style={{ padding: '24px 32px 28px 32px' }}>
 
             {/* TABLA DE PERIODOS */}
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '13px 16px', fontSize: '15px', fontWeight: 800, color: '#cbd5e1', letterSpacing: '1px' }}>
+            <div style={{ border: `1px solid ${img.borde}`, borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', backgroundColor: img.tablaCabecera, padding: '13px 16px', fontSize: '15px', fontWeight: 800, color: img.tablaCabeceraTexto, letterSpacing: '1px' }}>
                 <div style={{ width: '56px', textAlign: 'center', flexShrink: 0 }}>REF</div>
                 <div style={{ flex: 1 }}>PERIODO</div>
                 <div style={{ width: '215px', textAlign: 'right' }}>MONTO</div>
@@ -1861,19 +1918,19 @@ export const Dashboard = () => {
               </div>
 
               {datosReporteImagen.filas.map((f, i) => (
-                <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '16px 16px', fontSize: '26px', backgroundColor: i % 2 === 0 ? '#ffffff' : '#f8fafc', borderTop: '1px solid #f1f5f9' }}>
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', padding: '16px 16px', fontSize: '26px', backgroundColor: i % 2 === 0 ? img.filaPar : img.filaImpar, borderTop: `1px solid ${img.filaBorde}` }}>
                   <div style={{ width: '56px', textAlign: 'center', flexShrink: 0 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '8px', backgroundColor: f.color, color: '#fff', fontSize: '17px', fontWeight: 800 }}>{f.idx}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '34px', height: '34px', borderRadius: '8px', backgroundColor: f.color, color: img.textoBadge, fontSize: '17px', fontWeight: 800 }}>{f.idx}</span>
                   </div>
-                  <div style={{ flex: 1, color: '#334155', fontWeight: 600, fontSize: '21px' }}>{f.periodo}</div>
-                  <div style={{ width: '215px', textAlign: 'right', color: '#0f172a', fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(f.vendido)}</div>
-                  <div style={{ width: '110px', textAlign: 'right', color: f.color, fontWeight: 800 }}>{f.pctMeta.toFixed(0)}%</div>
+                  <div style={{ flex: 1, color: img.periodo, fontWeight: 600, fontSize: '21px' }}>{f.periodo}</div>
+                  <div style={{ width: '215px', textAlign: 'right', color: img.texto, fontWeight: 800, whiteSpace: 'nowrap' }}>{miFormatearMoneda(f.vendido)}</div>
+                  <div style={{ width: '110px', textAlign: 'right', color: colorTextoGrafica(f.color), fontWeight: 800 }}>{f.pctMeta.toFixed(0)}%</div>
                 </div>
               ))}
             </div>
 
             {/* SECCIÓN FINAL: DONUT + TOTAL VENTAS (verde) Y FALTANTE POR CUMPLIR (rojo) */}
-            <div style={{ marginTop: '24px', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
+            <div style={{ marginTop: '24px', border: `1px solid ${img.borde}`, borderRadius: '12px', overflow: 'hidden', backgroundColor: '#ffffff' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '34px', padding: '30px 34px' }}>
                 {/* DONUT DE DISTRIBUCIÓN POR SEMANA */}
                 <div style={{ flexShrink: 0, position: 'relative', width: '330px', height: '330px' }}>
@@ -1886,8 +1943,8 @@ export const Dashboard = () => {
                       ))
                     )}
                     <circle cx="110" cy="110" r="52" fill="#ffffff" />
-                    <text x="110" y="99" textAnchor="middle" fontSize="14" fontWeight="700" fill="#94a3b8">CUMPLIDO</text>
-                    <text x="110" y="130" textAnchor="middle" fontSize="27" fontWeight="900" fill={colorCumplimiento(kpis.porcentajeGlobal)}>{kpis.porcentajeGlobal.toFixed(0)}%</text>
+                    <text x="110" y="99" textAnchor="middle" fontSize="14" fontWeight="700" fill={img.etiquetaCentro}>CUMPLIDO</text>
+                    <text x="110" y="130" textAnchor="middle" fontSize="27" fontWeight="900" fill={colorPctImagen(kpis.porcentajeGlobal)}>{kpis.porcentajeGlobal.toFixed(0)}%</text>
                   </svg>
                 </div>
 
@@ -1896,51 +1953,51 @@ export const Dashboard = () => {
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                   {/* TOTAL VENTAS */}
-                  <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
-                    <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: '0 3px 10px rgba(22,163,74,0.45)', whiteSpace: 'nowrap' }}>
+                  <div style={{ position: 'relative', backgroundColor: img.ok.fondo, border: `2px solid ${img.ok.borde}`, borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
+                    <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: img.ok.solido, color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: `0 3px 10px ${img.ok.sombra}`, whiteSpace: 'nowrap' }}>
                       {kpis.porcentajeGlobal.toFixed(0)}%
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px', paddingRight: '86px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={21} /></span>
-                      <span style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>TOTAL VENTAS</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: img.ok.solido, color: '#fff', flexShrink: 0 }}><TrendingUp size={21} /></span>
+                      <span style={{ fontSize: '21px', color: img.ok.texto, fontWeight: 900, letterSpacing: '1px' }}>TOTAL VENTAS</span>
                     </div>
-                    <div style={{ fontSize: '50px', color: '#15803d', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                    <div style={{ fontSize: '50px', color: img.ok.texto, fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
                       {miFormatearMoneda(kpis.logradoTotal)}
                     </div>
                   </div>
 
                   {/* FALTANTE POR CUMPLIR / EXCEDENTE / META ALCANZADA */}
                   {analisisOperaciones?.excedenteObj ? (
-                    <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
-                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: '0 3px 10px rgba(22,163,74,0.45)', whiteSpace: 'nowrap' }}>
+                    <div style={{ position: 'relative', backgroundColor: img.ok.fondo, border: `2px solid ${img.ok.borde}`, borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: img.ok.solido, color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: `0 3px 10px ${img.ok.sombra}`, whiteSpace: 'nowrap' }}>
                         +{analisisOperaciones.excedenteObj.porcentaje.toFixed(0)}%
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px', paddingRight: '86px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#16a34a', color: '#fff', flexShrink: 0 }}><TrendingUp size={21} /></span>
-                        <span style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px' }}>EXCEDENTE</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: img.ok.solido, color: '#fff', flexShrink: 0 }}><TrendingUp size={21} /></span>
+                        <span style={{ fontSize: '21px', color: img.ok.texto, fontWeight: 900, letterSpacing: '1px' }}>EXCEDENTE</span>
                       </div>
-                      <div style={{ fontSize: '50px', color: '#15803d', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                      <div style={{ fontSize: '50px', color: img.ok.texto, fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
                         {miFormatearMoneda(analisisOperaciones.excedenteObj.valor)}
                       </div>
                     </div>
                   ) : kpis.faltanteTotal > 0 ? (
-                    <div style={{ position: 'relative', backgroundColor: 'rgba(239,68,68,0.08)', border: '2px solid #fca5a5', borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
-                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#ef4444', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: '0 3px 10px rgba(239,68,68,0.45)', whiteSpace: 'nowrap' }}>
+                    <div style={{ position: 'relative', backgroundColor: img.mal.fondo, border: `2px solid ${img.mal.borde}`, borderRadius: '14px', padding: '26px 26px 24px 26px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: img.mal.solido, color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', letterSpacing: '0.5px', boxShadow: `0 3px 10px ${img.mal.sombra}`, whiteSpace: 'nowrap' }}>
                         {kpis.porcentajeFaltanteExcedente}%
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '11px', paddingRight: '86px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#ef4444', color: '#fff', flexShrink: 0 }}><AlertTriangle size={21} /></span>
-                        <span style={{ fontSize: '21px', color: '#dc2626', fontWeight: 900, letterSpacing: '1px' }}>FALTANTE POR CUMPLIR</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', backgroundColor: img.mal.solido, color: '#fff', flexShrink: 0 }}><AlertTriangle size={21} /></span>
+                        <span style={{ fontSize: '21px', color: img.mal.texto, fontWeight: 900, letterSpacing: '1px' }}>FALTANTE POR CUMPLIR</span>
                       </div>
-                      <div style={{ fontSize: '50px', color: '#dc2626', fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
+                      <div style={{ fontSize: '50px', color: img.mal.texto, fontWeight: 900, marginTop: '14px', whiteSpace: 'nowrap', lineHeight: 1.05 }}>
                         {miFormatearMoneda(kpis.faltanteTotal)}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ position: 'relative', backgroundColor: 'rgba(34,197,94,0.09)', border: '2px solid #86efac', borderRadius: '14px', padding: '28px 26px', textAlign: 'center' }}>
-                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: '#16a34a', color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', boxShadow: '0 3px 10px rgba(22,163,74,0.45)' }}>100%</div>
-                      <div style={{ fontSize: '21px', color: '#15803d', fontWeight: 900, letterSpacing: '1px', paddingRight: '86px' }}>✓ META ALCANZADA</div>
-                      <div style={{ fontSize: '50px', color: '#15803d', fontWeight: 900, marginTop: '14px' }}>Meta cumplida</div>
+                    <div style={{ position: 'relative', backgroundColor: img.ok.fondo, border: `2px solid ${img.ok.borde}`, borderRadius: '14px', padding: '28px 26px', textAlign: 'center' }}>
+                      <div style={{ position: 'absolute', top: '14px', right: '16px', backgroundColor: img.ok.solido, color: '#ffffff', fontSize: '25px', fontWeight: 900, padding: '5px 15px', borderRadius: '10px', boxShadow: `0 3px 10px ${img.ok.sombra}` }}>100%</div>
+                      <div style={{ fontSize: '21px', color: img.ok.texto, fontWeight: 900, letterSpacing: '1px', paddingRight: '86px' }}>✓ META ALCANZADA</div>
+                      <div style={{ fontSize: '50px', color: img.ok.texto, fontWeight: 900, marginTop: '14px' }}>Meta cumplida</div>
                     </div>
                   )}
                 </div>
@@ -1949,7 +2006,7 @@ export const Dashboard = () => {
           </div>
 
           {/* PIE DE PÁGINA */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 32px', backgroundColor: '#0f172a', fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '13px 32px', backgroundColor: img.pie, fontSize: '13px', color: img.pieTexto, fontWeight: 600 }}>
             <span style={{ letterSpacing: '0.5px' }}>REPORTE DE GESTIÓN EJECUTIVA</span>
             <span>Generado el {fechaReporte}</span>
           </div>

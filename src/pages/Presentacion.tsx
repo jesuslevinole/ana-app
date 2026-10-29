@@ -32,7 +32,7 @@ import { ReporteProcedencia } from './ReporteProcedencia';
 import {
   MonitorPlay, Plus, Play, Pencil, Trash2, Save, X, ChevronLeft, ChevronRight,
   ArrowUp, ArrowDown, Check, GripVertical, Maximize2, Minimize2, Info, Presentation,
-  Folder, Filter, ChevronDown, Store, CalendarRange, Layers
+  Folder, Filter, ChevronDown, Store, CalendarRange, Layers, CalendarPlus
 } from 'lucide-react';
 
 // =========================================================================
@@ -461,6 +461,134 @@ export const Presentacion = () => {
 
     await Promise.all(objetivo.map(x => eliminarPresentacion(x.id)));
     setSelMes(null);
+  };
+
+  // =====================================================================
+  //  DUPLICAR AL SIGUIENTE MES
+  //  Copia las presentaciones del mes abierto al mes siguiente, con los
+  //  talleres ACTUALES del sistema:
+  //    · Taller que ya tenía presentación → se copia la suya, con sus ediciones.
+  //    · Taller nuevo (sin presentación en el mes de origen) → se crea tomando
+  //      como modelo la primera presentación de la carpeta.
+  //    · Taller que ya no existe en el sistema → no se copia.
+  //  Si el mes siguiente ya tiene presentaciones, se respetan y solo se crean
+  //  las que faltan. Las semanas quedan "Sin definir" porque cambian por mes,
+  //  y el nombre del mes escrito a mano en portada/cierre se actualiza solo.
+  // =====================================================================
+  const siguienteMes = (ano: string, mes: string) => {
+    const i = MESES.indexOf(mes);
+    if (i < 0) return null;
+    if (i === MESES.length - 1) {
+      return { ano: String((parseInt(ano, 10) || new Date().getFullYear()) + 1), mes: MESES[0] };
+    }
+    return { ano, mes: MESES[i + 1] };
+  };
+
+  const destinoDuplicado = selAno && selMes && selAno !== SIN_ANO && selMes !== SIN_MES
+    ? siguienteMes(selAno, selMes)
+    : null;
+
+  // Cambia "Septiembre" → "Octubre" (y el año si pasa de Diciembre a Enero)
+  const moverMesEnTexto = (texto: string, origen: { ano: string; mes: string }, destino: { ano: string; mes: string }) => {
+    let r = texto
+      .split(origen.mes).join(destino.mes)
+      .split(origen.mes.toLowerCase()).join(destino.mes.toLowerCase())
+      .split(origen.mes.toUpperCase()).join(destino.mes.toUpperCase());
+    if (origen.ano !== destino.ano) r = r.replace(new RegExp(`\\b${origen.ano}\\b`, 'g'), destino.ano);
+    return r;
+  };
+
+  const copiarTexto = (
+    texto: DiapositivaTexto | undefined,
+    origen: { ano: string; mes: string },
+    destino: { ano: string; mes: string },
+    esDelMismoTaller: boolean
+  ): DiapositivaTexto => {
+    const n = normalizarTexto(texto);
+    return {
+      ...n,
+      titulo: moverMesEnTexto(n.titulo, origen, destino),
+      subtitulo: moverMesEnTexto(n.subtitulo || '', origen, destino),
+      puntos: (n.puntos || []).map(p => moverMesEnTexto(p, origen, destino)),
+      pie: moverMesEnTexto(n.pie || '', origen, destino),
+      // En la copia para un taller nuevo, la portada usa el logo del taller nuevo
+      taller: esDelMismoTaller ? n.taller : '',
+    };
+  };
+
+  const [duplicando, setDuplicando] = useState(false);
+
+  const duplicarAlSiguienteMes = async () => {
+    if (!selAno || !selMes || !destinoDuplicado) return;
+    const base = listaCarpeta[0];
+    if (!base) return;
+    if (talleresOrdenados.length === 0) {
+      alert('No hay talleres registrados. Crea al menos uno en el módulo "Talleres".');
+      return;
+    }
+
+    const origen = { ano: selAno, mes: selMes };
+    const destino = destinoDuplicado;
+    const nombreDestino = `${destino.ano} · ${destino.mes}`;
+
+    const plan = talleresOrdenados.map((t, i) => ({
+      taller: t.nombre,
+      orden: (i + 1) * 10,
+      fuente: listaCarpeta.find(p => (p.taller || '') === t.nombre) || null,
+      existe: presentaciones.some(p =>
+        p.id === idDeTaller(destino.ano, destino.mes, t.nombre) ||
+        (p.ano === destino.ano && p.mes === destino.mes && p.taller === t.nombre)
+      ),
+    }));
+    const aCrear = plan.filter(x => !x.existe);
+    const copiadas = aCrear.filter(x => x.fuente);
+    const nuevas = aCrear.filter(x => !x.fuente);
+    const yaEstaban = plan.filter(x => x.existe);
+    const omitidos = listaCarpeta
+      .filter(p => !talleresOrdenados.some(t => t.nombre === p.taller))
+      .map(p => p.taller || 'Sin taller');
+
+    if (aCrear.length === 0) {
+      alert(`Todos los talleres ya tienen su presentación de ${nombreDestino}.`);
+      return;
+    }
+
+    const aviso = [
+      `Se crearán ${aCrear.length} presentaciones en ${nombreDestino}:`,
+      copiadas.length ? `\n\n· ${copiadas.length} copiadas de ${selMes}, con sus módulos y textos` : '',
+      nuevas.length ? `\n\n· ${nuevas.length} de talleres nuevos (modelo: ${base.taller || 'la primera de la carpeta'}):\n   ${nuevas.map(x => x.taller).join('\n   ')}` : '',
+      yaEstaban.length ? `\n\n· ${yaEstaban.length} ya existían en ${nombreDestino} y se respetan tal cual` : '',
+      omitidos.length ? `\n\n· No se copian porque el taller ya no existe: ${omitidos.join(', ')}` : '',
+      '\n\nLas semanas quedan "Sin definir" porque cambian cada mes. ¿Continuar?',
+    ].join('');
+    if (!confirm(aviso)) return;
+
+    setDuplicando(true);
+    try {
+      await Promise.all(aCrear.map(x => {
+        const modelo = x.fuente || base;
+        const esDelMismoTaller = !!x.fuente;
+        return guardarPresentacion({
+          id: idDeTaller(destino.ano, destino.mes, x.taller),
+          nombre: nombreDestino,
+          descripcion: modelo.descripcion || '',
+          vistas: [...modelo.vistas],
+          ano: destino.ano,
+          taller: x.taller,
+          mes: destino.mes,
+          semanas: '',
+          portada: copiarTexto(modelo.portada, origen, destino, esDelMismoTaller),
+          cierre: copiarTexto(modelo.cierre, origen, destino, esDelMismoTaller),
+          orden: x.orden,
+        });
+      }));
+      // Se abre la carpeta del mes recién creado
+      setSelAno(destino.ano);
+      setSelMes(destino.mes);
+      setRamasAbiertas(r => (r.includes(`ano:${destino.ano}`) ? r : [...r, `ano:${destino.ano}`]));
+    } finally {
+      setDuplicando(false);
+    }
   };
 
   const eliminar = async (p: TipoPresentacion) => {
@@ -1101,6 +1229,18 @@ export const Presentacion = () => {
                 <small style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                   <GripVertical size={13} /> Arrastra una tarjeta para cambiar el orden
                 </small>
+              )}
+              {/* Duplicar el mes abierto al mes siguiente (con talleres nuevos) */}
+              {puedoEditar && destinoDuplicado && listaCarpeta.length > 0 && (
+                <button
+                  className="btn btn-outline"
+                  onClick={duplicarAlSiguienteMes}
+                  disabled={duplicando}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--success)', padding: '0.4rem 0.8rem', fontSize: '0.8rem', opacity: duplicando ? 0.6 : 1, cursor: duplicando ? 'wait' : 'pointer' }}
+                  title={`Copiar estas presentaciones a ${destinoDuplicado.mes} ${destinoDuplicado.ano}, agregando los talleres nuevos`}
+                >
+                  <CalendarPlus size={15} /> {duplicando ? 'Duplicando...' : `Duplicar a ${destinoDuplicado.mes}`}
+                </button>
               )}
               {/* Edición masiva: cambia de un golpe todas las de la carpeta */}
               {puedoEditar && listaCarpeta.length > 1 && (
