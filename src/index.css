@@ -343,45 +343,52 @@ body { background-color: var(--bg-body); color: var(--text-main); }
 }
 
 /* =========================================
-   TEMA PASTEL · PAN MARY
+   TEMA PAN MARY · NEGRO CON ROSA
    Se activa con data-tema="panmary" en <html> mientras en pantalla esté el
    taller Pan Mary (ver src/context/temaTaller.ts). Cubre TODA la app: menú,
-   encabezado, módulos y presentaciones. Tonos empolvados, poco brillantes.
-   Va después del modo claro para ganarle si ambos están activos.
+   encabezado, módulos y presentaciones. Fondo negro, líneas y recuadros en
+   rosa pastel. Va después del modo claro para ganarle si ambos están activos.
    ========================================= */
 :root[data-tema='panmary'] {
-  --bg-body: #f5eef0;
-  --bg-panel: #fdfafb;
-  --bg-sidebar: #ece0e4;
-  --sidebar-hover: #e2d2d8;
-  --bg-highlight: #f1e6e9;
+  --bg-body: #0c0a0b;
+  --bg-panel: #151113;
+  --bg-sidebar: #090708;
+  --sidebar-hover: #22171c;
+  --bg-highlight: #1d1418;
 
-  --text-main: #4a3a41;
-  --text-muted: #8c7880;
+  --text-main: #f7ecf0;
+  --text-muted: #b9a2ac;
 
-  --primary: #b07a8c;
-  --primary-hover: #9d6879;
-  --success: #6f9e8b;
-  --danger: #c27c7c;
-  --danger-hover: #ad6868;
+  --primary: #c9718f;
+  --primary-hover: #d6849f;
+  --success: #8fc9b0;
+  --danger: #ef9a9a;
+  --danger-hover: #f4adad;
 
-  --border: #e5d6db;
+  /* Líneas en rosa (tablas, separadores, contornos de campos) */
+  --border: rgba(227, 161, 181, 0.32);
+  /* Rosa de los recuadros */
+  --rosa-recuadro: rgba(227, 161, 181, 0.6);
 
-  color-scheme: light;
+  color-scheme: dark;
 }
 
-/* Acabado: esquinas más suaves y sombras rosadas muy ligeras */
+/* Recuadros con contorno rosa y esquinas suaves */
 :root[data-tema='panmary'] .card,
 :root[data-tema='panmary'] .kpi-card,
 :root[data-tema='panmary'] .filter-bar,
 :root[data-tema='panmary'] .table-wrapper {
+  border: 1px solid var(--rosa-recuadro);
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(176, 122, 140, 0.10);
+  box-shadow: 0 0 0 1px rgba(227, 161, 181, 0.06), 0 6px 18px rgba(0, 0, 0, 0.45);
 }
-:root[data-tema='panmary'] .table th { background-color: #f1e6e9; color: #8c6a77; }
-:root[data-tema='panmary'] .sidebar { border-right: 1px solid var(--border); }
-:root[data-tema='panmary'] .nav-item.active { background-color: #e6d4da; }
-:root[data-tema='panmary'] .filter-group select:focus { box-shadow: 0 0 0 3px rgba(176, 122, 140, 0.18); }
+:root[data-tema='panmary'] .table th { background-color: #22171c; color: #e3a1b5; border-bottom: 1px solid var(--rosa-recuadro); }
+:root[data-tema='panmary'] .detail-section-title { color: #e3a1b5; border-bottom-color: var(--rosa-recuadro); }
+:root[data-tema='panmary'] .sidebar { border-right: 1px solid var(--rosa-recuadro); }
+:root[data-tema='panmary'] .sidebar-header { border-bottom-color: var(--border); }
+:root[data-tema='panmary'] .nav-item.active { background-color: #22171c; border-left-color: #e3a1b5; }
+:root[data-tema='panmary'] .filter-group select { border-color: var(--rosa-recuadro); }
+:root[data-tema='panmary'] .filter-group select:focus { border-color: #e3a1b5; box-shadow: 0 0 0 3px rgba(227, 161, 181, 0.18); }
 
 /* Taza de café: ola del café y vapor */
 @keyframes panmary-ola { from { transform: translateX(0); } to { transform: translateX(-80px); } }

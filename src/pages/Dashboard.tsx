@@ -38,21 +38,21 @@ const TEMA_ESTANDAR = {
 };
 
 const TEMA_PAN_MARY: typeof TEMA_ESTANDAR = {
-  // Tonos empolvados con cuerpo suficiente para leerse sobre fondo claro:
-  // salvia, mostaza, lavanda, durazno, azul polvo, café con leche, rosa
-  coloresOps: ['#8fbca8', '#e0bf6e', '#a99ad3', '#e3a585', '#88aed3', '#c4a586', '#d391a6'],
-  coloresMeses: ['#d391a6', '#8fbca8', '#e3a585', '#a99ad3', '#e0bf6e', '#88aed3', '#c4a586', '#a9c38f', '#de9a92', '#c79ac0', '#8ea6c9', '#d6bf98'],
-  faltante: '#cfa9b6',          // rosa viejo: se distingue del fondo y de las semanas
-  meta: '#b07a8c',
-  alcanzado: '#6f9e8b',
-  falta: '#c27c7c',
-  alcanzadoSobrio: '#6f9e8b',
-  faltaSobrio: '#b86f74',
-  acento: '#b07a8c',
-  cincoSemanas: '#a07c2c',
-  textoBadge: '#3b2a31',
+  // Sobre fondo negro: semanas en pastel (salvia, mostaza, lavanda, durazno,
+  // azul polvo, café con leche, rosa) y el faltante en rosa viejo más oscuro
+  coloresOps: ['#8fbca8', '#e0bf6e', '#a99ad3', '#e3a585', '#88aed3', '#c4a586', '#e3a1b5'],
+  coloresMeses: ['#e3a1b5', '#8fbca8', '#e3a585', '#a99ad3', '#e0bf6e', '#88aed3', '#c4a586', '#a9c38f', '#de9a92', '#c79ac0', '#8ea6c9', '#d6bf98'],
+  faltante: '#a8687e',
+  meta: '#c9718f',
+  alcanzado: '#6fae95',
+  falta: '#d9787f',
+  alcanzadoSobrio: '#8fc9b0',
+  faltaSobrio: '#ef9a9a',
+  acento: '#e3a1b5',
+  cincoSemanas: '#f3d27a',
+  textoBadge: '#2a1a20',
   sombraTextoBadge: 'none',
-  sombra: 'rgba(176, 122, 140, 0.18)',
+  sombra: 'rgba(227, 161, 181, 0.18)',
   mascaraAnillo: 'radial-gradient(circle, transparent 45%, black 46%)',
   radioBarra: '10px 10px 0 0',
 };
@@ -294,7 +294,7 @@ export const Dashboard = () => {
     let ola = 'M 0 0 Q 20 -7 40 0';
     for (let x = 80; x <= 560; x += 40) ola += ` T ${x} 0`;
     const liquido = `${ola} L 560 240 L 0 240 Z`;
-    const colorTaza = '#c495a4';
+    const colorTaza = '#e3a1b5';
 
     return (
       <svg viewBox={`0 0 ${W} ${H}`} width="420" height={H} style={{ display: 'block', maxWidth: '100%' }}>
@@ -311,21 +311,21 @@ export const Dashboard = () => {
           {/* VAPOR y corazoncito: solo cuando ya hay café */}
           {pct > 0 && (
             <>
-              <g fill="none" stroke="#d9b4c0" strokeWidth="4" strokeLinecap="round">
+              <g fill="none" stroke="#e3a1b5" strokeWidth="4" strokeLinecap="round">
                 <path className="taza-vapor" d="M 150 82 q -10 -12 0 -24 q 10 -12 0 -24" />
                 <path className="taza-vapor v2" d="M 190 80 q -10 -12 0 -24 q 10 -12 0 -24" />
                 <path className="taza-vapor v3" d="M 230 82 q -10 -12 0 -24 q 10 -12 0 -24" />
               </g>
               <g className="taza-vapor v2">
-                <path transform="translate(252 40) scale(0.9)" fill="#dcaebc"
+                <path transform="translate(252 40) scale(0.9)" fill="#e3a1b5"
                   d="M12 21s-7-4.35-9.5-8.5C1 9.5 3 6 6.5 6 8.5 6 10 7.5 12 9c2-1.5 3.5-3 5.5-3C21 6 23 9.5 21.5 12.5 19 16.65 12 21 12 21z" />
               </g>
             </>
           )}
 
           {/* PLATO */}
-          <ellipse cx="190" cy="308" rx="140" ry="10" fill="rgba(176, 122, 140, 0.16)" />
-          <ellipse cx="190" cy="298" rx="150" ry="16" fill="#efdfe4" stroke={colorTaza} strokeWidth="4" />
+          <ellipse cx="190" cy="308" rx="140" ry="10" fill="rgba(227, 161, 181, 0.16)" />
+          <ellipse cx="190" cy="298" rx="150" ry="16" fill="#2a1d22" stroke={colorTaza} strokeWidth="4" />
 
           {/* ASA */}
           <path d="M 300 128 C 374 120 380 246 288 238" fill="none" stroke={colorTaza} strokeWidth="20" strokeLinecap="round" />
@@ -376,7 +376,8 @@ export const Dashboard = () => {
   // --- TEMA: rosa pastel para Pan Mary, estándar para los demás talleres ---
   const esPanMary = esTallerPanMary(filtroTaller);
   const tema = esPanMary ? TEMA_PAN_MARY : TEMA_ESTANDAR;
-  // Los colores pastel, como texto, se oscurecen un poco para que se lean
+  // En la imagen y el PDF (fondo blanco) los pastel, como texto, se oscurecen
+  // un poco para que se lean. En pantalla (fondo negro) van tal cual.
   const colorTextoGrafica = (c: string) => (esPanMary ? oscurecerHex(c) : c);
 
   // Lógica de Filtrado Principal
@@ -598,7 +599,7 @@ export const Dashboard = () => {
                     style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : `0 4px 10px ${tema.sombra}`, zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                   </div>
                 </div>
               );
@@ -620,7 +621,7 @@ export const Dashboard = () => {
                 style={{ width: `${Math.max(15, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3D ? '2px' : tema.radioBarra, boxShadow: is3D ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3D ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3D ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -647,7 +648,7 @@ export const Dashboard = () => {
                 style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%', transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)', boxShadow: is3D ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -733,7 +734,7 @@ export const Dashboard = () => {
                     style={{ position: 'absolute', left: `${xCard}px`, top: `${yCard}px`, transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.1)' : 'scale(1)'}`, backgroundColor: 'var(--bg-panel)', border: `2px solid ${op.color}`, padding: '0.4rem 0.6rem', borderRadius: '6px', boxShadow: isHovered ? `0 4px 15px ${op.color}40` : `0 4px 10px ${tema.sombra}`, zIndex: isHovered ? 110 : 100, opacity: isDimmed ? 0.15 : 1, transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}
                   >
                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                   </div>
                 </div>
               );
@@ -755,7 +756,7 @@ export const Dashboard = () => {
                 style={{ width: `${Math.max(10, 60 / operaciones.length)}%`, height: `${altura}%`, backgroundColor: op.color, position: 'relative', borderRadius: is3DMensual ? '2px' : tema.radioBarra, boxShadow: is3DMensual ? `inset -5px 0 10px rgba(0,0,0,0.3), 0 10px 15px rgba(0,0,0,0.4)` : 'none', backgroundImage: is3DMensual ? 'linear-gradient(90deg, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.2) 100%)' : 'none', opacity: isDimmed ? 0.3 : 1, transform: isHovered ? 'translateY(-5px)' : 'none', transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-main)', textShadow: is3DMensual ? '0 2px 4px rgba(0,0,0,0.8)' : 'none', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -782,7 +783,7 @@ export const Dashboard = () => {
                 style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: '14px', height: '14px', backgroundColor: op.color, borderRadius: '50%', transform: `translate(-50%, -50%) ${isHovered ? 'scale(1.5)' : 'scale(1)'}`, border: '2px solid var(--bg-panel)', boxShadow: is3DMensual ? '0 4px 6px rgba(0,0,0,0.5)' : 'none', zIndex: isHovered ? 20 : 10, opacity: isDimmed ? 0.3 : 1, transition: 'all 0.3s ease', cursor: 'pointer' }}>
                 <div style={{ position: 'absolute', top: '-35px', left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: isHovered ? 1 : (isDimmed ? 0 : 1), transition: 'opacity 0.2s' }}>
                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', whiteSpace: 'nowrap' }}>{miFormatearMoneda(op.vendido)}</span>
-                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: colorTextoGrafica(op.color) }}>{op.porcentajeStr}%</span>
+                   <span style={{ fontSize: '0.65rem', fontWeight: 800, color: op.color }}>{op.porcentajeStr}%</span>
                 </div>
               </div>
             );
@@ -1302,7 +1303,7 @@ export const Dashboard = () => {
         <div className="page-header">
           <div className="page-title" style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
             {tallerActivo && tallerActivo.logo ? (
-              <div style={{ width: '180px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)', backgroundColor: 'var(--bg-panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: '0.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}>
+              <div style={{ width: esPanMary ? '220px' : '180px', height: esPanMary ? '150px' : '70px', borderRadius: esPanMary ? '14px' : '8px', overflow: 'hidden', border: esPanMary ? '1px solid var(--rosa-recuadro)' : '1px solid var(--border)', backgroundColor: 'var(--bg-panel)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, padding: esPanMary ? '0.6rem' : '0.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}>
                 <img src={tallerActivo.logo} alt={tallerActivo.nombre} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
               </div>
             ) : (
