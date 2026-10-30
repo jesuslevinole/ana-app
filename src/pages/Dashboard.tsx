@@ -39,10 +39,10 @@ const TEMA_ESTANDAR = {
 
 const TEMA_PAN_MARY: typeof TEMA_ESTANDAR = {
   // Sobre fondo negro: semanas en pastel (salvia, mostaza, lavanda, durazno,
-  // azul polvo, café con leche, rosa) y el faltante en rosa viejo más oscuro
+  // azul polvo, café con leche, rosa) y el faltante en fucsia vivo
   coloresOps: ['#8fbca8', '#e0bf6e', '#a99ad3', '#e3a585', '#88aed3', '#c4a586', '#e3a1b5'],
   coloresMeses: ['#e3a1b5', '#8fbca8', '#e3a585', '#a99ad3', '#e0bf6e', '#88aed3', '#c4a586', '#a9c38f', '#de9a92', '#c79ac0', '#8ea6c9', '#d6bf98'],
-  faltante: '#a8687e',
+  faltante: '#e94aa1',          // fucsia vivo: lo que falta para la meta
   meta: '#c9718f',
   alcanzado: '#6fae95',
   falta: '#d9787f',
